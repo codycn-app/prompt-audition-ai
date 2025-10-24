@@ -97,7 +97,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       options: {
         data: {
           username: username,
-          avatar_url: '', // Let the trigger handle this, can be updated later by user
+          // We don't need to pass avatar_url, the trigger's INSERT statement doesn't use it anymore
         }
       }
     });
@@ -106,8 +106,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (error.message.includes('User already registered')) {
         throw new Error('Email này đã được sử dụng.');
       }
+      if (error.message.includes('duplicate key value violates unique constraint')) {
+        throw new Error('Tên người dùng này đã tồn tại.');
+      }
       // This will now catch errors from the trigger, like the 500 error before.
-      throw new Error(`Lỗi đăng ký: ${error.message}`);
+      throw new Error(`Database error saving new user`);
     }
   };
 
