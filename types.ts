@@ -3,14 +3,13 @@ export interface ImagePrompt {
   imageUrl: string;
   title: string;
   prompt: string;
-  category_id: number | null; // Replaced keywords
   created_at: string;
   user_id: string; 
   likes: string[]; 
   views: number; 
   profiles?: { username: string; avatar_url: string | null }; // For joined data
   comments?: { count: number }[];
-  categories?: { name: string }; // For joined category name
+  categories: Category[]; // Changed for many-to-many
 }
 
 export interface User {

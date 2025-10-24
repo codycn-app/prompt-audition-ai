@@ -14,7 +14,7 @@ const CategoriesPage: React.FC<CategoriesPageProps> = ({ categories, images, cur
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
 
   const imagesForSelectedCategory = selectedCategory
-    ? images.filter(img => img.category_id === selectedCategory.id)
+    ? images.filter(img => img.categories.some(cat => cat.id === selectedCategory.id))
     : [];
 
   if (selectedCategory) {

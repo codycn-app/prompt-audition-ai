@@ -17,7 +17,7 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
   const { currentUser } = useAuth();
   const [title, setTitle] = useState('');
   const [prompt, setPrompt] = useState('');
-  const [categoryId, setCategoryId] = useState<number | ''>('');
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -42,6 +42,14 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     processFile(e.target.files?.[0]);
+  };
+
+  const handleCategoryChange = (categoryId: number) => {
+    setSelectedCategoryIds(prev =>
+      prev.includes(categoryId)
+        ? prev.filter(id => id !== categoryId)
+        : [...prev, categoryId]
+    );
   };
   
   const handleDragEnter = (e: React.DragEvent<HTMLLabelElement>) => {
@@ -74,8 +82,8 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
       setError('Bạn phải đăng nhập để thêm ảnh.');
       return;
     }
-    if (!title || !prompt || !imageFile || !categoryId) {
-      setError('Vui lòng điền đầy đủ tất cả các trường.');
+    if (!title || !prompt || !imageFile || selectedCategoryIds.length === 0) {
+      setError('Vui lòng điền tiêu đề, prompt, chọn ảnh và ít nhất một chuyên mục.');
       return;
     }
     
@@ -94,26 +102,21 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
         const { data: urlData } = supabase.storage.from('images').getPublicUrl(filePath);
         if (!urlData) throw new Error("Không thể lấy URL của ảnh.");
         
-        const newImagePayload = {
-            title,
-            prompt,
-            imageUrl: urlData.publicUrl,
-            category_id: categoryId,
-            // user_id is now handled automatically by the database default value + RLS policy
-        };
-        
-        const { error: insertError } = await supabase.from('images').insert(newImagePayload);
-        if (insertError) throw insertError;
+        // Call the RPC function
+        const { error: rpcError } = await supabase.rpc('create_image_with_categories', {
+            title_text: title,
+            prompt_text: prompt,
+            image_url_text: urlData.publicUrl,
+            category_ids: selectedCategoryIds
+        });
+
+        if (rpcError) throw rpcError;
 
         onAddImage();
 
     } catch (err: any) {
-        console.error("Error adding image:", err);
-        if (err.message.includes('violates row-level security policy')) {
-             setError('Lỗi phân quyền: Bạn không có quyền thêm ảnh. Vui lòng kiểm tra lại cấu hình Row-Level Security trên Supabase cho bảng "images".');
-        } else {
-             setError(err.message || 'Đã có lỗi xảy ra. Vui lòng thử lại.');
-        }
+        console.error("Error adding image via RPC:", err);
+        setError(`Lỗi từ server: ${err.message}` || 'Đã có lỗi xảy ra. Vui lòng thử lại.');
     } finally {
         setIsSaving(false);
     }
@@ -144,7 +147,7 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
             <CloseIcon className="w-6 h-6" />
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto max-h-[80vh]">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto max-h-[80vh] custom-scrollbar">
           <div>
             <label className="block mb-2 text-sm font-medium text-cyber-on-surface">Ảnh</label>
             <div className="flex items-center justify-center w-full">
@@ -174,19 +177,20 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
             <input id="title" type="text" value={title} onChange={(e) => setTitle(e.target.value)} className={formInputStyle} placeholder="Bình minh trên đỉnh núi..." required />
           </div>
           <div>
-            <label htmlFor="category" className="block mb-2 text-sm font-medium text-cyber-on-surface">Chuyên mục</label>
-            <select
-                id="category"
-                value={categoryId}
-                onChange={(e) => setCategoryId(Number(e.target.value))}
-                className={formInputStyle}
-                required
-            >
-                <option value="" disabled>-- Chọn một chuyên mục --</option>
-                {categories.map(cat => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
-                ))}
-            </select>
+            <label className="block mb-2 text-sm font-medium text-cyber-on-surface">Chuyên mục</label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-3 rounded-lg bg-cyber-black/20 max-h-32 overflow-y-auto custom-scrollbar">
+              {categories.map(cat => (
+                <label key={cat.id} className="flex items-center space-x-2 cursor-pointer p-1.5 rounded-md hover:bg-cyber-surface/50">
+                  <input
+                    type="checkbox"
+                    checked={selectedCategoryIds.includes(cat.id)}
+                    onChange={() => handleCategoryChange(cat.id)}
+                    className="w-4 h-4 rounded text-cyber-pink bg-cyber-surface border-cyber-pink/50 focus:ring-cyber-pink"
+                  />
+                  <span className="text-sm text-cyber-on-surface">{cat.name}</span>
+                </label>
+              ))}
+            </div>
           </div>
           <div>
             <label htmlFor="prompt" className="block mb-2 text-sm font-medium text-cyber-on-surface">Câu Lệnh (Prompt)</label>

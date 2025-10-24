@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { ImagePrompt, Comment, User, Category } from './types';
 import { useAuth } from './contexts/AuthContext';
 import Header from './components/Header';
@@ -51,12 +51,12 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const fetchInitialData = async () => {
+  const fetchInitialData = useCallback(async () => {
     setIsLoading(true);
     const [imagesRes, categoriesRes] = await Promise.all([
       supabase
         .from('images')
-        .select('*, profiles!user_id(username, avatar_url), comments(count), categories(name)')
+        .select('*, profiles!user_id(username, avatar_url), comments(count), categories(*)')
         .order('created_at', { ascending: false }),
       supabase
         .from('categories')
@@ -79,11 +79,11 @@ const App: React.FC = () => {
     }
 
     setIsLoading(false);
-  };
+  }, []);
 
   useEffect(() => {
     fetchInitialData();
-  }, []);
+  }, [fetchInitialData]);
 
 
   const showToast = (message: string) => {
@@ -93,6 +93,10 @@ const App: React.FC = () => {
     }, 3000);
   };
 
+  const findImageById = useCallback((id: number) => {
+    return images.find(img => img.id === id);
+  }, [images]);
+
   // Handle deep linking from URL
   useEffect(() => {
     if (isLoading) return; // Wait for images to be loaded
@@ -100,7 +104,7 @@ const App: React.FC = () => {
     const imageIdStr = urlParams.get('image');
     if (imageIdStr) {
       const imageId = parseInt(imageIdStr, 10);
-      const imageToOpen = images.find(img => img.id === imageId);
+      const imageToOpen = findImageById(imageId);
       if (imageToOpen) {
         setSelectedImage(imageToOpen);
       } else {
@@ -110,7 +114,7 @@ const App: React.FC = () => {
         window.history.replaceState({}, '', url.pathname);
       }
     }
-  }, [isLoading, images]);
+  }, [isLoading, findImageById]);
 
 
   const handleCopyPrompt = (prompt: string) => {
@@ -132,7 +136,7 @@ const App: React.FC = () => {
     }
   };
 
-  const handleSelectImage = async (image: ImagePrompt) => {
+  const handleSelectImage = useCallback(async (image: ImagePrompt) => {
     setSelectedImage(image);
     
     const newViews = (image.views || 0) + 1;
@@ -155,51 +159,37 @@ const App: React.FC = () => {
     const url = new URL(window.location.href);
     url.searchParams.set('image', image.id.toString());
     window.history.pushState({}, '', url);
-  };
+  }, []);
 
   const filteredImages = useMemo(() => {
     if (selectedCategoryId === 'all') return images;
-    return images.filter(image => image.category_id === selectedCategoryId);
+    // Corrected logic for many-to-many relationship
+    return images.filter(image => image.categories.some(cat => cat.id === selectedCategoryId));
   }, [images, selectedCategoryId]);
-
-  const handleAddImage = async () => {
+  
+  // Simplified handler: The modal does the heavy lifting via RPC. This just shows a toast and refreshes data.
+  const handleAddImage = useCallback(async () => {
     setIsAddModalOpen(false);
     showToast('Đã thêm ảnh mới thành công!');
-    await fetchInitialData(); // Refetch all data
-  };
+    await fetchInitialData();
+  }, [fetchInitialData]);
   
-  const handleUpdateImage = async (updatedImage: Pick<ImagePrompt, 'id' | 'title' | 'prompt' | 'category_id'>) => {
-    const { error } = await supabase
-      .from('images')
-      .update({ 
-        title: updatedImage.title, 
-        prompt: updatedImage.prompt, 
-        category_id: updatedImage.category_id
-      })
-      .eq('id', updatedImage.id);
-
-    if (error) {
-      showToast('Lỗi: không thể cập nhật ảnh.');
-      console.error(error);
-    } else {
-      await fetchInitialData(); // Refetch for consistency
-      showToast('Đã cập nhật ảnh thành công!');
-    }
+  // Simplified handler: The modal does the heavy lifting via RPC. This just shows a toast and refreshes data.
+  const handleUpdateImage = useCallback(async () => {
     setImageToEdit(null);
-  };
+    showToast('Đã cập nhật ảnh thành công!');
+    await fetchInitialData();
+  }, [fetchInitialData]);
 
-  const handleRequestDelete = (id: number) => {
-    const image = images.find(img => img.id === id);
-    if (!image) return;
-
+  const handleRequestDelete = useCallback((image: ImagePrompt) => {
     if (!currentUser || (image.user_id !== currentUser.id && currentUser.role !== 'admin')) {
         showToast('Bạn không có quyền xóa ảnh này.');
         return;
     }
     setImageToDelete(image);
-  };
+  }, [currentUser]);
 
-  const handleConfirmDelete = async () => {
+  const handleConfirmDelete = useCallback(async () => {
     if (!imageToDelete) return;
 
     const bucketName = 'images';
@@ -224,15 +214,15 @@ const App: React.FC = () => {
         setImages(prev => prev.filter(image => image.id !== imageToDelete.id));
     }
     setImageToDelete(null);
-  };
+  }, [imageToDelete, selectedImage]);
   
-  const handleToggleLike = async (imageId: number) => {
+  const handleToggleLike = useCallback(async (imageId: number) => {
       if (!currentUser) {
           showToast('Bạn phải đăng nhập để thích ảnh!');
           return;
       }
 
-      const image = images.find(img => img.id === imageId);
+      const image = findImageById(imageId);
       if (!image) return;
 
       const hasLiked = image.likes.includes(currentUser.id);
@@ -249,14 +239,14 @@ const App: React.FC = () => {
           showToast('Đã có lỗi xảy ra.');
           console.error(error);
       } else {
-          const newImages = images.map(img => img.id === imageId ? { ...img, likes: newLikes } : img);
-          setImages(newImages);
+          setImages(prevImages => 
+            prevImages.map(img => img.id === imageId ? { ...img, likes: newLikes } : img)
+          );
           if (selectedImage && selectedImage.id === imageId) {
-            const updatedImage = newImages.find(img => img.id === imageId);
-            if (updatedImage) setSelectedImage(updatedImage);
+            setSelectedImage(prev => prev ? { ...prev, likes: newLikes } : null);
           }
       }
-  };
+  }, [currentUser, findImageById, selectedImage]);
 
   const handleSetCategory = (id: number | 'all') => {
     setSelectedCategoryId(id);
@@ -266,7 +256,7 @@ const App: React.FC = () => {
   const renderPage = () => {
     switch(currentPage) {
       case 'settings':
-        return currentUser ? <SettingsPage showToast={showToast} categories={categories} onUpdateCategories={() => fetchInitialData()} /> : null;
+        return currentUser ? <SettingsPage showToast={showToast} categories={categories} onUpdateCategories={fetchInitialData} /> : null;
       case 'user-management':
         return currentUser?.role === 'admin' ? <UserManagementPage users={users} images={images} showToast={showToast} /> : null;
       case 'liked-images':
@@ -319,7 +309,7 @@ const App: React.FC = () => {
           image={selectedImage}
           images={images}
           onClose={handleCloseModal}
-          onRequestDelete={handleRequestDelete}
+          onRequestDelete={() => handleRequestDelete(selectedImage)}
           onRequestEdit={(image) => {
             handleCloseModal();
             setImageToEdit(image);

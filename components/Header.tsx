@@ -26,7 +26,10 @@ const Header: React.FC<HeaderProps> = ({ onCategorySelect, categories, selectedC
     <header className="sticky top-0 z-30 flex items-center justify-between w-full p-4 border-b bg-cyber-black/70 backdrop-blur-xl border-cyber-pink/20">
       <div className="flex-1 min-w-0">
         <h1 
-            onClick={() => setCurrentPage('home')}
+            onClick={() => {
+              onCategorySelect('all');
+              setCurrentPage('home');
+            }}
             className="font-oxanium font-semibold text-2xl md:text-3xl tracking-wider text-transparent bg-gradient-to-r from-cyber-pink via-cyber-cyan to-cyber-pink bg-clip-text animate-background-pan cursor-pointer"
             style={{ backgroundSize: '200% auto', textShadow: '0 0 15px rgba(255, 0, 230, 0.4)' }}>
           Prompt Audition AI
@@ -39,7 +42,7 @@ const Header: React.FC<HeaderProps> = ({ onCategorySelect, categories, selectedC
           </span>
           <select
             value={selectedCategoryId}
-            onChange={(e) => onCategorySelect(e.target.value === 'all' ? 'all' : parseInt(e.target.value))}
+            onChange={(e) => onCategorySelect(e.target.value === 'all' ? 'all' : parseInt(e.target.value, 10))}
             className="w-full max-w-xs py-2 pl-10 pr-4 transition-colors duration-300 border rounded-lg appearance-none bg-cyber-surface border-cyber-pink/20 text-cyber-on-surface focus:outline-none focus:ring-2 focus:ring-cyber-pink focus:border-cyber-pink"
           >
             <option value="all">Tất cả chuyên mục</option>

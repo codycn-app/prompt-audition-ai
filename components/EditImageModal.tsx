@@ -1,27 +1,58 @@
 import React, { useState } from 'react';
 import { ImagePrompt, Category } from '../types';
 import { CloseIcon } from './icons/CloseIcon';
+import { supabase } from '../supabaseClient';
+import { SpinnerIcon } from './icons/SpinnerIcon';
 
 interface EditImageModalProps {
   image: ImagePrompt;
   categories: Category[];
   onClose: () => void;
-  onUpdateImage: (image: Pick<ImagePrompt, 'id' | 'title' | 'prompt' | 'category_id'>) => void;
+  onUpdateImage: () => void;
 }
 
 const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onClose, onUpdateImage }) => {
   const [title, setTitle] = useState(image.title);
   const [prompt, setPrompt] = useState(image.prompt);
-  const [categoryId, setCategoryId] = useState<number | null | ''>(image.category_id || '');
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>(image.categories.map(c => c.id));
   const [error, setError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleCategoryChange = (categoryId: number) => {
+    setSelectedCategoryIds(prev =>
+      prev.includes(categoryId)
+        ? prev.filter(id => id !== categoryId)
+        : [...prev, categoryId]
+    );
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !prompt || !categoryId) {
-      setError('Vui lòng điền đầy đủ thông tin.');
+    if (!title || !prompt || selectedCategoryIds.length === 0) {
+      setError('Vui lòng điền tiêu đề, prompt và chọn ít nhất một chuyên mục.');
       return;
     }
-    onUpdateImage({ id: image.id, title, prompt, category_id: Number(categoryId) });
+
+    setIsSaving(true);
+    setError('');
+
+    try {
+      const { error: rpcError } = await supabase.rpc('update_image_with_categories', {
+        image_id_to_update: image.id,
+        new_title: title,
+        new_prompt: prompt,
+        new_category_ids: selectedCategoryIds
+      });
+
+      if (rpcError) throw rpcError;
+
+      onUpdateImage();
+    } catch (err: any) {
+      console.error("Error updating image via RPC:", err);
+      setError(`Lỗi từ server: ${err.message}` || 'Đã có lỗi xảy ra. Vui lòng thử lại.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const formInputStyle = "w-full p-2.5 bg-cyber-surface border border-cyber-pink/20 placeholder-cyber-on-surface-secondary text-cyber-on-surface rounded-lg focus:ring-cyber-pink focus:border-cyber-pink transition";
@@ -46,7 +77,7 @@ const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onCl
             <CloseIcon className="w-6 h-6" />
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto max-h-[80vh]">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto max-h-[80vh] custom-scrollbar">
           <div>
             <img src={image.imageUrl} alt="Preview" className="object-contain w-full rounded-lg max-h-60" />
           </div>
@@ -54,20 +85,21 @@ const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onCl
             <label htmlFor="title-edit" className="block mb-2 text-sm font-medium text-cyber-on-surface">Tiêu đề</label>
             <input id="title-edit" type="text" value={title} onChange={(e) => setTitle(e.target.value)} className={formInputStyle} required />
           </div>
-           <div>
-            <label htmlFor="category-edit" className="block mb-2 text-sm font-medium text-cyber-on-surface">Chuyên mục</label>
-            <select
-                id="category-edit"
-                value={categoryId === null ? '' : categoryId}
-                onChange={(e) => setCategoryId(e.target.value ? Number(e.target.value) : '')}
-                className={formInputStyle}
-                required
-            >
-                <option value="" disabled>-- Chọn một chuyên mục --</option>
-                {categories.map(cat => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
-                ))}
-            </select>
+          <div>
+            <label className="block mb-2 text-sm font-medium text-cyber-on-surface">Chuyên mục</label>
+             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-3 rounded-lg bg-cyber-black/20 max-h-32 overflow-y-auto custom-scrollbar">
+              {categories.map(cat => (
+                <label key={cat.id} className="flex items-center space-x-2 cursor-pointer p-1.5 rounded-md hover:bg-cyber-surface/50">
+                  <input
+                    type="checkbox"
+                    checked={selectedCategoryIds.includes(cat.id)}
+                    onChange={() => handleCategoryChange(cat.id)}
+                    className="w-4 h-4 rounded text-cyber-pink bg-cyber-surface border-cyber-pink/50 focus:ring-cyber-pink"
+                  />
+                  <span className="text-sm text-cyber-on-surface">{cat.name}</span>
+                </label>
+              ))}
+            </div>
           </div>
           <div>
             <label htmlFor="prompt-edit" className="block mb-2 text-sm font-medium text-cyber-on-surface">Câu Lệnh (Prompt)</label>
@@ -78,7 +110,20 @@ const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onCl
 
           <div className="flex justify-end pt-2 space-x-3">
             <button type="button" onClick={onClose} className="px-5 py-2.5 text-sm font-medium text-cyber-on-surface bg-cyber-surface/50 rounded-lg hover:bg-cyber-surface transition active:scale-95">Hủy</button>
-            <button type="submit" className="px-5 py-2.5 text-sm font-medium text-white transition-all duration-300 rounded-lg shadow-lg bg-gradient-to-r from-cyber-pink to-cyber-cyan hover:shadow-cyber-glow active:scale-95">Lưu thay đổi</button>
+            <button 
+              type="submit" 
+              className="flex items-center justify-center w-36 px-5 py-2.5 text-sm font-medium text-white transition-all duration-300 rounded-lg shadow-lg bg-gradient-to-r from-cyber-pink to-cyber-cyan hover:shadow-cyber-glow active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed disabled:shadow-none"
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <>
+                  <SpinnerIcon className="w-5 h-5 mr-2 animate-spin" />
+                  <span>Đang lưu...</span>
+                </>
+              ) : (
+                <span>Lưu thay đổi</span>
+              )}
+            </button>
           </div>
         </form>
       </div>

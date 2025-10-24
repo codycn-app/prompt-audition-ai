@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ImagePrompt, User, Comment } from '../types';
+import { ImagePrompt, User, Comment, Category } from '../types';
 import { CloseIcon } from './icons/CloseIcon';
 import { CopyIcon } from './icons/CopyIcon';
 import { TrashIcon } from './icons/TrashIcon';
@@ -15,7 +15,7 @@ interface ImageDetailModalProps {
   image: ImagePrompt;
   images: ImagePrompt[];
   onClose: () => void;
-  onRequestDelete: (id: number) => void;
+  onRequestDelete: () => void;
   onRequestEdit: (image: ImagePrompt) => void;
   onCopyPrompt: (prompt: string) => void;
   onShareLink: () => void;
@@ -203,13 +203,15 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
               </div>
             </div>
             {/* Category */}
-            {image.categories?.name && (
+            {image.categories && image.categories.length > 0 && (
               <div>
                 <h3 className="text-sm font-semibold tracking-wider uppercase text-cyber-cyan">Chuyên mục</h3>
                 <div className="flex flex-wrap gap-2 mt-2">
-                    <span className="px-3 py-1 text-sm rounded-full bg-cyber-cyan/10 text-cyber-cyan ring-1 ring-inset ring-cyber-cyan/20">
-                      {image.categories.name}
-                    </span>
+                    {image.categories.map((cat: Category) => (
+                      <span key={cat.id} className="px-3 py-1 text-sm rounded-full bg-cyber-cyan/10 text-cyber-cyan ring-1 ring-inset ring-cyber-cyan/20">
+                        {cat.name}
+                      </span>
+                    ))}
                 </div>
               </div>
             )}
@@ -272,7 +274,7 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
                       <button onClick={() => onRequestEdit(image)} className="p-2 text-gray-400 transition-colors duration-200 border rounded-lg border-cyber-surface/50 bg-transparent hover:border-cyber-cyan hover:text-cyber-cyan active:scale-95" aria-label="Sửa ảnh">
                           <PencilIcon className="w-5 h-5" />
                       </button>
-                      <button onClick={() => onRequestDelete(image.id)} className="p-2 text-gray-400 transition-colors duration-200 border rounded-lg border-cyber-surface/50 bg-transparent hover:border-red-500 hover:text-red-400 active:scale-95" aria-label="Xóa ảnh">
+                      <button onClick={onRequestDelete} className="p-2 text-gray-400 transition-colors duration-200 border rounded-lg border-cyber-surface/50 bg-transparent hover:border-red-500 hover:text-red-400 active:scale-95" aria-label="Xóa ảnh">
                           <TrashIcon className="w-5 h-5" />
                       </button>
                   </div>
