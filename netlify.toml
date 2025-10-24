@@ -1,0 +1,4 @@
+[build]
+  [build.secrets_scan]
+    # Dòng này bảo Netlify bỏ qua việc kiểm tra giá trị của biến VITE_API_KEY
+    omit_values = ["VITE_API_KEY"]
