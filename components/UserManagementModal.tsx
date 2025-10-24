@@ -13,7 +13,6 @@ interface UserManagementModalProps {
 }
 
 const UserManagementModal: React.FC<UserManagementModalProps> = ({ onClose, images }) => {
-  // Fix: Added `ranks` from useAuth to pass to getRankInfo.
   const { users, currentUser, ranks } = useAuth();
   const [userToEdit, setUserToEdit] = useState<User | null>(null);
   const [toastMessage, setToastMessage] = useState('');

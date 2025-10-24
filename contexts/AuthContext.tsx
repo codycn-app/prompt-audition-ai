@@ -106,16 +106,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (error) throw new Error(error.message);
     if (!data.user) throw new Error('Đăng ký thất bại, vui lòng thử lại.');
 
-    // Create a profile for the new user
+    // FINAL FIX: Create a profile for the new user with ONLY valid columns.
     const { error: profileError } = await supabase.from('profiles').insert({
       id: data.user.id,
-      username: username,
-      // role defaults to 'user' in the database
+      username: username
     });
 
     if (profileError) {
         // This is tricky. User is created in auth, but profile failed.
         // For a real app, you'd want a cleanup mechanism.
+        // We log the error to the console for debugging.
+        console.error("Critical signup error: ", profileError);
         throw new Error(`Tạo tài khoản thành công nhưng không thể tạo hồ sơ: ${profileError.message}`);
     }
   };

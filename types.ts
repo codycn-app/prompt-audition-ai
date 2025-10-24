@@ -9,7 +9,6 @@ export interface ImagePrompt {
   likes: string[]; 
   views: number; 
   profiles?: { username: string; avatarUrl: string | null }; // For joined data
-  // FIX: Made comments optional as new images won't have this joined data.
   comments?: { count: number }[];
 }
 
