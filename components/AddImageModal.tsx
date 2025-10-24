@@ -87,6 +87,7 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
         setError('Vui lòng chọn một ảnh trước.');
         return;
     }
+    // Fix: Use process.env.API_KEY per coding guidelines.
     if (!process.env.API_KEY) {
         setError('Lỗi cấu hình: API Key chưa được thiết lập.');
         return;
@@ -94,6 +95,7 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
     setIsGenerating(true);
     setError('');
     try {
+        // Fix: Use process.env.API_KEY per coding guidelines.
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
         const base64Data = await blobToBase64(imageFile);
@@ -134,6 +136,7 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
       setError('Vui lòng điền tiêu đề, tải ảnh lên và nhập câu lệnh.');
       return;
     }
+    // Fix: Use process.env.API_KEY per coding guidelines.
     if (!process.env.API_KEY) {
         setError('Lỗi cấu hình: API Key chưa được thiết lập. Không thể lưu.');
         return;
@@ -158,6 +161,7 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
         const imageUrl = urlData.publicUrl;
         
         // 3. Generate keywords with AI
+        // Fix: Use process.env.API_KEY per coding guidelines.
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const base64Data = await blobToBase64(imageFile);
         
