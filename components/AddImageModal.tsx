@@ -91,10 +91,9 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
     setError('');
 
     let imagePath = '';
-    let newImageId: number | null = null;
 
     try {
-        // 1. Upload image file
+        // 1. Upload image file to storage
         const fileExt = imageFile.name.split('.').pop();
         imagePath = `${currentUser.id}/${Date.now()}.${fileExt}`;
         
@@ -106,36 +105,15 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
         const { data: urlData } = supabase.storage.from('images').getPublicUrl(imagePath);
         if (!urlData) throw new Error("Không thể lấy URL của ảnh.");
 
-        // 2. Insert into 'images' table, explicitly setting user_id to satisfy RLS
-        const { data: newImageData, error: insertImageError } = await supabase
-            .from('images')
-            .insert({
-                title: title,
-                prompt: prompt,
-                imageUrl: urlData.publicUrl,
-                user_id: currentUser.id
-            })
-            .select('id')
-            .single();
-
-        if (insertImageError) throw insertImageError;
-        if (!newImageData) throw new Error('Không thể tạo bản ghi ảnh mới.');
-        
-        newImageId = newImageData.id;
-
-        // 3. Insert into 'image_categories' junction table
-        const imageCategoryRelations = selectedCategoryIds.map(categoryId => ({
-            image_id: newImageId,
-            category_id: categoryId,
-            user_id: currentUser.id // DEFINITIVE FIX: Include user_id to satisfy RLS policy.
-        }));
-        
-        const { error: insertCategoriesError } = await supabase
-            .from('image_categories')
-            .insert(imageCategoryRelations)
-            .select();
+        // 2. Call the RPC function to handle database insertions atomically, bypassing schema cache issues.
+        const { error: rpcError } = await supabase.rpc('add_image_with_categories', {
+            title_text: title,
+            prompt_text: prompt,
+            image_url_text: urlData.publicUrl,
+            category_ids: selectedCategoryIds
+        });
             
-        if (insertCategoriesError) throw insertCategoriesError;
+        if (rpcError) throw rpcError;
 
         onAddImage();
 
@@ -143,13 +121,8 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
         console.error("Error adding image:", err);
         setError(`Lỗi từ server: ${err.message}` || 'Đã có lỗi xảy ra. Vui lòng thử lại.');
 
-        // Cleanup on failure to prevent orphaned data
-        if (newImageId) {
-            // Attempt to delete the orphaned image record from the table
-            await supabase.from('images').delete().eq('id', newImageId);
-        }
+        // Cleanup: If any step after upload fails, remove the orphaned file from storage.
         if (imagePath) {
-            // Attempt to delete the orphaned file from storage
             await supabase.storage.from('images').remove([imagePath]);
         }
     } finally {
