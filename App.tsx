@@ -51,6 +51,14 @@ const App: React.FC = () => {
     }
   }, []);
 
+  const showToast = useCallback((message: string) => {
+    setToastMessage(message);
+    const timer = setTimeout(() => {
+      setToastMessage('');
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, []);
+
   const fetchInitialData = useCallback(async () => {
     setIsLoading(true);
     const [imagesRes, categoriesRes] = await Promise.all([
@@ -79,19 +87,12 @@ const App: React.FC = () => {
     }
 
     setIsLoading(false);
-  }, []);
+  }, [showToast]);
 
   useEffect(() => {
     fetchInitialData();
   }, [fetchInitialData]);
 
-
-  const showToast = (message: string) => {
-    setToastMessage(message);
-    setTimeout(() => {
-      setToastMessage('');
-    }, 3000);
-  };
 
   const findImageById = useCallback((id: number) => {
     return images.find(img => img.id === id);
@@ -114,7 +115,7 @@ const App: React.FC = () => {
         window.history.replaceState({}, '', url.pathname);
       }
     }
-  }, [isLoading, findImageById]);
+  }, [isLoading, findImageById, showToast]);
 
 
   const handleCopyPrompt = (prompt: string) => {
@@ -172,14 +173,14 @@ const App: React.FC = () => {
     setIsAddModalOpen(false);
     showToast('Đã thêm ảnh mới thành công!');
     await fetchInitialData();
-  }, [fetchInitialData]);
+  }, [fetchInitialData, showToast]);
   
   // Simplified handler: The modal does the heavy lifting via RPC. This just shows a toast and refreshes data.
   const handleUpdateImage = useCallback(async () => {
     setImageToEdit(null);
     showToast('Đã cập nhật ảnh thành công!');
     await fetchInitialData();
-  }, [fetchInitialData]);
+  }, [fetchInitialData, showToast]);
 
   const handleRequestDelete = useCallback((image: ImagePrompt) => {
     if (!currentUser || (image.user_id !== currentUser.id && currentUser.role !== 'admin')) {
@@ -187,7 +188,7 @@ const App: React.FC = () => {
         return;
     }
     setImageToDelete(image);
-  }, [currentUser]);
+  }, [currentUser, showToast]);
 
   const handleConfirmDelete = useCallback(async () => {
     if (!imageToDelete) return;
@@ -214,7 +215,7 @@ const App: React.FC = () => {
         setImages(prev => prev.filter(image => image.id !== imageToDelete.id));
     }
     setImageToDelete(null);
-  }, [imageToDelete, selectedImage]);
+  }, [imageToDelete, selectedImage, showToast]);
   
   const handleToggleLike = useCallback(async (imageId: number) => {
       if (!currentUser) {
@@ -246,7 +247,7 @@ const App: React.FC = () => {
             setSelectedImage(prev => prev ? { ...prev, likes: newLikes } : null);
           }
       }
-  }, [currentUser, findImageById, selectedImage]);
+  }, [currentUser, findImageById, selectedImage, showToast]);
 
   const handleSetCategory = (id: number | 'all') => {
     setSelectedCategoryId(id);
