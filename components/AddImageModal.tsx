@@ -131,7 +131,8 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
         
         const { error: insertCategoriesError } = await supabase
             .from('image_categories')
-            .insert(imageCategoryRelations);
+            .insert(imageCategoryRelations)
+            .select(); // FIX: Added .select() to ensure the query returns a result or an error, preventing hangs on RLS policies.
             
         if (insertCategoriesError) throw insertCategoriesError;
 
