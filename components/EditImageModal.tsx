@@ -16,7 +16,7 @@ const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onCl
   const { currentUser } = useAuth();
   const [title, setTitle] = useState(image.title);
   const [prompt, setPrompt] = useState(image.prompt);
-  const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>(image.categories.map(c => c.id));
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>(image.categories?.map(c => c.id) || []);
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -43,16 +43,35 @@ const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onCl
     setError('');
 
     try {
-        // Call the server-side function to handle all DB updates atomically.
-        const { error: rpcError } = await supabase.rpc('update_image_with_categories', {
-            image_id_to_update: image.id,
-            title_text: title,
-            prompt_text: prompt,
-            category_ids: selectedCategoryIds
-        });
+        // Step 1: Update the image details in the 'images' table.
+        const { error: updateError } = await supabase
+            .from('images')
+            .update({ title, prompt })
+            .eq('id', image.id);
         
-        if (rpcError) throw rpcError;
+        if (updateError) throw updateError;
         
+        // Step 2: Delete all existing category relations for this image.
+        const { error: deleteError } = await supabase
+            .from('image_categories')
+            .delete()
+            .eq('image_id', image.id);
+            
+        if (deleteError) throw deleteError;
+        
+        // Step 3: Insert the new category relations.
+        if (selectedCategoryIds.length > 0) {
+            const newRelations = selectedCategoryIds.map(catId => ({
+                image_id: image.id,
+                category_id: catId
+            }));
+            const { error: insertError } = await supabase
+                .from('image_categories')
+                .insert(newRelations);
+            
+            if (insertError) throw insertError;
+        }
+
         onUpdateImage();
     } catch (err: any) {
       console.error("Error updating image:", err);
@@ -86,7 +105,7 @@ const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onCl
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto max-h-[80vh] custom-scrollbar">
           <div>
-            <img src={image.image_url} alt="Preview" className="object-contain w-full rounded-lg max-h-60" />
+            <img src={image.imageUrl} alt="Preview" className="object-contain w-full rounded-lg max-h-60" />
           </div>
           <div>
             <label htmlFor="title-edit" className="block mb-2 text-sm font-medium text-cyber-on-surface">Tiêu đề</label>

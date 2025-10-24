@@ -75,24 +75,33 @@ const App: React.FC = () => {
         setCategories(categoriesData as Category[]);
     }
 
-    // Definitive fix: Use RPC to bypass the stale schema cache.
+    // Definitive fix: Use direct query to bypass failing RPC and schema issues.
+    // This assumes relationships are set up in Supabase.
     const { data: imagesData, error: imagesError } = await supabase
-      .rpc('get_all_images_with_details');
+      .from('images')
+      .select(`
+        *,
+        profiles ( username, avatar_url ),
+        categories ( id, name ),
+        comments ( count )
+      `)
+      .order('created_at', { ascending: false });
 
     if (imagesError) {
-        console.error('Error fetching images via RPC:', imagesError);
+        console.error('Error fetching images:', imagesError);
         showToast('Lỗi nghiêm trọng: Không thể tải dữ liệu ảnh.');
         setIsLoading(false);
         return;
     }
 
-    // The data from RPC is perfectly structured. We just ensure nullable fields are handled.
-    const transformedImages = imagesData.map(img => ({
+    // Transform the data to match the ImagePrompt type, especially the comments_count.
+    const transformedImages = imagesData.map((img: any) => ({
         ...img,
-        categories: img.categories || [], // Ensure categories is always an array
+        comments_count: Array.isArray(img.comments) && img.comments.length > 0 ? img.comments[0].count : 0,
+        categories: img.categories || [],
     }));
 
-    setImages(transformedImages as any[]);
+    setImages(transformedImages as ImagePrompt[]);
     setIsLoading(false);
   }, [showToast]);
 
@@ -202,8 +211,8 @@ const App: React.FC = () => {
 
     const bucketName = 'images';
 
-    if (imageToDelete.image_url) {
-        const imagePath = imageToDelete.image_url.split(`/${bucketName}/`)[1];
+    if (imageToDelete.imageUrl) {
+        const imagePath = imageToDelete.imageUrl.split(`/${bucketName}/`)[1];
         if (imagePath) {
             await supabase.storage.from(bucketName).remove([imagePath]);
         }
