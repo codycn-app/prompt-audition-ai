@@ -192,12 +192,12 @@ const App: React.FC = () => {
   const handleConfirmDelete = async () => {
     if (!imageToDelete) return;
 
-    const bucketName = 'avatars'; // FIX: Using the avatars bucket as a fallback for images
+    const bucketName = 'images';
 
     // 1. Delete from storage
     if (imageToDelete.imageUrl) {
         // Extract path from the public URL. This is more robust than splitting by '/'.
-        // e.g. https://.../storage/v1/object/public/avatars/userId/image.jpg -> userId/image.jpg
+        // e.g. https://.../storage/v1/object/public/images/userId/image.jpg -> userId/image.jpg
         const imagePath = imageToDelete.imageUrl.split(`/${bucketName}/`)[1];
         if (imagePath) {
             const { error: storageError } = await supabase.storage.from(bucketName).remove([imagePath]);
