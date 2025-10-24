@@ -1,17 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 type Theme = 'light' | 'dark';
 
 export function useTheme(): [Theme, (theme: Theme) => void] {
   const [theme, setThemeState] = useState<Theme>('dark');
 
-  const setTheme = (newTheme: Theme) => {
+  const setTheme = useCallback((newTheme: Theme) => {
     const root = window.document.documentElement;
     root.classList.remove('light', 'dark');
     root.classList.add(newTheme);
     localStorage.setItem('theme', newTheme);
     setThemeState(newTheme);
-  };
+  }, []);
   
   useEffect(() => {
     // Luôn áp dụng class 'dark' khi component mount
