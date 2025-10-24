@@ -196,13 +196,17 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
         };
         const { error: insertError } = await supabase.from('images').insert(newImagePayload);
 
-        if (insertError) throw new Error(`Lỗi lưu vào database: ${insertError.message}`);
+        if (insertError) throw insertError; // Re-throw the error to be caught by the catch block
 
         onAddImage();
 
     } catch (err: any) {
         console.error("Error adding image:", err);
-        setError(err.message || 'Đã có lỗi xảy ra. Vui lòng thử lại.');
+        if (err.message && err.message.includes('violates row-level security policy')) {
+            setError('Lỗi phân quyền: Bạn không có quyền thêm ảnh. Vui lòng kiểm tra lại cấu hình Row-Level Security trên Supabase cho bảng "images".');
+        } else {
+            setError(err.message || 'Đã có lỗi xảy ra. Vui lòng thử lại.');
+        }
     } finally {
         setIsSaving(false);
     }

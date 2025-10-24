@@ -46,7 +46,8 @@ const App: React.FC = () => {
 
   useEffect(() => {
     setTheme('dark');
-  }, [setTheme]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchImages = async () => {
     setIsLoading(true);
