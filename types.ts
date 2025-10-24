@@ -22,7 +22,6 @@ export interface User {
   customTitle?: string;
   customTitleColor?: string;
   avatarUrl?: string; 
-  createdAt: string; 
 }
 
 export interface Category {

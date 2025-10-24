@@ -57,14 +57,12 @@ const UserManagementModal: React.FC<UserManagementModalProps> = ({ onClose, imag
                     <th scope="col" className="px-6 py-3">Vai trò</th>
                     <th scope="col" className="px-6 py-3">Phân cấp</th>
                     <th scope="col" className="px-6 py-3 text-center">Bài đăng</th>
-                    <th scope="col" className="px-6 py-3">Ngày tham gia</th>
+                    <th scope="col" className="px-6 py-3">Email</th>
                     <th scope="col" className="px-6 py-3"><span className="sr-only">Hành động</span></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {/* FIX: Sort by creation date instead of attempting to subtract string IDs. */}
-                  {[...users].sort((a,b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()).map(user => {
-                      // Fix: Pass `ranks` to getRankInfo as the third argument.
+                  {[...users].sort((a, b) => a.username.localeCompare(b.username)).map(user => {
                       const rankInfo = getRankInfo(user, images, ranks);
                       return (
                         <tr key={user.id} className="border-b bg-cyber-surface/50 border-cyber-pink/10 hover:bg-cyber-surface/80">
@@ -78,7 +76,6 @@ const UserManagementModal: React.FC<UserManagementModalProps> = ({ onClose, imag
                                 )}
                                 <div className="pl-3">
                                     <div className="text-base font-semibold">{user.username}</div>
-                                    <div className="font-normal text-cyber-on-surface-secondary">{user.email}</div>
                                 </div>  
                             </th>
                             <td className="px-6 py-4">
@@ -88,15 +85,13 @@ const UserManagementModal: React.FC<UserManagementModalProps> = ({ onClose, imag
                                 }
                             </td>
                             <td className="px-6 py-4">
-                                {/* Fix: Use `rankInfo.finalColor` instead of `rankInfo.color`. */}
                                 <div className="flex items-center gap-1.5" style={{ color: rankInfo.finalColor }}>
-                                    {/* Fix: `rankInfo.icon` is a string URL, not a component. It should be used in an `img` tag. */}
                                     {rankInfo.icon && <img src={rankInfo.icon} alt={rankInfo.name} className="w-4 h-4" />}
                                     <span>{rankInfo.name}</span>
                                 </div>
                             </td>
                             <td className="px-6 py-4 text-center">{rankInfo.postCount}</td>
-                            <td className="px-6 py-4">{new Date(user.createdAt).toLocaleDateString('vi-VN')}</td>
+                            <td className="px-6 py-4">{user.email}</td>
                             <td className="px-6 py-4 text-right">
                                 <button 
                                   onClick={() => setUserToEdit(user)}
