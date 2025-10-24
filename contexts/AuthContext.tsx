@@ -88,42 +88,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const signup = async (email: string, password: string, username: string): Promise<void> => {
-    // This is the standard, robust way to handle sign-ups with profiles.
-    // We pass the username as metadata, and a database trigger will create the profile.
-    const { data, error } = await supabase.auth.signUp({
+    // This is the standard Supabase pattern.
+    // We pass metadata during signup, and a database trigger (`on_auth_user_created`)
+    // will automatically create the corresponding profile row.
+    const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
           username: username,
-          // You can add a default avatar here if you want
-          // avatar_url: 'https://....'
+          avatar_url: '', // Let the trigger handle this, can be updated later by user
         }
       }
     });
-
+  
     if (error) {
       if (error.message.includes('User already registered')) {
         throw new Error('Email này đã được sử dụng.');
       }
+      // This will now catch errors from the trigger, like the 500 error before.
       throw new Error(`Lỗi đăng ký: ${error.message}`);
     }
-
-    if (!data.user) {
-      throw new Error('Đăng ký không thành công, vui lòng thử lại.');
-    }
-    
-    // After sign up, the onAuthStateChange listener will automatically fetch the new profile.
-    // We can also manually add the user to the local cache for instant UI updates.
-    const newUserProfile: User = {
-        id: data.user.id,
-        email: email,
-        username: username,
-        role: 'user',
-        created_at: new Date().toISOString(),
-    };
-    setUsers(prevUsers => [...prevUsers, newUserProfile]);
-
   };
 
 

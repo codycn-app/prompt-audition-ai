@@ -17,7 +17,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, showToast 
   const [customTitle, setCustomTitle] = useState(user.customTitle || '');
   const [customTitleColor, setCustomTitleColor] = useState(user.customTitleColor || '#E0E0E0');
   const [newPassword, setNewPassword] = useState('');
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(user.avatarUrl || null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(user.avatar_url || null);
   const [error, setError] = useState('');
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -40,10 +40,10 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, showToast 
     e.preventDefault();
     setError('');
     try {
-      const updatePayload: Partial<Pick<User, 'username' | 'role' | 'customTitle' | 'customTitleColor' | 'avatarUrl' | 'password'>> = {
+      const updatePayload: Partial<Pick<User, 'username' | 'role' | 'customTitle' | 'customTitleColor' | 'avatar_url' | 'password'>> = {
           username,
           role,
-          avatarUrl: avatarPreview || '', // Use empty string to clear avatar
+          avatar_url: avatarPreview || '', // Use empty string to clear avatar
       };
 
       if (customTitle.trim()) {
