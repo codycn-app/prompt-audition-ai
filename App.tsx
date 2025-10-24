@@ -75,10 +75,11 @@ const App: React.FC = () => {
         setCategories(categoriesData as Category[]);
     }
 
-    // Now fetch images WITHOUT the problematic explicit join
+    // Explicitly list columns to bypass Supabase schema cache issues.
+    // This is the definitive fix for the "Could not find relationship" error.
     const { data: imagesData, error: imagesError } = await supabase
         .from('images')
-        .select('*, comments(count), categories(*)') // Removed profiles join
+        .select('id, created_at, image_url, title, prompt, user_id, likes, views, comments(count), categories(*)')
         .order('created_at', { ascending: false });
 
     if (imagesError) {
@@ -90,28 +91,34 @@ const App: React.FC = () => {
 
     // The data is almost correct, but `profiles` is missing.
     // We need to fetch profiles for all unique user_ids.
-    const userIds = [...new Set(imagesData.map(img => img.user_id))];
-    const { data: profilesData, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, username, avatar_url')
-        .in('id', userIds);
+    const userIds = [...new Set(imagesData.map(img => img.user_id))].filter(id => id); // Filter out null/undefined IDs
+    
+    if (userIds.length > 0) {
+        const { data: profilesData, error: profilesError } = await supabase
+            .from('profiles')
+            .select('id, username, avatar_url')
+            .in('id', userIds);
 
-    if (profilesError) {
-        console.error('Error fetching author profiles:', profilesError);
-        // We can proceed without author info, it's not critical
-        setImages(imagesData as any[]);
+        if (profilesError) {
+            console.error('Error fetching author profiles:', profilesError);
+            // We can proceed without author info, it's not critical
+            setImages(imagesData as any[]);
+        } else {
+            // Create a map for quick profile lookup
+            const profilesMap = new Map(profilesData.map(p => [p.id, { username: p.username, avatar_url: p.avatar_url }]));
+            
+            // Combine images with their author profiles
+            const imagesWithProfiles = imagesData.map(img => ({
+                ...img,
+                profiles: profilesMap.get(img.user_id) || null
+            }));
+            
+            setImages(imagesWithProfiles as any[]);
+        }
     } else {
-        // Create a map for quick profile lookup
-        const profilesMap = new Map(profilesData.map(p => [p.id, { username: p.username, avatar_url: p.avatar_url }]));
-        
-        // Combine images with their author profiles
-        const imagesWithProfiles = imagesData.map(img => ({
-            ...img,
-            profiles: profilesMap.get(img.user_id) || null
-        }));
-        
-        setImages(imagesWithProfiles as any[]);
+        setImages(imagesData as any[]);
     }
+
 
     setIsLoading(false);
   }, [showToast]);
