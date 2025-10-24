@@ -61,29 +61,56 @@ const App: React.FC = () => {
 
   const fetchInitialData = useCallback(async () => {
     setIsLoading(true);
-    const [imagesRes, categoriesRes] = await Promise.all([
-      supabase
-        .from('images')
-        .select('*, profiles!user_id(username, avatar_url), comments(count), categories(*)')
-        .order('created_at', { ascending: false }),
-      supabase
+    
+    // Fetch categories first
+    const { data: categoriesData, error: categoriesError } = await supabase
         .from('categories')
         .select('*')
-        .order('name', { ascending: true })
-    ]);
+        .order('name', { ascending: true });
 
-    if (imagesRes.error) {
-      console.error('Error fetching images:', imagesRes.error);
-      showToast('Lỗi: Không thể tải danh sách ảnh.');
+    if (categoriesError) {
+        console.error('Error fetching categories:', categoriesError);
+        showToast('Lỗi: Không thể tải danh sách chuyên mục.');
     } else {
-      setImages(imagesRes.data as any[]);
+        setCategories(categoriesData as Category[]);
     }
 
-    if (categoriesRes.error) {
-      console.error('Error fetching categories:', categoriesRes.error);
-      showToast('Lỗi: Không thể tải danh sách chuyên mục.');
+    // Now fetch images WITHOUT the problematic explicit join
+    const { data: imagesData, error: imagesError } = await supabase
+        .from('images')
+        .select('*, comments(count), categories(*)') // Removed profiles join
+        .order('created_at', { ascending: false });
+
+    if (imagesError) {
+        console.error('Error fetching images:', imagesError);
+        showToast('Lỗi: Không thể tải danh sách ảnh.');
+        setIsLoading(false);
+        return;
+    }
+
+    // The data is almost correct, but `profiles` is missing.
+    // We need to fetch profiles for all unique user_ids.
+    const userIds = [...new Set(imagesData.map(img => img.user_id))];
+    const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, username, avatar_url')
+        .in('id', userIds);
+
+    if (profilesError) {
+        console.error('Error fetching author profiles:', profilesError);
+        // We can proceed without author info, it's not critical
+        setImages(imagesData as any[]);
     } else {
-      setCategories(categoriesRes.data as Category[]);
+        // Create a map for quick profile lookup
+        const profilesMap = new Map(profilesData.map(p => [p.id, { username: p.username, avatar_url: p.avatar_url }]));
+        
+        // Combine images with their author profiles
+        const imagesWithProfiles = imagesData.map(img => ({
+            ...img,
+            profiles: profilesMap.get(img.user_id) || null
+        }));
+        
+        setImages(imagesWithProfiles as any[]);
     }
 
     setIsLoading(false);
@@ -195,8 +222,8 @@ const App: React.FC = () => {
 
     const bucketName = 'images';
 
-    if (imageToDelete.imageUrl) {
-        const imagePath = imageToDelete.imageUrl.split(`/${bucketName}/`)[1];
+    if (imageToDelete.image_url) {
+        const imagePath = imageToDelete.image_url.split(`/${bucketName}/`)[1];
         if (imagePath) {
             await supabase.storage.from(bucketName).remove([imagePath]);
         }

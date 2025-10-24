@@ -3,6 +3,7 @@ import { ImagePrompt, Category } from '../types';
 import { CloseIcon } from './icons/CloseIcon';
 import { supabase } from '../supabaseClient';
 import { SpinnerIcon } from './icons/SpinnerIcon';
+import { useAuth } from '../contexts/AuthContext';
 
 interface EditImageModalProps {
   image: ImagePrompt;
@@ -12,6 +13,7 @@ interface EditImageModalProps {
 }
 
 const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onClose, onUpdateImage }) => {
+  const { currentUser } = useAuth();
   const [title, setTitle] = useState(image.title);
   const [prompt, setPrompt] = useState(image.prompt);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>(image.categories.map(c => c.id));
@@ -28,6 +30,10 @@ const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onCl
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!currentUser) {
+        setError('Phiên đăng nhập đã hết hạn.');
+        return;
+    }
     if (!title || !prompt || selectedCategoryIds.length === 0) {
       setError('Vui lòng điền tiêu đề, prompt và chọn ít nhất một chuyên mục.');
       return;
@@ -37,18 +43,42 @@ const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onCl
     setError('');
 
     try {
-      const { error: rpcError } = await supabase.rpc('update_image_with_categories', {
-        image_id_to_update: image.id,
-        new_title: title,
-        new_prompt: prompt,
-        new_category_ids: selectedCategoryIds
-      });
+        // Step 1: Update the main image details
+        const { error: updateError } = await supabase
+            .from('images')
+            .update({ title, prompt })
+            .eq('id', image.id);
+        
+        if (updateError) throw updateError;
+        
+        // Step 2: Delete old category links
+        const { error: deleteError } = await supabase
+            .from('image_categories')
+            .delete()
+            .eq('image_id', image.id);
 
-      if (rpcError) throw rpcError;
+        if (deleteError) throw deleteError;
 
-      onUpdateImage();
+        // Step 3: Insert new category links
+        const categoryLinks = selectedCategoryIds.map(categoryId => ({
+            image_id: image.id,
+            category_id: categoryId,
+            user_id: image.user_id // Use the original image owner's ID
+        }));
+
+        // The RLS policy for this requires the inserter to be the owner.
+        // If an admin is editing, this might fail unless the RLS is adjusted.
+        // Assuming for now that only owners edit or admins have permissive RLS.
+        const { error: insertError } = await supabase
+            .from('image_categories')
+            .insert(categoryLinks)
+            .select();
+        
+        if (insertError) throw insertError;
+        
+        onUpdateImage();
     } catch (err: any) {
-      console.error("Error updating image via RPC:", err);
+      console.error("Error updating image:", err);
       setError(`Lỗi từ server: ${err.message}` || 'Đã có lỗi xảy ra. Vui lòng thử lại.');
     } finally {
       setIsSaving(false);
@@ -79,7 +109,7 @@ const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onCl
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto max-h-[80vh] custom-scrollbar">
           <div>
-            <img src={image.imageUrl} alt="Preview" className="object-contain w-full rounded-lg max-h-60" />
+            <img src={image.image_url} alt="Preview" className="object-contain w-full rounded-lg max-h-60" />
           </div>
           <div>
             <label htmlFor="title-edit" className="block mb-2 text-sm font-medium text-cyber-on-surface">Tiêu đề</label>
