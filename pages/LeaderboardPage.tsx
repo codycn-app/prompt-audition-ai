@@ -30,8 +30,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({ users, images, curren
         const userImages = images.filter(img => img.user_id === user.id);
         const totalPosts = userImages.length;
         const totalLikes = userImages.reduce((sum, img) => sum + img.likes.length, 0);
-        // FIX: Use optional chaining since comments can be undefined.
-        const totalComments = userImages.reduce((sum, img) => sum + (img.comments?.[0]?.count ?? 0), 0);
+        const totalComments = userImages.reduce((sum, img) => sum + (img.comments_count ?? 0), 0);
         const totalViews = userImages.reduce((sum, img) => sum + (img.views || 0), 0);
         
         // Scoring formula: likes are most valuable, then comments, then posts, then views.

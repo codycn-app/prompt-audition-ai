@@ -75,51 +75,24 @@ const App: React.FC = () => {
         setCategories(categoriesData as Category[]);
     }
 
-    // Explicitly list columns to bypass Supabase schema cache issues.
-    // This is the definitive fix for the "Could not find relationship" error.
+    // Definitive fix: Use RPC to bypass the stale schema cache.
     const { data: imagesData, error: imagesError } = await supabase
-        .from('images')
-        .select('id, created_at, image_url, title, prompt, user_id, likes, views, comments(count), categories(*)')
-        .order('created_at', { ascending: false });
+      .rpc('get_all_images_with_details');
 
     if (imagesError) {
-        console.error('Error fetching images:', imagesError);
-        showToast('Lỗi: Không thể tải danh sách ảnh.');
+        console.error('Error fetching images via RPC:', imagesError);
+        showToast('Lỗi nghiêm trọng: Không thể tải dữ liệu ảnh.');
         setIsLoading(false);
         return;
     }
 
-    // The data is almost correct, but `profiles` is missing.
-    // We need to fetch profiles for all unique user_ids.
-    const userIds = [...new Set(imagesData.map(img => img.user_id))].filter(id => id); // Filter out null/undefined IDs
-    
-    if (userIds.length > 0) {
-        const { data: profilesData, error: profilesError } = await supabase
-            .from('profiles')
-            .select('id, username, avatar_url')
-            .in('id', userIds);
+    // The data from RPC is perfectly structured. We just ensure nullable fields are handled.
+    const transformedImages = imagesData.map(img => ({
+        ...img,
+        categories: img.categories || [], // Ensure categories is always an array
+    }));
 
-        if (profilesError) {
-            console.error('Error fetching author profiles:', profilesError);
-            // We can proceed without author info, it's not critical
-            setImages(imagesData as any[]);
-        } else {
-            // Create a map for quick profile lookup
-            const profilesMap = new Map(profilesData.map(p => [p.id, { username: p.username, avatar_url: p.avatar_url }]));
-            
-            // Combine images with their author profiles
-            const imagesWithProfiles = imagesData.map(img => ({
-                ...img,
-                profiles: profilesMap.get(img.user_id) || null
-            }));
-            
-            setImages(imagesWithProfiles as any[]);
-        }
-    } else {
-        setImages(imagesData as any[]);
-    }
-
-
+    setImages(transformedImages as any[]);
     setIsLoading(false);
   }, [showToast]);
 
@@ -199,7 +172,7 @@ const App: React.FC = () => {
   const filteredImages = useMemo(() => {
     if (selectedCategoryId === 'all') return images;
     // Corrected logic for many-to-many relationship
-    return images.filter(image => image.categories.some(cat => cat.id === selectedCategoryId));
+    return images.filter(image => image.categories && image.categories.some(cat => cat.id === selectedCategoryId));
   }, [images, selectedCategoryId]);
   
   // Simplified handler: The modal does the heavy lifting via RPC. This just shows a toast and refreshes data.

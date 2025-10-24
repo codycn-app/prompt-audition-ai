@@ -7,9 +7,9 @@ export interface ImagePrompt {
   user_id: string; 
   likes: string[]; 
   views: number; 
-  profiles?: { username: string; avatar_url: string | null }; // For joined data
-  comments?: { count: number }[];
-  categories: Category[]; // Changed for many-to-many
+  profiles: { username: string; avatar_url: string | null } | null;
+  comments_count: number;
+  categories: Category[] | null;
 }
 
 export interface User {

@@ -36,8 +36,7 @@ const ImageCard: React.FC<ImageCardProps> = ({ image, onClick, currentUser }) =>
               </div>
               <div className="flex items-center gap-1.5 p-1.5 px-2.5 bg-black/40 rounded-full">
                   <ChatBubbleIcon className="w-5 h-5" />
-                  {/* FIX: Use optional chaining since comments can be undefined. */}
-                  <span className="font-semibold">{image.comments?.[0]?.count ?? 0}</span>
+                  <span className="font-semibold">{image.comments_count ?? 0}</span>
               </div>
           </div>
         </div>
