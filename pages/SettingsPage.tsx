@@ -53,8 +53,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ showToast, categories, onUp
       let avatarUrlToSave = currentUser.avatarUrl;
 
       if (avatarFile) {
-        // Upload new avatar to Supabase Storage
-        const filePath = `public/${currentUser.id}`;
+        const fileExt = avatarFile.name.split('.').pop();
+        // Definitive fix: The path must be user-specific to pass RLS policies.
+        // The RLS policy likely expects the folder to be the user's ID.
+        const filePath = `${currentUser.id}/avatar.${fileExt}`;
+        
         const { error: uploadError } = await supabase.storage
           .from('avatars')
           .upload(filePath, avatarFile, { upsert: true });

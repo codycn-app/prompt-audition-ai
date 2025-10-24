@@ -159,7 +159,7 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
           >
             <CloseIcon className="w-6 h-6" />
           </button>
-          <div className="relative flex-shrink-0 w-full bg-black md:w-[60%] max-h-[60vh] md:max-h-none">
+          <div className="relative flex-shrink-0 w-full bg-black h-[40vh] md:w-[60%] md:h-auto">
             <img src={image.image_url} alt={image.prompt} className="object-contain w-full h-full" />
           </div>
           <div className="flex flex-col flex-grow p-4 space-y-4 overflow-y-auto md:p-6 custom-scrollbar">

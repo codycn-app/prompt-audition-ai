@@ -42,8 +42,10 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, showToast 
       let avatarUrlToSave = user.avatarUrl;
 
       if (avatarFile) {
-        // Upload new avatar to Supabase Storage
-        const filePath = `public/${user.id}`;
+        const fileExt = avatarFile.name.split('.').pop();
+        // Definitive fix: The path must be user-specific to pass RLS policies.
+        const filePath = `${user.id}/avatar.${fileExt}`;
+        
         const { error: uploadError } = await supabase.storage
           .from('avatars')
           .upload(filePath, avatarFile, { upsert: true });
