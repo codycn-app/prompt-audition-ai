@@ -4,6 +4,7 @@ import { useLocalStorage } from '../hooks/useLocalStorage';
 import { INITIAL_RANKS } from '../constants';
 import { supabase } from '../supabaseClient';
 import { AuthChangeEvent, Session, User as SupabaseUser } from '@supabase/supabase-js';
+import { createNewUserProfile } from '../lib/authHelpers';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -105,26 +106,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) throw new Error(error.message);
     if (!data.user) throw new Error('Đăng ký thất bại, vui lòng thử lại.');
-
-    const profilePayload = {
-      id: data.user.id,
-      username: username,
-      email: email,
-      role: 'user',
-    };
-
-    // BƯỚC CHẨN ĐOÁN: Dòng log này là "pháo hiệu" để xác nhận code mới nhất đang chạy.
-    // Nếu bạn không thấy dòng này trong console khi đăng ký, nghĩa là bản build đã bị cache.
-    console.log('>>> RUNNING SIGNUP - V_FINAL - NO CREATEDAT <<<', profilePayload);
-
-    const { error: profileError } = await supabase.from('profiles').insert(profilePayload);
-
-    if (profileError) {
-        // Lỗi này xảy ra khi user được tạo trong `auth` nhưng tạo profile trong `database` thất bại.
-        // Nguyên nhân có thể là do RLS (Row Level Security) chưa được cấu hình đúng.
-        // Cần có một Policy cho phép người dùng đã xác thực (authenticated users) có thể INSERT vào bảng profiles.
-        throw new Error(`Tạo tài khoản thành công nhưng không thể tạo hồ sơ: ${profileError.message}`);
-    }
+    
+    // Delegate profile creation to the new, isolated helper function.
+    // This structural change is designed to break stubborn build caches.
+    await createNewUserProfile(data.user.id, username, email);
   };
 
   const logout = async (): Promise<void> => {

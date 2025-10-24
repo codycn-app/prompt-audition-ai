@@ -189,12 +189,11 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
         }
 
         // 4. Insert into database
-        const newImagePayload: Omit<ImagePrompt, 'id'> = {
+        const newImagePayload: Omit<ImagePrompt, 'id' | 'created_at'> = {
             title,
             prompt,
             keywords: generatedKeywords,
             imageUrl,
-            created_at: new Date().toISOString(),
             userId: currentUser.id,
             likes: [],
             views: 0,
