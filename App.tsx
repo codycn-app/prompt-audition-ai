@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { ImagePrompt, Comment, User } from './types';
-import { useTheme } from './hooks/useTheme';
 import { useAuth } from './contexts/AuthContext';
 import Header from './components/Header';
 import ImageGrid from './components/ImageGrid';
@@ -29,7 +28,6 @@ export type Page = 'home' | 'settings' | 'user-management' | 'liked-images' | 'l
 const App: React.FC = () => {
   const [images, setImages] = useState<ImagePrompt[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [setTheme] = useTheme();
   const { currentUser, users } = useAuth();
   
   const [selectedImage, setSelectedImage] = useState<ImagePrompt | null>(null);
@@ -43,6 +41,15 @@ const App: React.FC = () => {
   const [toastMessage, setToastMessage] = useState('');
   
   const [currentPage, setCurrentPage] = useState<Page>('home');
+
+  // Definitive fix for theme initialization.
+  // This runs only once and ensures a default theme is set if none exists.
+  useEffect(() => {
+    if (!localStorage.getItem('theme')) {
+      localStorage.setItem('theme', 'dark');
+      document.documentElement.classList.add('dark');
+    }
+  }, []);
 
   const fetchImages = async () => {
     setIsLoading(true);
