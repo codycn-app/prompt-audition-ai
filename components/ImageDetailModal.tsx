@@ -18,7 +18,6 @@ interface ImageDetailModalProps {
   onRequestDelete: () => void;
   onRequestEdit: (image: ImagePrompt) => void;
   onCopyPrompt: (prompt: string) => void;
-  onShareLink: () => void;
   onToggleLike: (id: number) => void;
   showToast: (message: string) => void;
   currentUser: User | null;
@@ -55,7 +54,7 @@ const CommentSection: React.FC<{ comment: Comment }> = ({ comment }) => {
 }
 
 const ImageDetailModal: React.FC<ImageDetailModalProps> = ({ 
-    image, images, onClose, onRequestDelete, onRequestEdit, onCopyPrompt, onShareLink, onToggleLike, showToast, currentUser 
+    image, images, onClose, onRequestDelete, onRequestEdit, onCopyPrompt, onToggleLike, showToast, currentUser 
 }) => {
   const [copied, setCopied] = useState(false);
   const [commentText, setCommentText] = useState('');
@@ -243,11 +242,11 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
               <p><span className="font-semibold">Tạo lúc:</span> {new Date(image.created_at).toLocaleString('vi-VN')}</p>
             </div>
             <div className="flex flex-col gap-3">
-              {/* Main Action Buttons */}
-              <div className="grid grid-cols-2 gap-3">
+              {/* Main Action Button */}
+              <div className="flex">
                   <button 
                       onClick={() => onToggleLike(image.id)} 
-                      className={`flex items-center justify-center gap-2 py-2.5 px-4 font-medium transition-all duration-300 border-2 rounded-lg active:scale-95
+                      className={`flex items-center justify-center w-full gap-2 py-2.5 px-4 font-medium transition-all duration-300 border-2 rounded-lg active:scale-95
                       ${hasLiked 
                           ? 'bg-gradient-to-r from-cyber-pink to-cyber-cyan text-white border-transparent shadow-cyber-glow' 
                           : 'text-cyber-pink border-cyber-pink bg-transparent hover:bg-cyber-pink/20'
@@ -256,14 +255,6 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
                   >
                       <HeartIcon className="w-5 h-5" fill={hasLiked ? 'currentColor' : 'none'} />
                       <span>{hasLiked ? 'Đã thích' : 'Thích'} ({image.likes.length})</span>
-                  </button>
-                  <button 
-                      onClick={onShareLink} 
-                      className="flex items-center justify-center gap-2 py-2.5 px-4 font-medium text-cyber-cyan transition-colors duration-200 border-2 border-cyber-cyan rounded-lg bg-transparent hover:bg-cyber-cyan/20 active:scale-95" 
-                      aria-label="Chia sẻ ảnh"
-                  >
-                      <ShareIcon className="w-5 h-5" />
-                      <span>Chia sẻ</span>
                   </button>
               </div>
 

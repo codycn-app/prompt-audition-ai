@@ -113,43 +113,13 @@ const App: React.FC = () => {
     return images.find(img => img.id === id);
   }, [images]);
 
-  // Handle deep linking from URL
-  useEffect(() => {
-    if (isLoading) return; // Wait for images to be loaded
-    const urlParams = new URLSearchParams(window.location.search);
-    const imageIdStr = urlParams.get('image');
-    if (imageIdStr) {
-      const imageId = parseInt(imageIdStr, 10);
-      const imageToOpen = findImageById(imageId);
-      if (imageToOpen) {
-        setSelectedImage(imageToOpen);
-      } else {
-        showToast("Không tìm thấy ảnh được chia sẻ.");
-        const url = new URL(window.location.href);
-        url.searchParams.delete('image');
-        window.history.replaceState({}, '', url.pathname);
-      }
-    }
-  }, [isLoading, findImageById, showToast]);
-
-
   const handleCopyPrompt = (prompt: string) => {
     navigator.clipboard.writeText(prompt);
     showToast('Đã sao chép câu lệnh!');
   };
 
-  const handleShareLink = () => {
-    navigator.clipboard.writeText(window.location.href);
-    showToast('Đã sao chép liên kết chia sẻ!');
-  };
-
   const handleCloseModal = () => {
     setSelectedImage(null);
-    const url = new URL(window.location.href);
-    if (url.searchParams.has('image')) {
-        url.searchParams.delete('image');
-        window.history.replaceState({}, '', url.pathname);
-    }
   };
 
   const handleSelectImage = useCallback(async (image: ImagePrompt) => {
@@ -170,11 +140,6 @@ const App: React.FC = () => {
             )
         );
     }
-
-     // Update URL to reflect the selected image
-    const url = new URL(window.location.href);
-    url.searchParams.set('image', image.id.toString());
-    window.history.pushState({}, '', url);
   }, []);
 
   const filteredImages = useMemo(() => {
@@ -331,7 +296,6 @@ const App: React.FC = () => {
             setImageToEdit(image);
           }}
           onCopyPrompt={handleCopyPrompt}
-          onShareLink={handleShareLink}
           onToggleLike={handleToggleLike}
           showToast={showToast}
           currentUser={currentUser}
