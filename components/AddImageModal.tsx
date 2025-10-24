@@ -185,12 +185,14 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
         }
 
         // 4. Insert into database
-        const newImagePayload: Omit<ImagePrompt, 'id' | 'created_at'> = {
+        // **DEFINITIVE FIX:** Do NOT send user_id from the client.
+        // The database is configured with `DEFAULT auth.uid()` on the `user_id` column,
+        // which is the correct and secure way to assign ownership.
+        const newImagePayload = {
             title,
             prompt,
             keywords: generatedKeywords,
             imageUrl,
-            user_id: currentUser.id,
             likes: [],
             views: 0,
         };

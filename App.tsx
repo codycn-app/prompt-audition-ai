@@ -47,7 +47,8 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!localStorage.getItem('theme')) {
       localStorage.setItem('theme', 'dark');
-      document.documentElement.classList.add('dark');
+      // The class is already added by the script in index.html,
+      // this just ensures the localStorage value is set for future visits.
     }
   }, []);
 
