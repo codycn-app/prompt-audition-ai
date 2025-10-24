@@ -1,0 +1,6 @@
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlobXBtam5ydHBva2R0bnh2dHJjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEyODcxMTEsImV4cCI6MjA3Njg2MzExMX0.6dru2ORzcYsYN5XbPuwKbkEukR0rQnSbArS8iMWR7zg' // Dán URL của bạn vào đây
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlobXBtam5ydHBva2R0bnh2dHJjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MTI4NzExMSwiZXhwIjoyMDc2ODYzMTExfQ.XAw0X7tf8SZViV1OHzHN0k4lo0uJpzTGq4ZkYSJJmdw' // Dán Key (anon public) vào đây
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)

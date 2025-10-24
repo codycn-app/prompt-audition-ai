@@ -1,0 +1,5 @@
+{
+  "name": "Câu Lệnh AUDITION AI",
+  "description": "A modern, minimalist web application to store and manage AI image generation prompts. It functions as a photo album, allowing users to upload images, save prompts, categorize them, and search their collection.",
+  "requestFramePermissions": []
+}
