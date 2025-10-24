@@ -25,8 +25,8 @@ interface ImageDetailModalProps {
 }
 
 const AuthorAvatar: React.FC<{ author: User | undefined | null }> = ({ author }) => {
-    if (author?.avatar_url) {
-        return <img src={author.avatar_url} alt={author.username} className="w-8 h-8 rounded-full object-cover" />;
+    if (author?.avatarUrl) {
+        return <img src={author.avatarUrl} alt={author.username} className="w-8 h-8 rounded-full object-cover" />;
     }
     return (
         <span className="flex items-center justify-center w-8 h-8 text-sm font-bold rounded-full bg-gradient-to-br from-cyber-pink to-cyber-cyan text-cyber-black">
@@ -38,7 +38,7 @@ const AuthorAvatar: React.FC<{ author: User | undefined | null }> = ({ author })
 const CommentSection: React.FC<{ comment: Comment }> = ({ comment }) => {
     const { getUserById } = useAuth();
     // Use joined profile data if available, otherwise fall back to getUserById
-    const author = comment.profiles ? { username: comment.profiles.username, avatar_url: comment.profiles.avatar_url } : getUserById(comment.user_id);
+    const author = comment.profiles ? { username: comment.profiles.username, avatarUrl: comment.profiles.avatarUrl } : getUserById(comment.user_id);
     
     return (
         <div className="flex items-start gap-3 py-3">
@@ -70,7 +70,7 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
         setIsCommentsLoading(true);
         const { data, error } = await supabase
             .from('comments')
-            .select('*, profiles!user_id(username, avatar_url)')
+            .select('*, profiles!user_id(username, avatarUrl)')
             .eq('image_id', image.id)
             .order('created_at', { ascending: true });
 
@@ -90,7 +90,7 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
   const isAdmin = currentUser?.role === 'admin';
   const canEditOrDelete = isOwner || isAdmin;
 
-  const author = image.profiles ? { username: image.profiles.username, avatar_url: image.profiles.avatar_url } : getUserById(image.user_id);
+  const author = image.profiles ? { username: image.profiles.username, avatarUrl: image.profiles.avatarUrl } : getUserById(image.user_id);
   const authorRankInfo = getRankInfo(author as User | null, images, ranks);
   const { icon: rankIcon, name: rankName, className: rankClassName, finalColor: rankColor } = authorRankInfo;
 
@@ -124,7 +124,7 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
               ...(data as Comment),
               profiles: {
                   username: currentUser.username,
-                  avatar_url: currentUser.avatar_url || null,
+                  avatarUrl: currentUser.avatarUrl || null,
               }
           }
           setComments(prev => [...prev, newCommentWithProfile]);
@@ -165,8 +165,8 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
             <div>
                 <h3 className="text-sm font-semibold tracking-wider uppercase text-cyber-on-surface-secondary">Tác giả</h3>
                 <div className="flex items-center gap-3 mt-2">
-                    {author?.avatar_url ? (
-                        <img src={author.avatar_url} alt={author.username} className="w-10 h-10 rounded-full object-cover"/>
+                    {author?.avatarUrl ? (
+                        <img src={author.avatarUrl} alt={author.username} className="w-10 h-10 rounded-full object-cover"/>
                     ) : (
                         <span className="flex items-center justify-center w-10 h-10 text-lg font-bold rounded-full bg-gradient-to-br from-cyber-pink to-cyber-cyan text-cyber-black">
                             {author?.username.charAt(0).toUpperCase() ?? '?'}

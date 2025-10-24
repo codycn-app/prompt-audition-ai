@@ -23,7 +23,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ showToast, categories, onUp
 
   // Profile State
   const [username, setUsername] = useState(currentUser.username);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(currentUser.avatar_url || null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(currentUser.avatarUrl || null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   
   // Security State
@@ -50,7 +50,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ showToast, categories, onUp
     e.preventDefault();
     setError('');
     try {
-      let avatarUrlToSave = currentUser.avatar_url;
+      let avatarUrlToSave = currentUser.avatarUrl;
 
       if (avatarFile) {
         // Upload new avatar to Supabase Storage
@@ -68,7 +68,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ showToast, categories, onUp
         avatarUrlToSave = `${urlData.publicUrl}?t=${new Date().getTime()}`;
       }
       
-      await updateProfile(currentUser.id, { username, avatar_url: avatarUrlToSave });
+      await updateProfile(currentUser.id, { username, avatarUrl: avatarUrlToSave });
       showToast('Cập nhật thông tin thành công!');
     } catch (err: any) {
       setError(err.message);

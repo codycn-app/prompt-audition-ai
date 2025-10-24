@@ -43,13 +43,12 @@ const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onCl
     setError('');
 
     try {
-        // Call the RPC function to handle the update transactionally.
-        // This is the definitive fix for the RLS issue.
+        // Call the RPC function with corrected parameter names.
         const { error: rpcError } = await supabase.rpc('update_image_with_categories', {
-            p_image_id: image.id,
-            p_title: title,
-            p_prompt: prompt,
-            p_category_ids: selectedCategoryIds
+            image_id: image.id,
+            title_text: title,
+            prompt_text: prompt,
+            category_ids: selectedCategoryIds
         });
         
         if (rpcError) throw rpcError;

@@ -39,8 +39,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ images, setCurrentPage }) => 
             className="flex flex-col items-center p-6 mb-8 overflow-hidden text-center rounded-xl shadow-2xl bg-cyber-surface/80 backdrop-blur-2xl shadow-cyber-glow"
             style={{border: '1px solid transparent', background: 'linear-gradient(#1A1A1A, #1A1A1A) padding-box, linear-gradient(120deg, rgba(255, 0, 230, 0.4), rgba(0, 255, 255, 0.4)) border-box'}}
         >
-            {currentUser.avatar_url ? (
-                <img src={currentUser.avatar_url} alt={currentUser.username} className="object-cover w-24 h-24 rounded-full border-2 border-cyber-pink/50" />
+            {currentUser.avatarUrl ? (
+                <img src={currentUser.avatarUrl} alt={currentUser.username} className="object-cover w-24 h-24 rounded-full border-2 border-cyber-pink/50" />
             ) : (
                 <span className="flex items-center justify-center w-24 h-24 text-4xl font-bold rounded-full bg-gradient-to-br from-cyber-pink to-cyber-cyan text-cyber-black">
                     {currentUser.username.charAt(0).toUpperCase()}

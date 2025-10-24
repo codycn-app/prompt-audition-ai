@@ -18,7 +18,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, showToast 
   const [customTitle, setCustomTitle] = useState(user.customTitle || '');
   const [customTitleColor, setCustomTitleColor] = useState(user.customTitleColor || '#E0E0E0');
   const [newPassword, setNewPassword] = useState('');
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(user.avatar_url || null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(user.avatarUrl || null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [error, setError] = useState('');
 
@@ -39,7 +39,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, showToast 
     e.preventDefault();
     setError('');
     try {
-      let avatarUrlToSave = user.avatar_url;
+      let avatarUrlToSave = user.avatarUrl;
 
       if (avatarFile) {
         // Upload new avatar to Supabase Storage
@@ -57,10 +57,10 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, showToast 
         avatarUrlToSave = `${urlData.publicUrl}?t=${new Date().getTime()}`;
       }
 
-      const updatePayload: Partial<Pick<User, 'username' | 'role' | 'customTitle' | 'customTitleColor' | 'avatar_url'>> = {
+      const updatePayload: Partial<Pick<User, 'username' | 'role' | 'customTitle' | 'customTitleColor' | 'avatarUrl'>> = {
           username,
           role,
-          avatar_url: avatarUrlToSave,
+          avatarUrl: avatarUrlToSave,
           customTitle: customTitle.trim() ? customTitle : '',
           customTitleColor: customTitle.trim() ? customTitleColor : '',
       };

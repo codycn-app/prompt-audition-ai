@@ -105,13 +105,12 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
         if (!urlData) throw new Error("Không thể lấy URL của ảnh.");
         const publicUrl = urlData.publicUrl;
 
-        // Step 2: Call the RPC function to insert image and categories in one transaction.
-        // This is the definitive fix for the RLS issue.
+        // Step 2: Call the RPC function with corrected parameter names.
         const { error: rpcError } = await supabase.rpc('add_image_with_categories', {
-            p_title: title,
-            p_prompt: prompt,
-            p_image_url: publicUrl,
-            p_category_ids: selectedCategoryIds
+            title_text: title,
+            prompt_text: prompt,
+            image_url_text: publicUrl,
+            category_ids: selectedCategoryIds
         });
 
         if (rpcError) throw rpcError;

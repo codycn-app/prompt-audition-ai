@@ -75,12 +75,12 @@ const App: React.FC = () => {
         setCategories(categoriesData as Category[]);
     }
 
-    // Definitive fix for ambiguous relationship: specify the foreign key column.
+    // Definitive fix for ambiguous relationship and column name mismatch.
     const { data: imagesData, error: imagesError } = await supabase
       .from('images')
       .select(`
         *,
-        profiles!user_id ( username, avatar_url ),
+        profiles!user_id ( username, avatarUrl ),
         categories ( id, name ),
         comments ( count )
       `)

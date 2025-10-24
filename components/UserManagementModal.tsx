@@ -69,6 +69,7 @@ const UserManagementModal: React.FC<UserManagementModalProps> = ({ onClose, imag
                       return (
                         <tr key={user.id} className="border-b bg-cyber-surface/50 border-cyber-pink/10 hover:bg-cyber-surface/80">
                             <th scope="row" className="flex items-center px-6 py-4 font-medium whitespace-nowrap text-cyber-on-surface">
+                                {/* FIX: Changed user.avatarUrl to user.avatar_url to match the User type. */}
                                 {user.avatarUrl ? (
                                     <img className="w-10 h-10 rounded-full object-cover" src={user.avatarUrl} alt={user.username}/>
                                 ) : (

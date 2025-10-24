@@ -68,7 +68,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, showToast }) => 
         return;
     }
     try {
-      // FIX: The changePassword function expects only one argument (the new password) as per its definition in AuthContext.
       changePassword(newPassword);
       showToast('Đổi mật khẩu thành công!');
       onClose();
