@@ -62,7 +62,8 @@ const UserManagementModal: React.FC<UserManagementModalProps> = ({ onClose, imag
                   </tr>
                 </thead>
                 <tbody>
-                  {[...users].sort((a,b) => a.id - b.id).map(user => {
+                  {/* FIX: Sort by creation date instead of attempting to subtract string IDs. */}
+                  {[...users].sort((a,b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()).map(user => {
                       // Fix: Pass `ranks` to getRankInfo as the third argument.
                       const rankInfo = getRankInfo(user, images, ranks);
                       return (

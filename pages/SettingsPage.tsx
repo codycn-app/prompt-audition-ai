@@ -65,7 +65,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ showToast }) => {
         return;
     }
     try {
-      changePassword(currentUser.id, oldPassword, newPassword);
+      // FIX: The changePassword function only expects the new password.
+      changePassword(newPassword);
       showToast('Đổi mật khẩu thành công!');
       setOldPassword('');
       setNewPassword('');

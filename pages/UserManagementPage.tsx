@@ -48,7 +48,8 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ users, images, 
                   </tr>
                 </thead>
                 <tbody>
-                  {[...users].sort((a,b) => a.id - b.id).map(user => {
+                  {/* FIX: Sort by creation date instead of attempting to subtract string IDs. */}
+                  {[...users].sort((a,b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()).map(user => {
                       const rankInfo = getRankInfo(user, images, ranks);
                       return (
                         <tr key={user.id} className="border-b bg-cyber-surface/50 border-cyber-pink/10 hover:bg-cyber-surface/80">
