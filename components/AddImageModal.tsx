@@ -89,7 +89,9 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
     
     setIsSaving(true);
     setError('');
+    
     let imagePath = '';
+    let newImageId: number | null = null;
 
     try {
         // Step 1: Upload image file to storage.
@@ -105,25 +107,51 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
         if (!urlData) throw new Error("Không thể lấy URL của ảnh.");
         const publicUrl = urlData.publicUrl;
 
-        // Step 2: Call the RPC function with corrected parameter names.
-        const { error: rpcError } = await supabase.rpc('add_image_with_categories', {
-            title_text: title,
-            prompt_text: prompt,
-            image_url_text: publicUrl,
-            category_ids: selectedCategoryIds
-        });
+        // Step 2: Insert image metadata into the 'images' table.
+        const { data: newImage, error: imageInsertError } = await supabase
+            .from('images')
+            .insert({
+                title: title,
+                prompt: prompt,
+                imageUrl: publicUrl, // Use correct camelCase column name
+                user_id: currentUser.id,
+                likes: [],
+                views: 0
+            })
+            .select('id')
+            .single();
 
-        if (rpcError) throw rpcError;
+        if (imageInsertError) throw imageInsertError;
+        if (!newImage) throw new Error("Không thể tạo bản ghi ảnh.");
         
+        newImageId = newImage.id;
+
+        // Step 3: Insert into the 'image_categories' join table.
+        const categoryLinks = selectedCategoryIds.map(catId => ({
+            image_id: newImageId,
+            category_id: catId
+        }));
+        
+        const { error: categoryInsertError } = await supabase
+            .from('image_categories')
+            .insert(categoryLinks);
+
+        if (categoryInsertError) throw categoryInsertError;
+
         onAddImage();
 
     } catch (err: any) {
         console.error("Error adding image:", err);
         setError(`Lỗi từ server: ${err.message}` || 'Đã có lỗi xảy ra. Vui lòng thử lại.');
 
-        // Cleanup: If any step fails after upload, remove the uploaded file.
+        // Cleanup: If any step fails, remove the uploaded file and the image record.
         if (imagePath) {
             await supabase.storage.from('images').remove([imagePath]);
+        }
+        if (newImageId) {
+            // Also need to clean up join table entries if they were partially successful, though unlikely.
+            await supabase.from('image_categories').delete().eq('image_id', newImageId);
+            await supabase.from('images').delete().eq('id', newImageId);
         }
     } finally {
         setIsSaving(false);
