@@ -4,7 +4,6 @@ import { useLocalStorage } from '../hooks/useLocalStorage';
 import { INITIAL_RANKS } from '../constants';
 import { supabase } from '../supabaseClient';
 import { AuthChangeEvent, Session, User as SupabaseUser } from '@supabase/supabase-js';
-import { createNewUserProfile } from '../lib/authHelpers';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -100,17 +99,50 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       throw new Error('Tên tài khoản này đã được sử dụng.');
     }
     if (usernameError && usernameError.code !== 'PGRST116') { // PGRST116: no rows found
-        throw new Error(usernameError.message);
+        throw new Error(`Lỗi kiểm tra tên tài khoản: ${usernameError.message}`);
     }
 
-    const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) throw new Error(error.message);
-    if (!data.user) throw new Error('Đăng ký thất bại, vui lòng thử lại.');
+    // Step 1: Sign up the user in Supabase Auth
+    const { data: authData, error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+
+    if (signUpError) {
+      throw new Error(`Lỗi đăng ký: ${signUpError.message}`);
+    }
+    if (!authData.user) {
+      throw new Error('Đăng ký không thành công, không nhận được thông tin người dùng.');
+    }
     
-    // Delegate profile creation to the new, isolated helper function.
-    // This structural change is designed to break stubborn build caches.
-    await createNewUserProfile(data.user.id, username, email);
+    // Step 2: Create the user's profile in the 'profiles' table.
+    // This is the CRITICAL part.
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .insert({
+        id: authData.user.id, // Use the ID from the newly created auth user
+        username: username,
+        email: email
+        // We DO NOT send `created_at`. The database will handle it with DEFAULT now().
+      });
+
+    if (profileError) {
+      // This provides a much clearer error message if something goes wrong here.
+      // This could be due to RLS policies.
+      throw new Error(`Tạo tài khoản thành công nhưng không thể tạo hồ sơ: ${profileError.message}`);
+    }
+
+    // Manually add the new user to the local state to update the UI immediately
+    const newUserProfile: User = {
+        id: authData.user.id,
+        email: email,
+        username: username,
+        role: 'user',
+        created_at: new Date().toISOString(), // Use current time for immediate UI update
+    };
+    setUsers(prevUsers => [...prevUsers, newUserProfile]);
   };
+
 
   const logout = async (): Promise<void> => {
     const { error } = await supabase.auth.signOut();
