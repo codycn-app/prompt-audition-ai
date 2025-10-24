@@ -126,13 +126,14 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
         // 3. Insert into 'image_categories' junction table
         const imageCategoryRelations = selectedCategoryIds.map(categoryId => ({
             image_id: newImageId,
-            category_id: categoryId
+            category_id: categoryId,
+            user_id: currentUser.id // DEFINITIVE FIX: Include user_id to satisfy RLS policy.
         }));
         
         const { error: insertCategoriesError } = await supabase
             .from('image_categories')
             .insert(imageCategoryRelations)
-            .select(); // FIX: Added .select() to ensure the query returns a result or an error, preventing hangs on RLS policies.
+            .select();
             
         if (insertCategoriesError) throw insertCategoriesError;
 
