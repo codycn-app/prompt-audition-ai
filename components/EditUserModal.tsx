@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { User } from '../types';
 import { CloseIcon } from './icons/CloseIcon';
 import { UserCircleIcon } from './icons/UserCircleIcon';
+import { supabase } from '../supabaseClient';
 
 interface EditUserModalProps {
   user: User;
@@ -18,6 +19,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, showToast 
   const [customTitleColor, setCustomTitleColor] = useState(user.customTitleColor || '#E0E0E0');
   const [newPassword, setNewPassword] = useState('');
   const [avatarPreview, setAvatarPreview] = useState<string | null>(user.avatar_url || null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [error, setError] = useState('');
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -27,38 +29,46 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, showToast 
         setError('Kích thước file phải nhỏ hơn 2MB.');
         return;
       }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setAvatarPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      setAvatarFile(file);
+      setAvatarPreview(URL.createObjectURL(file));
       setError('');
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     try {
-      const updatePayload: Partial<Pick<User, 'username' | 'role' | 'customTitle' | 'customTitleColor' | 'avatar_url' | 'password'>> = {
+      let avatarUrlToSave = user.avatar_url;
+
+      if (avatarFile) {
+        // Upload new avatar to Supabase Storage
+        const filePath = `public/${user.id}`;
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(filePath, avatarFile, { upsert: true });
+
+        if (uploadError) {
+          throw uploadError;
+        }
+
+        // Get public URL and add a timestamp to bust cache
+        const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(filePath);
+        avatarUrlToSave = `${urlData.publicUrl}?t=${new Date().getTime()}`;
+      }
+
+      const updatePayload: Partial<Pick<User, 'username' | 'role' | 'customTitle' | 'customTitleColor' | 'avatar_url'>> = {
           username,
           role,
-          avatar_url: avatarPreview || '', // Use empty string to clear avatar
+          avatar_url: avatarUrlToSave,
+          customTitle: customTitle.trim() ? customTitle : '',
+          customTitleColor: customTitle.trim() ? customTitleColor : '',
       };
-
-      if (customTitle.trim()) {
-        updatePayload.customTitle = customTitle;
-        updatePayload.customTitleColor = customTitleColor;
-      } else {
-        updatePayload.customTitle = '';
-        updatePayload.customTitleColor = '';
-      }
       
-      if (newPassword.trim()) {
-        updatePayload.password = newPassword;
-      }
+      // Note: Updating password here is complex and requires separate logic for auth.users.
+      // The old code was incorrect. We are only updating the profile data.
       
-      updateUserByAdmin(user.id, updatePayload);
+      await updateUserByAdmin(user.id, updatePayload);
       showToast(`Đã cập nhật người dùng ${username}!`);
       onClose();
     } catch (err: any) {

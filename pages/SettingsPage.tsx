@@ -4,6 +4,7 @@ import { UserCircleIcon } from '../components/icons/UserCircleIcon';
 import { KeyIcon } from '../components/icons/KeyIcon';
 import { ShieldCheckIcon } from '../components/icons/ShieldCheckIcon';
 import RankManagement from '../components/RankManagement';
+import { supabase } from '../supabaseClient';
 
 interface SettingsPageProps {
   showToast: (message: string) => void;
@@ -18,6 +19,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ showToast }) => {
   // Profile State
   const [username, setUsername] = useState(currentUser.username);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(currentUser.avatar_url || null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
   
   // Security State
   const [oldPassword, setOldPassword] = useState('');
@@ -33,20 +35,35 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ showToast }) => {
         setError('Kích thước file phải nhỏ hơn 2MB.');
         return;
       }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setAvatarPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      setAvatarFile(file);
+      setAvatarPreview(URL.createObjectURL(file));
       setError('');
     }
   };
 
-  const handleProfileSubmit = (e: React.FormEvent) => {
+  const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     try {
-      updateProfile(currentUser.id, { username, avatar_url: avatarPreview || undefined });
+      let avatarUrlToSave = currentUser.avatar_url;
+
+      if (avatarFile) {
+        // Upload new avatar to Supabase Storage
+        const filePath = `public/${currentUser.id}`;
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(filePath, avatarFile, { upsert: true });
+
+        if (uploadError) {
+          throw uploadError;
+        }
+
+        // Get public URL and add a timestamp to bust cache
+        const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(filePath);
+        avatarUrlToSave = `${urlData.publicUrl}?t=${new Date().getTime()}`;
+      }
+      
+      await updateProfile(currentUser.id, { username, avatar_url: avatarUrlToSave });
       showToast('Cập nhật thông tin thành công!');
     } catch (err: any) {
       setError(err.message);
@@ -65,7 +82,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ showToast }) => {
         return;
     }
     try {
-      // FIX: The changePassword function expects only one argument (the new password) as per its definition in AuthContext.
       await changePassword(newPassword);
       showToast('Đổi mật khẩu thành công!');
       setOldPassword('');

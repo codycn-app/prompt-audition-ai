@@ -13,7 +13,7 @@ interface AuthContextType {
   signup: (email: string, password: string, username: string) => Promise<void>;
   logout: () => Promise<void>;
   getUserById: (id: string) => User | undefined;
-  updateUserByAdmin: (userId: string, updates: Partial<Pick<User, 'username' | 'role' | 'customTitle' | 'customTitleColor' | 'avatar_url'>>) => void;
+  updateUserByAdmin: (userId: string, updates: Partial<Pick<User, 'username' | 'role' | 'customTitle' | 'customTitleColor' | 'avatar_url'>>) => Promise<void>;
   updateProfile: (userId: string, updates: Partial<Pick<User, 'username' | 'avatar_url'>>) => Promise<void>;
   changePassword: (newPass: string) => Promise<void>;
   updateRanks: (newRanks: Rank[]) => void;
