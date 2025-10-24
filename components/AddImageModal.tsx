@@ -91,10 +91,9 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
     setError('');
 
     let imagePath = '';
-    let newImageId: number | null = null;
 
     try {
-        // 1. Upload image file to storage
+        // Step 1: Upload image file to storage. This part remains client-side.
         const fileExt = imageFile.name.split('.').pop();
         imagePath = `${currentUser.id}/${Date.now()}.${fileExt}`;
         
@@ -105,48 +104,27 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
 
         const { data: urlData } = supabase.storage.from('images').getPublicUrl(imagePath);
         if (!urlData) throw new Error("Không thể lấy URL của ảnh.");
+        const publicUrl = urlData.publicUrl;
 
-        // 2. Insert into 'images' table, ensuring we get the new ID back
-        const { data: newImageData, error: imageInsertError } = await supabase
-            .from('images')
-            .insert({ 
-                title, 
-                prompt, 
-                image_url: urlData.publicUrl, // Correct snake_case column name
-                user_id: currentUser.id 
-            })
-            .select('id')
-            .single();
+        // Step 2: Call the RPC function to handle all database inserts atomically.
+        // This bypasses the schema cache issue for good.
+        const { error: rpcError } = await supabase.rpc('add_image_with_categories', {
+            title_text: title,
+            prompt_text: prompt,
+            image_url_text: publicUrl,
+            category_ids: selectedCategoryIds
+        });
 
-        if (imageInsertError) throw imageInsertError;
-        if (!newImageData) throw new Error('Không thể tạo bản ghi ảnh mới.');
-        
-        newImageId = newImageData.id;
+        if (rpcError) throw rpcError;
 
-        // 3. Insert into 'image_categories' junction table
-        const categoryLinks = selectedCategoryIds.map(categoryId => ({
-            image_id: newImageId,
-            category_id: categoryId,
-            user_id: currentUser.id // RLS policy requires this
-        }));
-
-        const { error: categoryInsertError } = await supabase
-            .from('image_categories')
-            .insert(categoryLinks)
-            .select(); // Important to get a response and not hang
-
-        if (categoryInsertError) throw categoryInsertError;
-
+        // Step 3: Success!
         onAddImage();
 
     } catch (err: any) {
         console.error("Error adding image:", err);
         setError(`Lỗi từ server: ${err.message}` || 'Đã có lỗi xảy ra. Vui lòng thử lại.');
 
-        // Cleanup: If any step fails, remove the created records and files.
-        if (newImageId) {
-            await supabase.from('images').delete().eq('id', newImageId);
-        }
+        // Cleanup: If the database insert fails, remove the uploaded file.
         if (imagePath) {
             await supabase.storage.from('images').remove([imagePath]);
         }
