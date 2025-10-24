@@ -44,11 +44,6 @@ const App: React.FC = () => {
   
   const [currentPage, setCurrentPage] = useState<Page>('home');
 
-  useEffect(() => {
-    setTheme('dark');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const fetchImages = async () => {
     setIsLoading(true);
     const { data, error } = await supabase
