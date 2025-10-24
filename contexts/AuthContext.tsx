@@ -88,7 +88,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const signup = async (email: string, password: string, username: string): Promise<void> => {
-    // Check if username is taken first
     const { data: existingUser, error: usernameError } = await supabase
       .from('profiles')
       .select('username')
@@ -98,16 +97,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (existingUser) {
       throw new Error('Tên tài khoản này đã được sử dụng.');
     }
-    if (usernameError && usernameError.code !== 'PGRST116') { // PGRST116 means no rows found, which is good
+    if (usernameError && usernameError.code !== 'PGRST116') {
         throw new Error(`Lỗi kiểm tra tên tài khoản: ${usernameError.message}`);
     }
 
-    // Step 1: Create the user in Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
     if (authError) throw new Error(authError.message);
     if (!authData.user) throw new Error('Đăng ký thất bại, vui lòng thử lại.');
 
-    // Step 2: Create a corresponding profile in the public.profiles table
     const newProfileData = {
       id: authData.user.id,
       username: username,
@@ -116,17 +113,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const { data: insertedProfile, error: profileError } = await supabase
       .from('profiles')
       .insert(newProfileData)
-      .select() // Ask Supabase to return the newly created row
+      .select()
       .single();
 
     if (profileError) {
-      // This is a critical state. The auth user was created, but the profile failed.
-      // In a production app, you might want to add a cleanup function to delete the auth user.
       console.error("Critical signup error: Could not create user profile.", profileError);
       throw new Error(`Tạo tài khoản thành công nhưng không thể tạo hồ sơ: ${profileError.message}`);
     }
     
-    // Step 3: Update the local user cache for immediate UI updates
     if (insertedProfile) {
         const fullNewUser: User = { 
             ...(insertedProfile as Omit<User, 'email'>),
@@ -150,7 +144,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const { error } = await supabase.from('profiles').update(updates).eq('id', userId);
     if (error) throw new Error(error.message);
     
-    // Refresh local cache
     setUsers(prevUsers => prevUsers.map(u => u.id === userId ? { ...u, ...updates } : u));
   };
 
@@ -162,7 +155,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const { error } = await supabase.from('profiles').update(updates).eq('id', userId);
     if (error) throw new Error(error.message);
 
-    // Update current user state immediately
     setCurrentUser(prev => prev ? { ...prev, ...updates } : null);
     setUsers(prevUsers => prevUsers.map(u => u.id === userId ? { ...u, ...updates } : u));
   };
