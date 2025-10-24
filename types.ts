@@ -4,11 +4,12 @@ export interface ImagePrompt {
   title: string;
   prompt: string;
   keywords: string[];
-  createdAt: string;
+  created_at: string;
   userId: string; 
   likes: string[]; 
   views: number; 
   profiles?: { username: string; avatarUrl: string | null }; // For joined data
+  // FIX: Made comments optional as new images won't have this joined data.
   comments?: { count: number }[];
 }
 
@@ -21,6 +22,7 @@ export interface User {
   customTitle?: string;
   customTitleColor?: string;
   avatarUrl?: string; 
+  created_at: string; 
 }
 
 export interface Category {
@@ -32,7 +34,7 @@ export interface Comment {
     id: number;
     userId: string; // Changed from number to string for Supabase UUID
     text: string;
-    createdAt: string;
+    created_at: string;
     image_id: number; // Added for relation to image
     profiles?: { username: string; avatarUrl: string | null }; // For joined data
 }

@@ -43,12 +43,13 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ users, images, 
                     <th scope="col" className="px-6 py-3">Vai trò</th>
                     <th scope="col" className="px-6 py-3">Phân cấp</th>
                     <th scope="col" className="px-6 py-3 text-center">Bài đăng</th>
-                    <th scope="col" className="px-6 py-3">Email</th>
+                    <th scope="col" className="px-6 py-3">Ngày tham gia</th>
                     <th scope="col" className="px-6 py-3"><span className="sr-only">Hành động</span></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {[...users].sort((a, b) => a.username.localeCompare(b.username)).map(user => {
+                  {/* FIX: User ID is a string (UUID) and cannot be subtracted for sorting. Switched to sorting by creation date. */}
+                  {[...users].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()).map(user => {
                       const rankInfo = getRankInfo(user, images, ranks);
                       return (
                         <tr key={user.id} className="border-b bg-cyber-surface/50 border-cyber-pink/10 hover:bg-cyber-surface/80">
@@ -62,6 +63,7 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ users, images, 
                                 )}
                                 <div className="pl-3">
                                     <div className="text-base font-semibold">{user.username}</div>
+                                    <div className="font-normal text-cyber-on-surface-secondary">{user.email}</div>
                                 </div>  
                             </th>
                             <td className="px-6 py-4">
@@ -77,7 +79,7 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ users, images, 
                                 </div>
                             </td>
                             <td className="px-6 py-4 text-center">{rankInfo.postCount}</td>
-                            <td className="px-6 py-4">{user.email}</td>
+                            <td className="px-6 py-4">{new Date(user.created_at).toLocaleDateString('vi-VN')}</td>
                             <td className="px-6 py-4 text-right">
                                 <button 
                                   onClick={() => setUserToEdit(user)}

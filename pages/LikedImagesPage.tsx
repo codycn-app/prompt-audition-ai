@@ -20,7 +20,7 @@ const LikedImagesPage: React.FC<LikedImagesPageProps> = ({ images, currentUser, 
   }
 
   const likedImages = images.filter(image => image.likes.includes(currentUser.id))
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   return (
     <div className="max-w-full py-8 px-4 sm:px-6 lg:px-8 animate-fade-in-scale">

@@ -88,7 +88,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const signup = async (email: string, password: string, username: string): Promise<void> => {
-    // 1. Check if username already exists
+    // Check if username is taken first
     const { data: existingUser, error: usernameError } = await supabase
       .from('profiles')
       .select('username')
@@ -98,42 +98,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (existingUser) {
       throw new Error('Tên tài khoản này đã được sử dụng.');
     }
-    // Ignore the error that means "no rows found", which is what we want
-    if (usernameError && usernameError.code !== 'PGRST116') { 
-        throw new Error(`Lỗi kiểm tra tên tài khoản: ${usernameError.message}`);
+    if (usernameError && usernameError.code !== 'PGRST116') { // PGRST116: no rows found
+        throw new Error(usernameError.message);
     }
 
-    // 2. Sign up the user with Supabase Auth
-    const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
-    if (authError) throw new Error(authError.message);
-    if (!authData.user) throw new Error('Đăng ký thất bại, vui lòng thử lại.');
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    if (error) throw new Error(error.message);
+    if (!data.user) throw new Error('Đăng ký thất bại, vui lòng thử lại.');
 
-    // 3. Create the profile in the 'profiles' table with ONLY valid columns
-    const newProfileData = {
-      id: authData.user.id,
+    // Create a profile for the new user
+    const { error: profileError } = await supabase.from('profiles').insert({
+      id: data.user.id,
       username: username,
-      // DO NOT include 'createdAt' or any other columns not in the 'profiles' table
-    };
-
-    const { data: insertedProfile, error: profileError } = await supabase
-      .from('profiles')
-      .insert(newProfileData)
-      .select()
-      .single();
+      email: email, // You might want to store email here too for easier access
+      role: 'user',
+    });
 
     if (profileError) {
-      console.error("Critical signup error: Could not create user profile.", profileError);
-      // This error message is what you are seeing. It means the insert operation failed.
-      throw new Error(`Tạo tài khoản thành công nhưng không thể tạo hồ sơ: ${profileError.message}`);
-    }
-    
-    // 4. Update local state cache with the new user
-    if (insertedProfile) {
-        const fullNewUser: User = { 
-            ...(insertedProfile as Omit<User, 'email'>),
-            email: authData.user.email!,
-        };
-        setUsers(prevUsers => [...prevUsers, fullNewUser]);
+        // This is tricky. User is created in auth, but profile failed.
+        // For a real app, you'd want a cleanup mechanism.
+        throw new Error(`Tạo tài khoản thành công nhưng không thể tạo hồ sơ: ${profileError.message}`);
     }
   };
 
@@ -151,6 +135,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const { error } = await supabase.from('profiles').update(updates).eq('id', userId);
     if (error) throw new Error(error.message);
     
+    // Refresh local cache
     setUsers(prevUsers => prevUsers.map(u => u.id === userId ? { ...u, ...updates } : u));
   };
 
@@ -162,6 +147,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const { error } = await supabase.from('profiles').update(updates).eq('id', userId);
     if (error) throw new Error(error.message);
 
+    // Update current user state immediately
     setCurrentUser(prev => prev ? { ...prev, ...updates } : null);
     setUsers(prevUsers => prevUsers.map(u => u.id === userId ? { ...u, ...updates } : u));
   };

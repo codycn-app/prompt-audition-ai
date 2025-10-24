@@ -53,7 +53,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ showToast }) => {
     }
   };
   
-  const handlePasswordSubmit = (e: React.FormEvent) => {
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     if (newPassword !== confirmPassword) {
@@ -65,8 +65,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ showToast }) => {
         return;
     }
     try {
-      // FIX: The changePassword function only expects the new password.
-      changePassword(newPassword);
+      // FIX: The changePassword function expects only one argument (the new password) as per its definition in AuthContext.
+      await changePassword(newPassword);
       showToast('Đổi mật khẩu thành công!');
       setOldPassword('');
       setNewPassword('');

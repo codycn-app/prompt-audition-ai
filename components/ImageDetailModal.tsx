@@ -46,7 +46,7 @@ const CommentSection: React.FC<{ comment: Comment }> = ({ comment }) => {
             <div className="flex-1">
                 <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold text-cyber-on-surface">{author?.username ?? 'Người dùng ẩn'}</span>
-                    <span className="text-xs text-cyber-on-surface-secondary">{new Date(comment.createdAt).toLocaleDateString('vi-VN')}</span>
+                    <span className="text-xs text-cyber-on-surface-secondary">{new Date(comment.created_at).toLocaleDateString('vi-VN')}</span>
                 </div>
                 <p className="mt-1 text-sm text-cyber-on-surface-secondary">{comment.text}</p>
             </div>
@@ -238,7 +238,7 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
             </div>
 
             <div className="text-sm text-cyber-on-surface-secondary">
-              <p><span className="font-semibold">Tạo lúc:</span> {new Date(image.createdAt).toLocaleString('vi-VN')}</p>
+              <p><span className="font-semibold">Tạo lúc:</span> {new Date(image.created_at).toLocaleString('vi-VN')}</p>
             </div>
             <div className="flex flex-col gap-3">
               {/* Main Action Buttons */}

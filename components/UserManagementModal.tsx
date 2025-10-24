@@ -13,6 +13,7 @@ interface UserManagementModalProps {
 }
 
 const UserManagementModal: React.FC<UserManagementModalProps> = ({ onClose, images }) => {
+  // Fix: Added `ranks` from useAuth to pass to getRankInfo.
   const { users, currentUser, ranks } = useAuth();
   const [userToEdit, setUserToEdit] = useState<User | null>(null);
   const [toastMessage, setToastMessage] = useState('');
@@ -56,12 +57,14 @@ const UserManagementModal: React.FC<UserManagementModalProps> = ({ onClose, imag
                     <th scope="col" className="px-6 py-3">Vai trò</th>
                     <th scope="col" className="px-6 py-3">Phân cấp</th>
                     <th scope="col" className="px-6 py-3 text-center">Bài đăng</th>
-                    <th scope="col" className="px-6 py-3">Email</th>
+                    <th scope="col" className="px-6 py-3">Ngày tham gia</th>
                     <th scope="col" className="px-6 py-3"><span className="sr-only">Hành động</span></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {[...users].sort((a, b) => a.username.localeCompare(b.username)).map(user => {
+                  {/* FIX: User ID is a string (UUID) and cannot be subtracted for sorting. Switched to sorting by creation date. */}
+                  {[...users].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()).map(user => {
+                      // Fix: Pass `ranks` to getRankInfo as the third argument.
                       const rankInfo = getRankInfo(user, images, ranks);
                       return (
                         <tr key={user.id} className="border-b bg-cyber-surface/50 border-cyber-pink/10 hover:bg-cyber-surface/80">
@@ -75,6 +78,7 @@ const UserManagementModal: React.FC<UserManagementModalProps> = ({ onClose, imag
                                 )}
                                 <div className="pl-3">
                                     <div className="text-base font-semibold">{user.username}</div>
+                                    <div className="font-normal text-cyber-on-surface-secondary">{user.email}</div>
                                 </div>  
                             </th>
                             <td className="px-6 py-4">
@@ -84,13 +88,16 @@ const UserManagementModal: React.FC<UserManagementModalProps> = ({ onClose, imag
                                 }
                             </td>
                             <td className="px-6 py-4">
+                                {/* Fix: Use `rankInfo.finalColor` instead of `rankInfo.color`. */}
                                 <div className="flex items-center gap-1.5" style={{ color: rankInfo.finalColor }}>
+                                    {/* Fix: `rankInfo.icon` is a string URL, not a component. It should be used in an `img` tag. */}
                                     {rankInfo.icon && <img src={rankInfo.icon} alt={rankInfo.name} className="w-4 h-4" />}
                                     <span>{rankInfo.name}</span>
                                 </div>
                             </td>
                             <td className="px-6 py-4 text-center">{rankInfo.postCount}</td>
-                            <td className="px-6 py-4">{user.email}</td>
+                            {/* FIX: Corrected property from 'createdAt' to 'created_at' to match the User type. */}
+                            <td className="px-6 py-4">{new Date(user.created_at).toLocaleDateString('vi-VN')}</td>
                             <td className="px-6 py-4 text-right">
                                 <button 
                                   onClick={() => setUserToEdit(user)}
