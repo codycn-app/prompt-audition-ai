@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { ImagePrompt, Comment, User } from './types';
+import { ImagePrompt, Comment, User, Category } from './types';
 import { useAuth } from './contexts/AuthContext';
 import Header from './components/Header';
 import ImageGrid from './components/ImageGrid';
@@ -16,17 +16,18 @@ import UserManagementPage from './pages/UserManagementPage';
 import LikedImagesPage from './pages/LikedImagesPage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import ImageGridSkeleton from './components/ImageGridSkeleton';
-import { GoogleGenAI, Type } from '@google/genai';
 import BottomNavBar from './components/BottomNavBar';
 import ProfilePage from './pages/ProfilePage';
 import SupportPage from './pages/SupportPage';
+import CategoriesPage from './pages/CategoriesPage';
 import { supabase } from './supabaseClient';
 
 
-export type Page = 'home' | 'settings' | 'user-management' | 'liked-images' | 'leaderboard' | 'profile' | 'support';
+export type Page = 'home' | 'settings' | 'user-management' | 'liked-images' | 'leaderboard' | 'profile' | 'support' | 'categories';
 
 const App: React.FC = () => {
   const [images, setImages] = useState<ImagePrompt[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { currentUser, users } = useAuth();
   
@@ -35,7 +36,7 @@ const App: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isSignupModalOpen, setIsSignupModalOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | 'all'>('all');
   
   const [imageToDelete, setImageToDelete] = useState<ImagePrompt | null>(null);
   const [toastMessage, setToastMessage] = useState('');
@@ -47,29 +48,41 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!localStorage.getItem('theme')) {
       localStorage.setItem('theme', 'dark');
-      // The class is already added by the script in index.html,
-      // this just ensures the localStorage value is set for future visits.
     }
   }, []);
 
-  const fetchImages = async () => {
+  const fetchInitialData = async () => {
     setIsLoading(true);
-    const { data, error } = await supabase
-      .from('images')
-      .select('*, profiles!user_id(username, avatar_url), comments(count)')
-      .order('created_at', { ascending: false });
+    const [imagesRes, categoriesRes] = await Promise.all([
+      supabase
+        .from('images')
+        .select('*, profiles!user_id(username, avatar_url), comments(count), categories(name)')
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('categories')
+        .select('*')
+        .order('name', { ascending: true })
+    ]);
 
-    if (error) {
-      console.error('Error fetching images:', error);
+    if (imagesRes.error) {
+      console.error('Error fetching images:', imagesRes.error);
       showToast('Lỗi: Không thể tải danh sách ảnh.');
     } else {
-      setImages(data as any[]);
+      setImages(imagesRes.data as any[]);
     }
+
+    if (categoriesRes.error) {
+      console.error('Error fetching categories:', categoriesRes.error);
+      showToast('Lỗi: Không thể tải danh sách chuyên mục.');
+    } else {
+      setCategories(categoriesRes.data as Category[]);
+    }
+
     setIsLoading(false);
   };
 
   useEffect(() => {
-    fetchImages();
+    fetchInitialData();
   }, []);
 
 
@@ -145,30 +158,23 @@ const App: React.FC = () => {
   };
 
   const filteredImages = useMemo(() => {
-    const lowercasedTerm = searchTerm.toLowerCase();
-    if (!lowercasedTerm) return images;
-
-    return images.filter(image => {
-        const titleMatch = image.title.toLowerCase().includes(lowercasedTerm);
-        const promptMatch = image.prompt.toLowerCase().includes(lowercasedTerm);
-        const keywordMatch = image.keywords.some(kw => kw.toLowerCase().includes(lowercasedTerm));
-        return titleMatch || promptMatch || keywordMatch;
-    });
-  }, [images, searchTerm]);
+    if (selectedCategoryId === 'all') return images;
+    return images.filter(image => image.category_id === selectedCategoryId);
+  }, [images, selectedCategoryId]);
 
   const handleAddImage = async () => {
     setIsAddModalOpen(false);
     showToast('Đã thêm ảnh mới thành công!');
-    await fetchImages(); // Refetch all images to include the new one
+    await fetchInitialData(); // Refetch all data
   };
   
-  const handleUpdateImage = async (updatedImage: Pick<ImagePrompt, 'id' | 'title' | 'prompt' | 'keywords'>) => {
+  const handleUpdateImage = async (updatedImage: Pick<ImagePrompt, 'id' | 'title' | 'prompt' | 'category_id'>) => {
     const { error } = await supabase
       .from('images')
       .update({ 
         title: updatedImage.title, 
         prompt: updatedImage.prompt, 
-        keywords: updatedImage.keywords 
+        category_id: updatedImage.category_id
       })
       .eq('id', updatedImage.id);
 
@@ -176,7 +182,7 @@ const App: React.FC = () => {
       showToast('Lỗi: không thể cập nhật ảnh.');
       console.error(error);
     } else {
-      await fetchImages(); // Refetch for consistency
+      await fetchInitialData(); // Refetch for consistency
       showToast('Đã cập nhật ảnh thành công!');
     }
     setImageToEdit(null);
@@ -198,21 +204,13 @@ const App: React.FC = () => {
 
     const bucketName = 'images';
 
-    // 1. Delete from storage
     if (imageToDelete.imageUrl) {
-        // Extract path from the public URL. This is more robust than splitting by '/'.
-        // e.g. https://.../storage/v1/object/public/images/userId/image.jpg -> userId/image.jpg
         const imagePath = imageToDelete.imageUrl.split(`/${bucketName}/`)[1];
         if (imagePath) {
-            const { error: storageError } = await supabase.storage.from(bucketName).remove([imagePath]);
-            if (storageError) {
-                // Log error but don't block DB deletion, as the storage file might already be gone.
-                console.error("Error deleting from storage:", storageError);
-            }
+            await supabase.storage.from(bucketName).remove([imagePath]);
         }
     }
     
-    // 2. Delete from database
     const { error } = await supabase.from('images').delete().eq('id', imageToDelete.id);
 
     if (error) {
@@ -251,7 +249,6 @@ const App: React.FC = () => {
           showToast('Đã có lỗi xảy ra.');
           console.error(error);
       } else {
-          // Update local state for immediate UI feedback
           const newImages = images.map(img => img.id === imageId ? { ...img, likes: newLikes } : img);
           setImages(newImages);
           if (selectedImage && selectedImage.id === imageId) {
@@ -261,14 +258,15 @@ const App: React.FC = () => {
       }
   };
 
-  const handleSearch = (term: string) => {
-    setSearchTerm(term);
-  };
+  const handleSetCategory = (id: number | 'all') => {
+    setSelectedCategoryId(id);
+    setCurrentPage('home'); // Always return to home when a category is selected
+  }
 
   const renderPage = () => {
     switch(currentPage) {
       case 'settings':
-        return currentUser ? <SettingsPage showToast={showToast} /> : null;
+        return currentUser ? <SettingsPage showToast={showToast} categories={categories} onUpdateCategories={() => fetchInitialData()} /> : null;
       case 'user-management':
         return currentUser?.role === 'admin' ? <UserManagementPage users={users} images={images} showToast={showToast} /> : null;
       case 'liked-images':
@@ -279,6 +277,8 @@ const App: React.FC = () => {
         return currentUser ? <ProfilePage images={images} setCurrentPage={setCurrentPage}/> : null;
       case 'support':
         return <SupportPage />;
+      case 'categories':
+        return <CategoriesPage categories={categories} images={images} onImageClick={handleSelectImage} currentUser={currentUser} />;
       case 'home':
       default:
         return (
@@ -299,7 +299,9 @@ const App: React.FC = () => {
   return (
     <div className="flex flex-col min-h-screen font-sans text-cyber-on-surface bg-cyber-black">
       <Header
-        onSearch={handleSearch}
+        onCategorySelect={handleSetCategory}
+        categories={categories}
+        selectedCategoryId={selectedCategoryId}
         onAddNew={() => setIsAddModalOpen(true)}
         onLogin={() => setIsLoginModalOpen(true)}
         onSignup={() => setIsSignupModalOpen(true)}
@@ -333,6 +335,7 @@ const App: React.FC = () => {
       {imageToEdit && (
         <EditImageModal
           image={imageToEdit}
+          categories={categories}
           onClose={() => setImageToEdit(null)}
           onUpdateImage={handleUpdateImage}
         />
@@ -343,6 +346,7 @@ const App: React.FC = () => {
           onClose={() => setIsAddModalOpen(false)}
           onAddImage={handleAddImage}
           showToast={showToast}
+          categories={categories}
         />
       )}
 

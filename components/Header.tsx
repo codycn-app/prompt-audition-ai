@@ -1,15 +1,17 @@
 import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { PlusIcon } from './icons/PlusIcon';
-import { SearchIcon } from './icons/SearchIcon';
 import UserMenu from './UserMenu';
-import { ImagePrompt } from '../types';
+import { ImagePrompt, Category } from '../types';
 import { Page } from '../App';
 import { CrownIcon } from './icons/CrownIcon';
 import { HeartIcon } from './icons/HeartIcon';
+import { TagIcon } from './icons/TagIcon';
 
 interface HeaderProps {
-  onSearch: (term: string) => void;
+  onCategorySelect: (id: number | 'all') => void;
+  categories: Category[];
+  selectedCategoryId: number | 'all';
   onAddNew: () => void;
   onLogin: () => void;
   onSignup: () => void;
@@ -17,7 +19,7 @@ interface HeaderProps {
   images: ImagePrompt[];
 }
 
-const Header: React.FC<HeaderProps> = ({ onSearch, onAddNew, onLogin, onSignup, setCurrentPage, images }) => {
+const Header: React.FC<HeaderProps> = ({ onCategorySelect, categories, selectedCategoryId, onAddNew, onLogin, onSignup, setCurrentPage, images }) => {
   const { currentUser } = useAuth();
 
   return (
@@ -33,14 +35,18 @@ const Header: React.FC<HeaderProps> = ({ onSearch, onAddNew, onLogin, onSignup, 
       <div className="hidden md:flex items-center space-x-2 sm:space-x-4">
         <div className="relative">
           <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-            <SearchIcon className="w-5 h-5 text-cyber-on-surface-secondary" />
+            <TagIcon className="w-5 h-5 text-cyber-on-surface-secondary" />
           </span>
-          <input
-            type="text"
-            placeholder="Tìm kiếm..."
-            onChange={(e) => onSearch(e.target.value)}
-            className="w-full max-w-xs py-2 pl-10 pr-4 transition-colors duration-300 border rounded-lg bg-cyber-surface border-cyber-pink/20 placeholder-cyber-on-surface-secondary text-cyber-on-surface focus:outline-none focus:ring-2 focus:ring-cyber-pink focus:border-cyber-pink"
-          />
+          <select
+            value={selectedCategoryId}
+            onChange={(e) => onCategorySelect(e.target.value === 'all' ? 'all' : parseInt(e.target.value))}
+            className="w-full max-w-xs py-2 pl-10 pr-4 transition-colors duration-300 border rounded-lg appearance-none bg-cyber-surface border-cyber-pink/20 text-cyber-on-surface focus:outline-none focus:ring-2 focus:ring-cyber-pink focus:border-cyber-pink"
+          >
+            <option value="all">Tất cả chuyên mục</option>
+            {categories.map(cat => (
+              <option key={cat.id} value={cat.id}>{cat.name}</option>
+            ))}
+          </select>
         </div>
         
         <button

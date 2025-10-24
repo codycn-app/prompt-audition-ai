@@ -8,6 +8,7 @@ import { UserGroupIcon } from '../components/icons/UserGroupIcon';
 import { LogoutIcon } from '../components/icons/LogoutIcon';
 import { HeartIcon } from '../components/icons/HeartIcon';
 import { ShieldCheckIcon } from '../components/icons/ShieldCheckIcon';
+import { TagIcon } from '../components/icons/TagIcon';
 
 interface ProfilePageProps {
   images: ImagePrompt[];
@@ -24,11 +25,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ images, setCurrentPage }) => 
 
   const rankInfo = getRankInfo(currentUser, images, ranks);
 
-  // Fix: Explicitly type `menuItems` to ensure `item.page` is of type `Page`.
   const menuItems: { label: string; icon: React.ReactNode; page: Page; requiredRole: Array<'user' | 'admin'> }[] = [
+    { label: 'Chuyên mục', icon: <TagIcon className="w-5 h-5"/>, page: 'categories', requiredRole: ['user', 'admin'] },
     { label: 'Ảnh đã thích', icon: <HeartIcon className="w-5 h-5"/>, page: 'liked-images', requiredRole: ['user', 'admin'] },
     { label: 'Cài đặt Tài khoản', icon: <GearIcon className="w-5 h-5"/>, page: 'settings', requiredRole: ['user', 'admin'] },
-    { label: 'Quản lý Cấp bậc', icon: <ShieldCheckIcon className="w-5 h-5"/>, page: 'settings', requiredRole: ['admin'] },
     { label: 'Quản lý Người dùng', icon: <UserGroupIcon className="w-5 h-5"/>, page: 'user-management', requiredRole: ['admin'] },
   ];
 
@@ -60,20 +60,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ images, setCurrentPage }) => 
         <div className="space-y-3">
              {menuItems.map(item => {
                 if (!item.requiredRole.includes(currentUser.role)) return null;
-                // Special handling for rank management to navigate within settings page
-                const handleItemClick = () => {
-                    if (item.label === 'Quản lý Cấp bậc') {
-                        // Navigate to settings and potentially signal which tab to open
-                        // For now, it just goes to settings page. The component itself handles tabs.
-                        setCurrentPage('settings');
-                    } else {
-                        setCurrentPage(item.page);
-                    }
-                }
                 return (
                     <button 
                         key={item.label}
-                        onClick={handleItemClick}
+                        onClick={() => setCurrentPage(item.page)}
                         className="w-full flex items-center gap-4 p-4 text-left transition-colors rounded-lg bg-cyber-surface/50 hover:bg-cyber-surface"
                     >
                         <span className="p-2 rounded-full bg-cyber-black/30 text-cyber-cyan">{item.icon}</span>

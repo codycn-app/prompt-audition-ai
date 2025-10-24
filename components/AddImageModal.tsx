@@ -1,41 +1,27 @@
 import React, { useState } from 'react';
-import { ImagePrompt } from '../types';
 import { CloseIcon } from './icons/CloseIcon';
 import { UploadIcon } from './icons/UploadIcon';
-import { SparklesIcon } from './icons/SparklesIcon';
-import { GoogleGenAI, Type } from '@google/genai';
 import { SpinnerIcon } from './icons/SpinnerIcon';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
+import { Category } from '../types';
 
 interface AddImageModalProps {
   onClose: () => void;
   onAddImage: () => void;
   showToast: (message: string) => void;
+  categories: Category[];
 }
 
-const blobToBase64 = (blob: Blob): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64data = reader.result as string;
-      resolve(base64data.split(',')[1]);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-};
-
-
-const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, showToast }) => {
+const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, showToast, categories }) => {
   const { currentUser } = useAuth();
   const [title, setTitle] = useState('');
   const [prompt, setPrompt] = useState('');
+  const [categoryId, setCategoryId] = useState<number | ''>('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [isDragging, setIsDragging] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   const processFile = (file: File | undefined) => {
@@ -82,132 +68,51 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
     processFile(e.dataTransfer.files?.[0]);
   };
 
-  const handleSuggestPrompt = async () => {
-    if (!imageFile) {
-        setError('Vui lòng chọn một ảnh trước.');
-        return;
-    }
-    if (!import.meta.env.VITE_API_KEY) {
-        setError('Lỗi cấu hình: API Key chưa được thiết lập.');
-        return;
-    }
-    setIsGenerating(true);
-    setError('');
-    try {
-        const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
-
-        const base64Data = await blobToBase64(imageFile);
-        
-        const imagePart = {
-            inlineData: {
-                mimeType: imageFile.type,
-                data: base64Data,
-            },
-        };
-
-        const textPart = {
-            text: "Hãy mô tả chi tiết hình ảnh này để tạo câu lệnh cho AI tạo hình ảnh. Tập trung vào các đối tượng, bối cảnh, tâm trạng và phong cách. Cung cấp mô tả bằng tiếng Việt.",
-        };
-
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: { parts: [imagePart, textPart] },
-        });
-        
-        setPrompt(response.text);
-
-    } catch (err) {
-        console.error(err);
-        setError('Không thể tạo gợi ý. Vui lòng thử lại.');
-    } finally {
-        setIsGenerating(false);
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser) {
       setError('Bạn phải đăng nhập để thêm ảnh.');
       return;
     }
-    if (!title || !prompt || !imageFile) {
-      setError('Vui lòng điền tiêu đề, tải ảnh lên và nhập câu lệnh.');
+    if (!title || !prompt || !imageFile || !categoryId) {
+      setError('Vui lòng điền đầy đủ tất cả các trường.');
       return;
-    }
-    if (!import.meta.env.VITE_API_KEY) {
-        setError('Lỗi cấu hình: API Key chưa được thiết lập. Không thể lưu.');
-        return;
     }
     
     setIsSaving(true);
     setError('');
 
     try {
-        // 1. Upload image to Supabase Storage
         const fileExt = imageFile.name.split('.').pop();
         const filePath = `${currentUser.id}/${Date.now()}.${fileExt}`;
+        
         const { error: uploadError } = await supabase.storage
             .from('images')
             .upload(filePath, imageFile);
+        if (uploadError) throw uploadError;
 
-        if (uploadError) throw new Error(`Lỗi tải ảnh lên: ${uploadError.message}`);
-
-        // 2. Get public URL
         const { data: urlData } = supabase.storage.from('images').getPublicUrl(filePath);
         if (!urlData) throw new Error("Không thể lấy URL của ảnh.");
-        const imageUrl = urlData.publicUrl;
         
-        // 3. Generate keywords with AI
-        const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
-        const base64Data = await blobToBase64(imageFile);
-        
-        const imagePart = { inlineData: { mimeType: imageFile.type, data: base64Data } };
-        const textPart = { text: `Dựa vào hình ảnh, tiêu đề "${title}" và mô tả sau: "${prompt}", hãy tạo ra 5 từ khóa (keywords) phù hợp nhất bằng tiếng Việt. Các từ khóa nên là từ đơn hoặc cụm từ ngắn gọn, không chứa dấu gạch đầu dòng hay đánh số.` };
-
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: { parts: [imagePart, textPart] },
-            config: {
-                responseMimeType: 'application/json',
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: { keywords: { type: Type.ARRAY, description: 'Một mảng chứa 5 từ khóa tiếng Việt.', items: { type: Type.STRING }}},
-                    required: ['keywords'],
-                }
-            }
-        });
-        
-        const result = JSON.parse(response.text);
-        const generatedKeywords = result.keywords;
-
-        if (!Array.isArray(generatedKeywords) || generatedKeywords.length === 0) {
-            throw new Error("AI không thể tạo từ khóa. Vui lòng thử lại.");
-        }
-
-        // 4. Insert into database
-        // **DEFINITIVE FIX:** Do NOT send user_id from the client.
-        // The database is configured with `DEFAULT auth.uid()` on the `user_id` column,
-        // which is the correct and secure way to assign ownership.
         const newImagePayload = {
             title,
             prompt,
-            keywords: generatedKeywords,
-            imageUrl,
-            likes: [],
-            views: 0,
+            imageUrl: urlData.publicUrl,
+            category_id: categoryId,
+            // user_id is now handled automatically by the database default value + RLS policy
         };
+        
         const { error: insertError } = await supabase.from('images').insert(newImagePayload);
-
-        if (insertError) throw insertError; // Re-throw the error to be caught by the catch block
+        if (insertError) throw insertError;
 
         onAddImage();
 
     } catch (err: any) {
         console.error("Error adding image:", err);
-        if (err.message && err.message.includes('violates row-level security policy')) {
-            setError('Lỗi phân quyền: Bạn không có quyền thêm ảnh. Vui lòng kiểm tra lại cấu hình Row-Level Security trên Supabase cho bảng "images".');
+        if (err.message.includes('violates row-level security policy')) {
+             setError('Lỗi phân quyền: Bạn không có quyền thêm ảnh. Vui lòng kiểm tra lại cấu hình Row-Level Security trên Supabase cho bảng "images".');
         } else {
-            setError(err.message || 'Đã có lỗi xảy ra. Vui lòng thử lại.');
+             setError(err.message || 'Đã có lỗi xảy ra. Vui lòng thử lại.');
         }
     } finally {
         setIsSaving(false);
@@ -269,23 +174,23 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
             <input id="title" type="text" value={title} onChange={(e) => setTitle(e.target.value)} className={formInputStyle} placeholder="Bình minh trên đỉnh núi..." required />
           </div>
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <label htmlFor="prompt" className="block text-sm font-medium text-cyber-on-surface">Câu Lệnh (Prompt)</label>
-              <button 
-                type="button" 
-                onClick={handleSuggestPrompt}
-                disabled={isGenerating || !imageFile || isSaving}
-                className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium transition-all duration-200 rounded-full text-cyber-black bg-gradient-to-r from-cyber-pink to-cyber-cyan hover:shadow-cyber-glow disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none active:scale-95"
-              >
-                <SparklesIcon className={`w-4 h-4 ${isGenerating ? 'animate-spin' : ''}`} />
-                {isGenerating ? 'Đang xử lý...' : 'Gợi ý câu lệnh'}
-              </button>
-            </div>
-            <textarea id="prompt" rows={4} value={prompt} onChange={(e) => setPrompt(e.target.value)} className={formInputStyle} placeholder="Một thành phố tương lai với những tòa nhà chọc trời..."></textarea>
+            <label htmlFor="category" className="block mb-2 text-sm font-medium text-cyber-on-surface">Chuyên mục</label>
+            <select
+                id="category"
+                value={categoryId}
+                onChange={(e) => setCategoryId(Number(e.target.value))}
+                className={formInputStyle}
+                required
+            >
+                <option value="" disabled>-- Chọn một chuyên mục --</option>
+                {categories.map(cat => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+            </select>
           </div>
-          
-          <div className='pt-2'>
-            <p className='text-sm text-cyber-on-surface-secondary'>5 từ khóa sẽ được tự động tạo bởi AI khi bạn nhấn Lưu.</p>
+          <div>
+            <label htmlFor="prompt" className="block mb-2 text-sm font-medium text-cyber-on-surface">Câu Lệnh (Prompt)</label>
+            <textarea id="prompt" rows={4} value={prompt} onChange={(e) => setPrompt(e.target.value)} className={formInputStyle} placeholder="Một thành phố tương lai với những tòa nhà chọc trời..."></textarea>
           </div>
 
           {error && <p className="text-sm text-red-400">{error}</p>}
@@ -295,7 +200,7 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
             <button 
               type="submit" 
               className="flex items-center justify-center w-28 px-5 py-2.5 text-sm font-medium text-white transition-all duration-300 rounded-lg shadow-lg bg-gradient-to-r from-cyber-pink to-cyber-cyan hover:shadow-cyber-glow active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed disabled:shadow-none"
-              disabled={isSaving || isGenerating}
+              disabled={isSaving}
             >
               {isSaving ? (
                 <>

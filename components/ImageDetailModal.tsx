@@ -202,17 +202,17 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
                   </button>
               </div>
             </div>
-            {/* Keywords */}
-            <div>
-              <h3 className="text-sm font-semibold tracking-wider uppercase text-cyber-cyan">Từ Khóa</h3>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {image.keywords.map(kw => (
-                  <span key={kw} className="px-3 py-1 text-sm rounded-full bg-cyber-cyan/10 text-cyber-cyan ring-1 ring-inset ring-cyber-cyan/20">
-                    {kw}
-                  </span>
-                ))}
+            {/* Category */}
+            {image.categories?.name && (
+              <div>
+                <h3 className="text-sm font-semibold tracking-wider uppercase text-cyber-cyan">Chuyên mục</h3>
+                <div className="flex flex-wrap gap-2 mt-2">
+                    <span className="px-3 py-1 text-sm rounded-full bg-cyber-cyan/10 text-cyber-cyan ring-1 ring-inset ring-cyber-cyan/20">
+                      {image.categories.name}
+                    </span>
+                </div>
               </div>
-            </div>
+            )}
             
             <div className="flex-grow"></div>
             

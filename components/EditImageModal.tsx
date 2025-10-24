@@ -1,31 +1,27 @@
 import React, { useState } from 'react';
-import { ImagePrompt } from '../types';
+import { ImagePrompt, Category } from '../types';
 import { CloseIcon } from './icons/CloseIcon';
 
 interface EditImageModalProps {
   image: ImagePrompt;
+  categories: Category[];
   onClose: () => void;
-  onUpdateImage: (image: Pick<ImagePrompt, 'id' | 'title' | 'prompt' | 'keywords'>) => void;
+  onUpdateImage: (image: Pick<ImagePrompt, 'id' | 'title' | 'prompt' | 'category_id'>) => void;
 }
 
-const EditImageModal: React.FC<EditImageModalProps> = ({ image, onClose, onUpdateImage }) => {
+const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onClose, onUpdateImage }) => {
   const [title, setTitle] = useState(image.title);
   const [prompt, setPrompt] = useState(image.prompt);
-  const [keywords, setKeywords] = useState(image.keywords.join(', '));
+  const [categoryId, setCategoryId] = useState<number | null | ''>(image.category_id || '');
   const [error, setError] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !prompt || !keywords) {
+    if (!title || !prompt || !categoryId) {
       setError('Vui lòng điền đầy đủ thông tin.');
       return;
     }
-    const keywordsArray = keywords.split(',').map(kw => kw.trim()).filter(Boolean);
-    if (keywordsArray.length === 0) {
-      setError('Vui lòng nhập ít nhất một từ khóa.');
-      return;
-    }
-    onUpdateImage({ id: image.id, title, prompt, keywords: keywordsArray });
+    onUpdateImage({ id: image.id, title, prompt, category_id: Number(categoryId) });
   };
 
   const formInputStyle = "w-full p-2.5 bg-cyber-surface border border-cyber-pink/20 placeholder-cyber-on-surface-secondary text-cyber-on-surface rounded-lg focus:ring-cyber-pink focus:border-cyber-pink transition";
@@ -58,13 +54,24 @@ const EditImageModal: React.FC<EditImageModalProps> = ({ image, onClose, onUpdat
             <label htmlFor="title-edit" className="block mb-2 text-sm font-medium text-cyber-on-surface">Tiêu đề</label>
             <input id="title-edit" type="text" value={title} onChange={(e) => setTitle(e.target.value)} className={formInputStyle} required />
           </div>
+           <div>
+            <label htmlFor="category-edit" className="block mb-2 text-sm font-medium text-cyber-on-surface">Chuyên mục</label>
+            <select
+                id="category-edit"
+                value={categoryId === null ? '' : categoryId}
+                onChange={(e) => setCategoryId(e.target.value ? Number(e.target.value) : '')}
+                className={formInputStyle}
+                required
+            >
+                <option value="" disabled>-- Chọn một chuyên mục --</option>
+                {categories.map(cat => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+            </select>
+          </div>
           <div>
             <label htmlFor="prompt-edit" className="block mb-2 text-sm font-medium text-cyber-on-surface">Câu Lệnh (Prompt)</label>
             <textarea id="prompt-edit" rows={4} value={prompt} onChange={(e) => setPrompt(e.target.value)} className={formInputStyle} placeholder="Một thành phố tương lai với những tòa nhà chọc trời..."></textarea>
-          </div>
-          <div>
-            <label htmlFor="keywords-edit" className="block mb-2 text-sm font-medium text-cyber-on-surface">Từ khóa (phân cách bằng dấu phẩy)</label>
-            <input id="keywords-edit" type="text" value={keywords} onChange={(e) => setKeywords(e.target.value)} className={formInputStyle} placeholder="sci-fi, city, neon, futuristic"/>
           </div>
 
           {error && <p className="text-sm text-red-400">{error}</p>}

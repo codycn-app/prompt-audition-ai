@@ -7,6 +7,7 @@ import { ImagePrompt } from '../types';
 import { getRankInfo } from '../lib/ranking';
 import { Page } from '../App';
 import { HeartIcon } from './icons/HeartIcon';
+import { TagIcon } from './icons/TagIcon';
 
 interface UserMenuProps {
   images: ImagePrompt[];
@@ -66,11 +67,11 @@ const UserMenu: React.FC<UserMenuProps> = ({ images, setCurrentPage }) => {
                 </p>
               </div>
               <button
-                onClick={() => { setCurrentPage('settings'); setIsMenuOpen(false); }}
+                onClick={() => { setCurrentPage('categories'); setIsMenuOpen(false); }}
                 className="flex items-center w-full px-4 py-2 text-sm text-left transition-colors text-cyber-on-surface hover:bg-cyber-pink/10"
               >
-                <GearIcon className="w-5 h-5 mr-3" />
-                Cài đặt tài khoản
+                <TagIcon className="w-5 h-5 mr-3" />
+                Chuyên mục
               </button>
               <button
                 onClick={() => { setCurrentPage('liked-images'); setIsMenuOpen(false); }}
@@ -78,6 +79,13 @@ const UserMenu: React.FC<UserMenuProps> = ({ images, setCurrentPage }) => {
               >
                 <HeartIcon className="w-5 h-5 mr-3" />
                 Ảnh đã thích
+              </button>
+              <button
+                onClick={() => { setCurrentPage('settings'); setIsMenuOpen(false); }}
+                className="flex items-center w-full px-4 py-2 text-sm text-left transition-colors text-cyber-on-surface hover:bg-cyber-pink/10"
+              >
+                <GearIcon className="w-5 h-5 mr-3" />
+                Cài đặt
               </button>
               {currentUser.role === 'admin' && (
                 <button

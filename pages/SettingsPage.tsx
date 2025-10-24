@@ -5,14 +5,19 @@ import { KeyIcon } from '../components/icons/KeyIcon';
 import { ShieldCheckIcon } from '../components/icons/ShieldCheckIcon';
 import RankManagement from '../components/RankManagement';
 import { supabase } from '../supabaseClient';
+import { Category } from '../types';
+import CategoryManagement from '../components/CategoryManagement';
+import { TagIcon } from '../components/icons/TagIcon';
 
 interface SettingsPageProps {
   showToast: (message: string) => void;
+  categories: Category[];
+  onUpdateCategories: () => void;
 }
 
-const SettingsPage: React.FC<SettingsPageProps> = ({ showToast }) => {
+const SettingsPage: React.FC<SettingsPageProps> = ({ showToast, categories, onUpdateCategories }) => {
   const { currentUser, updateProfile, changePassword } = useAuth();
-  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'rank-management'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'rank-management' | 'category-management'>('profile');
 
   if (!currentUser) return null;
 
@@ -107,20 +112,26 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ showToast }) => {
             style={{border: '1px solid transparent', background: 'linear-gradient(#1A1A1A, #1A1A1A) padding-box, linear-gradient(120deg, rgba(255, 0, 230, 0.4), rgba(0, 255, 255, 0.4)) border-box'}}
         >
             <div className="border-b border-cyber-pink/20 px-4">
-                <div className="flex -mb-px">
+                <div className="flex -mb-px overflow-x-auto">
                     <button className={`${tabBaseStyle} ${activeTab === 'profile' ? tabActiveStyle : tabInactiveStyle}`} onClick={() => { setActiveTab('profile'); setError(''); }}>
                         <UserCircleIcon className="w-5 h-5"/>
-                        Thông tin cá nhân
+                        Thông tin
                     </button>
                     <button className={`${tabBaseStyle} ${activeTab === 'security' ? tabActiveStyle : tabInactiveStyle}`} onClick={() => { setActiveTab('security'); setError(''); }}>
                         <KeyIcon className="w-5 h-5"/>
                         Bảo mật
                     </button>
                     {currentUser.role === 'admin' && (
+                        <>
+                         <button className={`${tabBaseStyle} ${activeTab === 'category-management' ? tabActiveStyle : tabInactiveStyle}`} onClick={() => { setActiveTab('category-management'); setError(''); }}>
+                            <TagIcon className="w-5 h-5"/>
+                            Chuyên mục
+                        </button>
                          <button className={`${tabBaseStyle} ${activeTab === 'rank-management' ? tabActiveStyle : tabInactiveStyle}`} onClick={() => { setActiveTab('rank-management'); setError(''); }}>
                             <ShieldCheckIcon className="w-5 h-5"/>
-                            Quản lý Cấp bậc
+                            Cấp bậc
                         </button>
+                        </>
                     )}
                 </div>
             </div>
@@ -182,6 +193,14 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ showToast }) => {
 
                 {activeTab === 'rank-management' && (
                     <RankManagement showToast={showToast} />
+                )}
+
+                {activeTab === 'category-management' && (
+                    <CategoryManagement 
+                        categories={categories}
+                        showToast={showToast}
+                        onUpdate={onUpdateCategories}
+                    />
                 )}
             </div>
         </div>

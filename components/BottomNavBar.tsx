@@ -3,9 +3,9 @@ import { Page } from '../App';
 import { HomeIcon } from './icons/HomeIcon';
 import { CrownIcon } from './icons/CrownIcon';
 import { PlusIcon } from './icons/PlusIcon';
-import { HeartIcon } from './icons/HeartIcon';
 import { UserCircleIcon } from './icons/UserCircleIcon';
 import { useAuth } from '../contexts/AuthContext';
+import { TagIcon } from './icons/TagIcon';
 
 interface BottomNavBarProps {
   currentPage: Page;
@@ -18,7 +18,7 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ currentPage, setCurrentPage
   const { currentUser } = useAuth();
 
   const handleNavigation = (page: Page) => {
-    if (!currentUser && page === 'profile') {
+    if (!currentUser && (page === 'profile' || page === 'categories')) {
         onLogin();
     } else {
         setCurrentPage(page);
@@ -52,7 +52,7 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ currentPage, setCurrentPage
           <PlusIcon className="w-8 h-8 text-white" />
         </button>
 
-        <NavButton page="support" label="Ủng hộ" icon={<HeartIcon className="w-6 h-6" />} />
+        <NavButton page="categories" label="Chuyên mục" icon={<TagIcon className="w-6 h-6" />} />
         <NavButton page="profile" label="Cá nhân" icon={<UserCircleIcon className="w-6 h-6" />} />
       </div>
     </div>
