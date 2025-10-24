@@ -7,7 +7,7 @@ export interface ImagePrompt {
   user_id: string; 
   likes: string[]; 
   views: number; 
-  profiles: { username: string; avatarUrl: string | null } | null;
+  profiles: User | null;
   comments_count: number;
   categories: Category[] | null;
 }
@@ -35,7 +35,13 @@ export interface Comment {
     text: string;
     created_at: string;
     image_id: number; // Added for relation to image
-    profiles?: { username: string; avatarUrl: string | null }; // For joined data
+    profiles?: { 
+        username: string; 
+        avatarUrl: string | null; 
+        role: 'admin' | 'user';
+        customTitle?: string;
+        customTitleColor?: string;
+    };
 }
 
 export interface Rank {

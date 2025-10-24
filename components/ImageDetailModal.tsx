@@ -34,17 +34,22 @@ const AuthorAvatar: React.FC<{ author: User | undefined | null }> = ({ author })
     );
 };
 
-const CommentSection: React.FC<{ comment: Comment }> = ({ comment }) => {
-    const { getUserById } = useAuth();
+const CommentSection: React.FC<{ comment: Comment; images: ImagePrompt[] }> = ({ comment, images }) => {
+    const { getUserById, ranks } = useAuth();
     // Use joined profile data if available, otherwise fall back to getUserById
-    const author = comment.profiles ? { username: comment.profiles.username, avatarUrl: comment.profiles.avatarUrl } : getUserById(comment.user_id);
+    const author = comment.profiles 
+        ? { ...comment.profiles, id: comment.user_id, email: '', created_at: '' } as User
+        : getUserById(comment.user_id);
+
+    const authorRankInfo = getRankInfo(author, images, ranks);
+    const { finalColor: rankColor } = authorRankInfo;
     
     return (
         <div className="flex items-start gap-3 py-3">
             <AuthorAvatar author={author as User} />
             <div className="flex-1">
                 <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-cyber-on-surface">{author?.username ?? 'Người dùng ẩn'}</span>
+                    <span className="text-sm font-semibold" style={{ color: rankColor }}>{author?.username ?? 'Người dùng ẩn'}</span>
                     <span className="text-xs text-cyber-on-surface-secondary">{new Date(comment.created_at).toLocaleDateString('vi-VN')}</span>
                 </div>
                 <p className="mt-1 text-sm text-cyber-on-surface-secondary">{comment.text}</p>
@@ -61,7 +66,7 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
   const [comments, setComments] = useState<Comment[]>([]);
   const [isCommentsLoading, setIsCommentsLoading] = useState(true);
 
-  const { getUserById, ranks } = useAuth();
+  const { ranks } = useAuth();
 
   useEffect(() => {
     const fetchComments = async () => {
@@ -69,7 +74,7 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
         setIsCommentsLoading(true);
         const { data, error } = await supabase
             .from('comments')
-            .select('*, profiles!user_id(username, avatarUrl)')
+            .select('*, profiles(*)')
             .eq('image_id', image.id)
             .order('created_at', { ascending: true });
 
@@ -89,8 +94,8 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
   const isAdmin = currentUser?.role === 'admin';
   const canEditOrDelete = isOwner || isAdmin;
 
-  const author = image.profiles ? { username: image.profiles.username, avatarUrl: image.profiles.avatarUrl } : getUserById(image.user_id);
-  const authorRankInfo = getRankInfo(author as User | null, images, ranks);
+  const author = image.profiles;
+  const authorRankInfo = getRankInfo(author, images, ranks);
   const { icon: rankIcon, name: rankName, className: rankClassName, finalColor: rankColor } = authorRankInfo;
 
   const handleCopyPrompt = () => {
@@ -124,6 +129,9 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
               profiles: {
                   username: currentUser.username,
                   avatarUrl: currentUser.avatarUrl || null,
+                  role: currentUser.role,
+                  customTitle: currentUser.customTitle,
+                  customTitleColor: currentUser.customTitleColor,
               }
           }
           setComments(prev => [...prev, newCommentWithProfile]);
@@ -136,11 +144,11 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
   return (
     <>
       <div 
-        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-lg animate-fade-in-scale"
+        className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-lg animate-fade-in-scale"
         onClick={onClose}
       >
         <div 
-          className="relative flex flex-col w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-xl shadow-2xl md:flex-row bg-cyber-surface/80 backdrop-blur-2xl shadow-cyber-glow-lg"
+          className="relative flex flex-col w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden rounded-xl shadow-2xl md:flex-row bg-cyber-surface/80 backdrop-blur-2xl shadow-cyber-glow-lg"
           onClick={(e) => e.stopPropagation()}
           style={{border: '1px solid transparent', background: 'linear-gradient(#1A1A1A, #1A1A1A) padding-box, linear-gradient(120deg, #FF00E6, #00FFFF) border-box'}}
         >
@@ -151,10 +159,10 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
           >
             <CloseIcon className="w-6 h-6" />
           </button>
-          <div className="relative flex-shrink-0 w-full bg-black md:w-3/5">
+          <div className="relative flex-shrink-0 w-full bg-black md:w-[60%] max-h-[60vh] md:max-h-none">
             <img src={image.image_url} alt={image.prompt} className="object-contain w-full h-full" />
           </div>
-          <div className="flex flex-col flex-grow p-6 space-y-4 overflow-y-auto custom-scrollbar">
+          <div className="flex flex-col flex-grow p-4 space-y-4 overflow-y-auto md:p-6 custom-scrollbar">
             {/* Title */}
             <div>
               <h2 className="text-2xl font-bold leading-tight font-oxanium text-cyber-on-surface">{image.title}</h2>
@@ -188,8 +196,10 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
             {/* Prompt */}
             <div>
               <h3 className="text-sm font-semibold tracking-wider uppercase text-cyber-pink">Câu Lệnh (Prompt)</h3>
-              <div className="pr-2 mt-2 max-h-20 overflow-y-auto custom-scrollbar">
-                <p className="text-base text-cyber-on-surface whitespace-pre-wrap">{image.prompt}</p>
+              <div className="p-3 mt-2 border rounded-lg bg-cyber-black/20 border-cyber-pink/20">
+                  <div className="pr-2 max-h-24 overflow-y-auto custom-scrollbar">
+                    <p className="text-sm text-cyber-on-surface-secondary whitespace-pre-wrap">{image.prompt}</p>
+                  </div>
               </div>
               <div className="flex justify-end mt-2">
                  <button
@@ -222,7 +232,7 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
                 <h3 className="text-sm font-semibold tracking-wider uppercase text-cyber-on-surface-secondary">Bình luận ({comments.length})</h3>
                 <div className="mt-2 space-y-2 pr-2 overflow-y-auto max-h-40 custom-scrollbar divide-y divide-cyber-pink/10">
                     {isCommentsLoading ? <p className="text-sm italic text-cyber-on-surface-secondary/70">Đang tải bình luận...</p> :
-                     comments.length > 0 ? comments.map(c => <CommentSection key={c.id} comment={c} />) : <p className="py-2 italic text-sm text-cyber-on-surface-secondary/70">Chưa có bình luận nào.</p>}
+                     comments.length > 0 ? comments.map(c => <CommentSection key={c.id} comment={c} images={images} />) : <p className="py-2 italic text-sm text-cyber-on-surface-secondary/70">Chưa có bình luận nào.</p>}
                 </div>
                 {currentUser && (
                     <form onSubmit={handleCommentSubmit} className="flex gap-2 mt-4">
