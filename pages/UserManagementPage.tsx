@@ -54,8 +54,8 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ users, images, 
                       return (
                         <tr key={user.id} className="border-b bg-cyber-surface/50 border-cyber-pink/10 hover:bg-cyber-surface/80">
                             <th scope="row" className="flex items-center px-6 py-4 font-medium whitespace-nowrap text-cyber-on-surface">
-                                {user.avatarUrl ? (
-                                    <img className="object-cover w-10 h-10 rounded-full" src={user.avatarUrl} alt={user.username}/>
+                                {user.avatar_url ? (
+                                    <img className="object-cover w-10 h-10 rounded-full" src={user.avatar_url} alt={user.username}/>
                                 ) : (
                                     <span className="flex items-center justify-center w-10 h-10 text-lg font-bold rounded-full bg-gradient-to-br from-cyber-pink to-cyber-cyan text-cyber-black">
                                         {user.username.charAt(0).toUpperCase()}

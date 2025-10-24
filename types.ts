@@ -8,7 +8,7 @@ export interface ImagePrompt {
   userId: string; 
   likes: string[]; 
   views: number; 
-  profiles?: { username: string; avatarUrl: string | null }; // For joined data
+  profiles?: { username: string; avatar_url: string | null }; // For joined data
   // FIX: Made comments optional as new images won't have this joined data.
   comments?: { count: number }[];
 }
@@ -21,7 +21,7 @@ export interface User {
   password?: string;
   customTitle?: string;
   customTitleColor?: string;
-  avatarUrl?: string; 
+  avatar_url?: string; 
   created_at: string; 
 }
 
@@ -36,7 +36,7 @@ export interface Comment {
     text: string;
     created_at: string;
     image_id: number; // Added for relation to image
-    profiles?: { username: string; avatarUrl: string | null }; // For joined data
+    profiles?: { username: string; avatar_url: string | null }; // For joined data
 }
 
 export interface Rank {

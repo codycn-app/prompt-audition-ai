@@ -85,8 +85,8 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({ users, images, curren
                                             {index + 1}
                                         </td>
                                         <th scope="row" className="flex items-center px-6 py-4 font-medium whitespace-nowrap text-cyber-on-surface">
-                                            {stat.user.avatarUrl ? (
-                                                <img className="object-cover w-10 h-10 rounded-full" src={stat.user.avatarUrl} alt={stat.user.username}/>
+                                            {stat.user.avatar_url ? (
+                                                <img className="object-cover w-10 h-10 rounded-full" src={stat.user.avatar_url} alt={stat.user.username}/>
                                             ) : (
                                                 <span className="flex items-center justify-center w-10 h-10 text-lg font-bold rounded-full bg-gradient-to-br from-cyber-pink to-cyber-cyan text-cyber-black">
                                                     {stat.user.username.charAt(0).toUpperCase()}

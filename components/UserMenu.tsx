@@ -40,8 +40,8 @@ const UserMenu: React.FC<UserMenuProps> = ({ images, setCurrentPage }) => {
       <div className="relative" ref={menuRef}>
         <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="flex items-center space-x-3 transition-opacity hover:opacity-80">
             <div className="flex-shrink-0">
-                {currentUser.avatarUrl ? (
-                    <img src={currentUser.avatarUrl} alt={currentUser.username} className="object-cover w-10 h-10 rounded-full" />
+                {currentUser.avatar_url ? (
+                    <img src={currentUser.avatar_url} alt={currentUser.username} className="object-cover w-10 h-10 rounded-full" />
                 ) : (
                     <span className="flex items-center justify-center w-10 h-10 text-lg font-bold rounded-full bg-gradient-to-br from-cyber-pink to-cyber-cyan text-cyber-black">
                         {currentUser.username.charAt(0).toUpperCase()}

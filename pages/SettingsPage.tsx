@@ -17,7 +17,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ showToast }) => {
 
   // Profile State
   const [username, setUsername] = useState(currentUser.username);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(currentUser.avatarUrl || null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(currentUser.avatar_url || null);
   
   // Security State
   const [oldPassword, setOldPassword] = useState('');
@@ -46,7 +46,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ showToast }) => {
     e.preventDefault();
     setError('');
     try {
-      updateProfile(currentUser.id, { username, avatarUrl: avatarPreview || undefined });
+      updateProfile(currentUser.id, { username, avatar_url: avatarPreview || undefined });
       showToast('Cập nhật thông tin thành công!');
     } catch (err: any) {
       setError(err.message);

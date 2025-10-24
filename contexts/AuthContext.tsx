@@ -13,8 +13,8 @@ interface AuthContextType {
   signup: (email: string, password: string, username: string) => Promise<void>;
   logout: () => Promise<void>;
   getUserById: (id: string) => User | undefined;
-  updateUserByAdmin: (userId: string, updates: Partial<Pick<User, 'username' | 'role' | 'customTitle' | 'customTitleColor' | 'avatarUrl'>>) => void;
-  updateProfile: (userId: string, updates: Partial<Pick<User, 'username' | 'avatarUrl'>>) => Promise<void>;
+  updateUserByAdmin: (userId: string, updates: Partial<Pick<User, 'username' | 'role' | 'customTitle' | 'customTitleColor' | 'avatar_url'>>) => void;
+  updateProfile: (userId: string, updates: Partial<Pick<User, 'username' | 'avatar_url'>>) => Promise<void>;
   changePassword: (newPass: string) => Promise<void>;
   updateRanks: (newRanks: Rank[]) => void;
 }
@@ -133,7 +133,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setCurrentUser(null);
   };
   
-  const updateUserByAdmin = async (userId: string, updates: Partial<Pick<User, 'username' | 'role' | 'customTitle' | 'customTitleColor' | 'avatarUrl'>>) => {
+  const updateUserByAdmin = async (userId: string, updates: Partial<Pick<User, 'username' | 'role' | 'customTitle' | 'customTitleColor' | 'avatar_url'>>) => {
     if (currentUser?.role !== 'admin') {
       throw new Error('Chỉ quản trị viên mới có quyền thực hiện hành động này.');
     }
@@ -145,7 +145,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setUsers(prevUsers => prevUsers.map(u => u.id === userId ? { ...u, ...updates } : u));
   };
 
-  const updateProfile = async (userId: string, updates: Partial<Pick<User, 'username' | 'avatarUrl'>>) => {
+  const updateProfile = async (userId: string, updates: Partial<Pick<User, 'username' | 'avatar_url'>>) => {
     if (currentUser?.id !== userId) {
       throw new Error('Bạn không có quyền chỉnh sửa thông tin người dùng này.');
     }
