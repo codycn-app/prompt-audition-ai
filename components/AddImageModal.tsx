@@ -147,13 +147,13 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
         const fileExt = imageFile.name.split('.').pop();
         const filePath = `${currentUser.id}/${Date.now()}.${fileExt}`;
         const { error: uploadError } = await supabase.storage
-            .from('images')
+            .from('avatars') // FIX: Changed bucket from 'images' to 'avatars'
             .upload(filePath, imageFile);
 
         if (uploadError) throw new Error(`Lỗi tải ảnh lên: ${uploadError.message}`);
 
         // 2. Get public URL
-        const { data: urlData } = supabase.storage.from('images').getPublicUrl(filePath);
+        const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(filePath); // FIX: Changed bucket from 'images' to 'avatars'
         if (!urlData) throw new Error("Không thể lấy URL của ảnh.");
         const imageUrl = urlData.publicUrl;
         
