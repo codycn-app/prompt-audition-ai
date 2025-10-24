@@ -27,7 +27,7 @@ export const getRankInfo = (user: User | null | undefined, allImages: ImagePromp
         };
     }
 
-    const postCount = allImages.filter(img => img.userId === user.id).length;
+    const postCount = allImages.filter(img => img.user_id === user.id).length;
 
     if (user.role === 'admin') {
         const adminRank = ranks.find(r => r.requiredPosts === -1) || { ...defaultRank, name: 'Quản trị viên', color: '#FF4141' };

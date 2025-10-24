@@ -38,7 +38,7 @@ const AuthorAvatar: React.FC<{ author: User | undefined | null }> = ({ author })
 const CommentSection: React.FC<{ comment: Comment }> = ({ comment }) => {
     const { getUserById } = useAuth();
     // Use joined profile data if available, otherwise fall back to getUserById
-    const author = comment.profiles ? { username: comment.profiles.username, avatar_url: comment.profiles.avatar_url } : getUserById(comment.userId);
+    const author = comment.profiles ? { username: comment.profiles.username, avatar_url: comment.profiles.avatar_url } : getUserById(comment.user_id);
     
     return (
         <div className="flex items-start gap-3 py-3">
@@ -70,7 +70,7 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
         setIsCommentsLoading(true);
         const { data, error } = await supabase
             .from('comments')
-            .select('*, profiles!userId(username, avatar_url)')
+            .select('*, profiles!user_id(username, avatar_url)')
             .eq('image_id', image.id)
             .order('created_at', { ascending: true });
 
@@ -86,11 +86,11 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
     fetchComments();
   }, [image.id, showToast]);
   
-  const isOwner = currentUser && currentUser.id === image.userId;
+  const isOwner = currentUser && currentUser.id === image.user_id;
   const isAdmin = currentUser?.role === 'admin';
   const canEditOrDelete = isOwner || isAdmin;
 
-  const author = image.profiles ? { username: image.profiles.username, avatar_url: image.profiles.avatar_url } : getUserById(image.userId);
+  const author = image.profiles ? { username: image.profiles.username, avatar_url: image.profiles.avatar_url } : getUserById(image.user_id);
   const authorRankInfo = getRankInfo(author as User | null, images, ranks);
   const { icon: rankIcon, name: rankName, className: rankClassName, finalColor: rankColor } = authorRankInfo;
 
@@ -110,7 +110,7 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
       const newComment = {
           text: commentText.trim(),
           image_id: image.id,
-          userId: currentUser.id,
+          user_id: currentUser.id,
       };
 
       const { data, error } = await supabase.from('comments').insert(newComment).select().single();

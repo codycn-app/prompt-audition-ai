@@ -27,7 +27,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({ users, images, curren
     const { ranks } = useAuth();
 
     const userStats: UserStats[] = users.map(user => {
-        const userImages = images.filter(img => img.userId === user.id);
+        const userImages = images.filter(img => img.user_id === user.id);
         const totalPosts = userImages.length;
         const totalLikes = userImages.reduce((sum, img) => sum + img.likes.length, 0);
         // FIX: Use optional chaining since comments can be undefined.

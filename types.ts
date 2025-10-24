@@ -5,7 +5,7 @@ export interface ImagePrompt {
   prompt: string;
   keywords: string[];
   created_at: string;
-  userId: string; 
+  user_id: string; 
   likes: string[]; 
   views: number; 
   profiles?: { username: string; avatar_url: string | null }; // For joined data
@@ -32,7 +32,7 @@ export interface Category {
 
 export interface Comment {
     id: number;
-    userId: string; // Changed from number to string for Supabase UUID
+    user_id: string; // Changed from number to string for Supabase UUID
     text: string;
     created_at: string;
     image_id: number; // Added for relation to image

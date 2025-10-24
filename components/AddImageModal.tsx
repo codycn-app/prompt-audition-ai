@@ -190,7 +190,7 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
             prompt,
             keywords: generatedKeywords,
             imageUrl,
-            userId: currentUser.id,
+            user_id: currentUser.id,
             likes: [],
             views: 0,
         };

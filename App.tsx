@@ -48,7 +48,7 @@ const App: React.FC = () => {
     setIsLoading(true);
     const { data, error } = await supabase
       .from('images')
-      .select('*, profiles!userId(username, avatar_url), comments(count)')
+      .select('*, profiles!user_id(username, avatar_url), comments(count)')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -178,7 +178,7 @@ const App: React.FC = () => {
     const image = images.find(img => img.id === id);
     if (!image) return;
 
-    if (!currentUser || (image.userId !== currentUser.id && currentUser.role !== 'admin')) {
+    if (!currentUser || (image.user_id !== currentUser.id && currentUser.role !== 'admin')) {
         showToast('Bạn không có quyền xóa ảnh này.');
         return;
     }
