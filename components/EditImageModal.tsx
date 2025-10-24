@@ -43,15 +43,33 @@ const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onCl
     setError('');
 
     try {
-        // Call the RPC function with corrected parameter names.
-        const { error: rpcError } = await supabase.rpc('update_image_with_categories', {
-            image_id: image.id,
-            title_text: title,
-            prompt_text: prompt,
-            category_ids: selectedCategoryIds
-        });
+        // Step 1: Update the main image details in the 'images' table.
+        const { error: updateError } = await supabase
+            .from('images')
+            .update({ title, prompt })
+            .eq('id', image.id);
+
+        if (updateError) throw updateError;
+
+        // Step 2: Delete existing category links for this image from the join table.
+        const { error: deleteError } = await supabase
+            .from('image_categories')
+            .delete()
+            .eq('image_id', image.id);
         
-        if (rpcError) throw rpcError;
+        if (deleteError) throw deleteError;
+
+        // Step 3: Insert new category links into the join table.
+        const newCategoryLinks = selectedCategoryIds.map(catId => ({
+            image_id: image.id,
+            category_id: catId
+        }));
+        
+        const { error: insertError } = await supabase
+            .from('image_categories')
+            .insert(newCategoryLinks);
+            
+        if (insertError) throw insertError;
 
         onUpdateImage();
     } catch (err: any) {

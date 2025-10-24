@@ -113,7 +113,7 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
             .insert({
                 title: title,
                 prompt: prompt,
-                imageUrl: publicUrl, // Use correct camelCase column name
+                imageUrl: publicUrl, // Definitive fix: Use correct camelCase column name
                 user_id: currentUser.id,
                 likes: [],
                 views: 0
@@ -149,7 +149,6 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
             await supabase.storage.from('images').remove([imagePath]);
         }
         if (newImageId) {
-            // Also need to clean up join table entries if they were partially successful, though unlikely.
             await supabase.from('image_categories').delete().eq('image_id', newImageId);
             await supabase.from('images').delete().eq('id', newImageId);
         }
