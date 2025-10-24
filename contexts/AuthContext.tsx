@@ -98,26 +98,41 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (existingUser) {
       throw new Error('Tên tài khoản này đã được sử dụng.');
     }
-    if (usernameError && usernameError.code !== 'PGRST116') { // PGRST116: no rows found
-        throw new Error(usernameError.message);
+    if (usernameError && usernameError.code !== 'PGRST116') { // PGRST116 means no rows found, which is good
+        throw new Error(`Lỗi kiểm tra tên tài khoản: ${usernameError.message}`);
     }
 
-    const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) throw new Error(error.message);
-    if (!data.user) throw new Error('Đăng ký thất bại, vui lòng thử lại.');
+    // Step 1: Create the user in Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
+    if (authError) throw new Error(authError.message);
+    if (!authData.user) throw new Error('Đăng ký thất bại, vui lòng thử lại.');
 
-    // FINAL FIX: Create a profile for the new user with ONLY valid columns.
-    const { error: profileError } = await supabase.from('profiles').insert({
-      id: data.user.id,
-      username: username
-    });
+    // Step 2: Create a corresponding profile in the public.profiles table
+    const newProfileData = {
+      id: authData.user.id,
+      username: username,
+    };
+
+    const { data: insertedProfile, error: profileError } = await supabase
+      .from('profiles')
+      .insert(newProfileData)
+      .select() // Ask Supabase to return the newly created row
+      .single();
 
     if (profileError) {
-        // This is tricky. User is created in auth, but profile failed.
-        // For a real app, you'd want a cleanup mechanism.
-        // We log the error to the console for debugging.
-        console.error("Critical signup error: ", profileError);
-        throw new Error(`Tạo tài khoản thành công nhưng không thể tạo hồ sơ: ${profileError.message}`);
+      // This is a critical state. The auth user was created, but the profile failed.
+      // In a production app, you might want to add a cleanup function to delete the auth user.
+      console.error("Critical signup error: Could not create user profile.", profileError);
+      throw new Error(`Tạo tài khoản thành công nhưng không thể tạo hồ sơ: ${profileError.message}`);
+    }
+    
+    // Step 3: Update the local user cache for immediate UI updates
+    if (insertedProfile) {
+        const fullNewUser: User = { 
+            ...(insertedProfile as Omit<User, 'email'>),
+            email: authData.user.email!,
+        };
+        setUsers(prevUsers => [...prevUsers, fullNewUser]);
     }
   };
 
