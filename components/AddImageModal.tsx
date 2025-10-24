@@ -87,16 +87,14 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
         setError('Vui lòng chọn một ảnh trước.');
         return;
     }
-    // FIX: Replaced `import.meta.env.VITE_API_KEY` with `process.env.API_KEY` to align with guidelines and fix TypeScript error.
-    if (!process.env.API_KEY) {
+    if (!import.meta.env.VITE_API_KEY) {
         setError('Lỗi cấu hình: API Key chưa được thiết lập.');
         return;
     }
     setIsGenerating(true);
     setError('');
     try {
-        // FIX: Replaced `import.meta.env.VITE_API_KEY` with `process.env.API_KEY` to align with guidelines and fix TypeScript error.
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
 
         const base64Data = await blobToBase64(imageFile);
         
@@ -136,8 +134,7 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
       setError('Vui lòng điền tiêu đề, tải ảnh lên và nhập câu lệnh.');
       return;
     }
-    // FIX: Replaced `import.meta.env.VITE_API_KEY` with `process.env.API_KEY` to align with guidelines and fix TypeScript error.
-    if (!process.env.API_KEY) {
+    if (!import.meta.env.VITE_API_KEY) {
         setError('Lỗi cấu hình: API Key chưa được thiết lập. Không thể lưu.');
         return;
     }
@@ -161,8 +158,7 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
         const imageUrl = urlData.publicUrl;
         
         // 3. Generate keywords with AI
-        // FIX: Replaced `import.meta.env.VITE_API_KEY` with `process.env.API_KEY` to align with guidelines and fix TypeScript error.
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
         const base64Data = await blobToBase64(imageFile);
         
         const imagePart = { inlineData: { mimeType: imageFile.type, data: base64Data } };

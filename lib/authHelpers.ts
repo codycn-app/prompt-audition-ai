@@ -17,7 +17,7 @@ export const createNewUserProfile = async (userId: string, username: string, ema
   };
 
   // DIAGNOSTIC LOG: This is the definitive check to see if the new code is running.
-  console.log('>>> RUNNING NEW PROFILE CREATION V2 <<<', profilePayload);
+  console.log('>>> RUNNING BUILD_FIX_V3 <<<', profilePayload);
 
   const { error: profileError } = await supabase.from('profiles').insert(profilePayload);
 
