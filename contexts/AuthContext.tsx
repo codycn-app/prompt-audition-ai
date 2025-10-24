@@ -88,59 +88,42 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const signup = async (email: string, password: string, username: string): Promise<void> => {
-    // Check if username is taken first
-    const { data: existingUser, error: usernameError } = await supabase
-      .from('profiles')
-      .select('username')
-      .eq('username', username)
-      .single();
-
-    if (existingUser) {
-      throw new Error('Tên tài khoản này đã được sử dụng.');
-    }
-    if (usernameError && usernameError.code !== 'PGRST116') { // PGRST116: no rows found
-        throw new Error(`Lỗi kiểm tra tên tài khoản: ${usernameError.message}`);
-    }
-
-    // Step 1: Sign up the user in Supabase Auth
-    const { data: authData, error: signUpError } = await supabase.auth.signUp({
+    // This is the standard, robust way to handle sign-ups with profiles.
+    // We pass the username as metadata, and a database trigger will create the profile.
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        data: {
+          username: username,
+          // You can add a default avatar here if you want
+          // avatar_url: 'https://....'
+        }
+      }
     });
 
-    if (signUpError) {
-      throw new Error(`Lỗi đăng ký: ${signUpError.message}`);
+    if (error) {
+      if (error.message.includes('User already registered')) {
+        throw new Error('Email này đã được sử dụng.');
+      }
+      throw new Error(`Lỗi đăng ký: ${error.message}`);
     }
-    if (!authData.user) {
-      throw new Error('Đăng ký không thành công, không nhận được thông tin người dùng.');
+
+    if (!data.user) {
+      throw new Error('Đăng ký không thành công, vui lòng thử lại.');
     }
     
-    // Step 2: Create the user's profile in the 'profiles' table.
-    // This is the CRITICAL part.
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .insert({
-        id: authData.user.id, // Use the ID from the newly created auth user
-        username: username,
-        email: email
-        // We DO NOT send `created_at`. The database will handle it with DEFAULT now().
-      });
-
-    if (profileError) {
-      // This provides a much clearer error message if something goes wrong here.
-      // This could be due to RLS policies.
-      throw new Error(`Tạo tài khoản thành công nhưng không thể tạo hồ sơ: ${profileError.message}`);
-    }
-
-    // Manually add the new user to the local state to update the UI immediately
+    // After sign up, the onAuthStateChange listener will automatically fetch the new profile.
+    // We can also manually add the user to the local cache for instant UI updates.
     const newUserProfile: User = {
-        id: authData.user.id,
+        id: data.user.id,
         email: email,
         username: username,
         role: 'user',
-        created_at: new Date().toISOString(), // Use current time for immediate UI update
+        created_at: new Date().toISOString(),
     };
     setUsers(prevUsers => [...prevUsers, newUserProfile]);
+
   };
 
 
