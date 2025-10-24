@@ -90,37 +90,71 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
     setIsSaving(true);
     setError('');
 
+    let imagePath = '';
+    let newImageId: number | null = null;
+
     try {
+        // 1. Upload image file
         const fileExt = imageFile.name.split('.').pop();
-        const filePath = `${currentUser.id}/${Date.now()}.${fileExt}`;
+        imagePath = `${currentUser.id}/${Date.now()}.${fileExt}`;
         
         const { error: uploadError } = await supabase.storage
             .from('images')
-            .upload(filePath, imageFile);
+            .upload(imagePath, imageFile);
         if (uploadError) throw uploadError;
 
-        const { data: urlData } = supabase.storage.from('images').getPublicUrl(filePath);
+        const { data: urlData } = supabase.storage.from('images').getPublicUrl(imagePath);
         if (!urlData) throw new Error("Không thể lấy URL của ảnh.");
-        
-        // Call the RPC function
-        const { error: rpcError } = await supabase.rpc('create_image_with_categories', {
-            title_text: title,
-            prompt_text: prompt,
-            image_url_text: urlData.publicUrl,
-            category_ids: selectedCategoryIds
-        });
 
-        if (rpcError) throw rpcError;
+        // 2. Insert into 'images' table, explicitly setting user_id to satisfy RLS
+        const { data: newImageData, error: insertImageError } = await supabase
+            .from('images')
+            .insert({
+                title: title,
+                prompt: prompt,
+                imageUrl: urlData.publicUrl,
+                user_id: currentUser.id
+            })
+            .select('id')
+            .single();
+
+        if (insertImageError) throw insertImageError;
+        if (!newImageData) throw new Error('Không thể tạo bản ghi ảnh mới.');
+        
+        newImageId = newImageData.id;
+
+        // 3. Insert into 'image_categories' junction table
+        const imageCategoryRelations = selectedCategoryIds.map(categoryId => ({
+            image_id: newImageId,
+            category_id: categoryId
+        }));
+        
+        const { error: insertCategoriesError } = await supabase
+            .from('image_categories')
+            .insert(imageCategoryRelations);
+            
+        if (insertCategoriesError) throw insertCategoriesError;
 
         onAddImage();
 
     } catch (err: any) {
-        console.error("Error adding image via RPC:", err);
+        console.error("Error adding image:", err);
         setError(`Lỗi từ server: ${err.message}` || 'Đã có lỗi xảy ra. Vui lòng thử lại.');
+
+        // Cleanup on failure to prevent orphaned data
+        if (newImageId) {
+            // Attempt to delete the orphaned image record from the table
+            await supabase.from('images').delete().eq('id', newImageId);
+        }
+        if (imagePath) {
+            // Attempt to delete the orphaned file from storage
+            await supabase.storage.from('images').remove([imagePath]);
+        }
     } finally {
         setIsSaving(false);
     }
   };
+
 
   const formInputStyle = "w-full p-2.5 bg-cyber-surface border border-cyber-pink/20 placeholder-cyber-on-surface-secondary text-cyber-on-surface rounded-lg focus:ring-cyber-pink focus:border-cyber-pink transition";
   const dropzoneBaseClasses = "flex flex-col items-center justify-center w-full transition-colors border-2 border-dashed rounded-lg cursor-pointer h-52";
