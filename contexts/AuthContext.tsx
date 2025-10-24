@@ -88,6 +88,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const signup = async (email: string, password: string, username: string): Promise<void> => {
+    // 1. Check if username already exists
     const { data: existingUser, error: usernameError } = await supabase
       .from('profiles')
       .select('username')
@@ -97,17 +98,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (existingUser) {
       throw new Error('Tên tài khoản này đã được sử dụng.');
     }
-    if (usernameError && usernameError.code !== 'PGRST116') {
+    // Ignore the error that means "no rows found", which is what we want
+    if (usernameError && usernameError.code !== 'PGRST116') { 
         throw new Error(`Lỗi kiểm tra tên tài khoản: ${usernameError.message}`);
     }
 
+    // 2. Sign up the user with Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
     if (authError) throw new Error(authError.message);
     if (!authData.user) throw new Error('Đăng ký thất bại, vui lòng thử lại.');
 
+    // 3. Create the profile in the 'profiles' table with ONLY valid columns
     const newProfileData = {
       id: authData.user.id,
       username: username,
+      // DO NOT include 'createdAt' or any other columns not in the 'profiles' table
     };
 
     const { data: insertedProfile, error: profileError } = await supabase
@@ -118,9 +123,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     if (profileError) {
       console.error("Critical signup error: Could not create user profile.", profileError);
+      // This error message is what you are seeing. It means the insert operation failed.
       throw new Error(`Tạo tài khoản thành công nhưng không thể tạo hồ sơ: ${profileError.message}`);
     }
     
+    // 4. Update local state cache with the new user
     if (insertedProfile) {
         const fullNewUser: User = { 
             ...(insertedProfile as Omit<User, 'email'>),
