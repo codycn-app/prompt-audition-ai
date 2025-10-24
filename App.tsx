@@ -29,7 +29,7 @@ export type Page = 'home' | 'settings' | 'user-management' | 'liked-images' | 'l
 const App: React.FC = () => {
   const [images, setImages] = useState<ImagePrompt[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [theme, setTheme] = useTheme();
+  const [setTheme] = useTheme();
   const { currentUser, users } = useAuth();
   
   const [selectedImage, setSelectedImage] = useState<ImagePrompt | null>(null);

@@ -1,25 +1,25 @@
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 
 type Theme = 'light' | 'dark';
 
-// This function directly manipulates the DOM.
-// It's self-contained and free from React's lifecycle.
+// This function directly manipulates the DOM. It is self-contained.
 const applyThemeToDom = (theme: Theme) => {
     const root = window.document.documentElement;
     root.classList.remove('light', 'dark');
     root.classList.add(theme);
 };
 
-// --- CRITICAL FIX ---
-// Initialize the theme immediately when the script is loaded, even before React renders.
-// This prevents any "flash of incorrect theme" and decouples the initial setup
-// from the React component lifecycle, which was the source of the infinite loop.
+// --- DEFINITIVE FIX FOR BLACK SCREEN ---
+// This script runs immediately when the file is loaded, BEFORE React even starts rendering.
+// It sets the theme based on localStorage, preventing any "flash of incorrect theme"
+// and completely avoiding React's lifecycle for the initial setup.
+// This makes an infinite loop impossible during app initialization.
 try {
-    const storedTheme = window.localStorage.getItem('theme');
+    const storedTheme = window.localStorage.getItem('theme') as Theme | null;
     if (storedTheme === 'light' || storedTheme === 'dark') {
         applyThemeToDom(storedTheme);
     } else {
-        // If no theme is stored, default to dark and save it.
+        // Default to 'dark' if nothing is stored or value is invalid.
         applyThemeToDom('dark');
         window.localStorage.setItem('theme', 'dark');
     }
@@ -29,37 +29,22 @@ try {
     applyThemeToDom('dark');
 }
 
-
-// The custom hook now serves to sync a React state with the theme and provide a safe way to update it.
-export function useTheme(): [Theme, (theme: Theme) => void] {
-    // The state is initialized from localStorage, ensuring it's consistent with the initial DOM state.
-    const [theme, setThemeState] = useState<Theme>(() => {
-        try {
-            const storedTheme = window.localStorage.getItem('theme');
-            return (storedTheme === 'light' || storedTheme === 'dark') ? storedTheme : 'dark';
-        } catch {
-            return 'dark';
-        }
-    });
-
-    // The function to change the theme is memoized with useCallback.
-    // It updates localStorage, applies the theme to the DOM, and updates the React state.
+// The custom hook is now extremely simple. It does NOT use useState.
+// It only provides a stable function to CHANGE the theme. This function
+// does not trigger any React re-renders, breaking the infinite loop chain.
+export function useTheme(): [(theme: Theme) => void] {
     const setTheme = useCallback((newTheme: Theme) => {
         try {
             // Persist to localStorage first.
             window.localStorage.setItem('theme', newTheme);
             // Apply class to the DOM.
             applyThemeToDom(newTheme);
-            // Finally, update React state to trigger re-renders in components that depend on it.
-            setThemeState(newTheme);
         } catch (error) {
             console.error('Failed to save theme', error);
         }
     }, []);
 
-    // No useEffect is needed anymore, which was the primary source of the render loop.
-    // The initial theme is set synchronously above, and subsequent changes are handled atomically
-    // by the stable `setTheme` function.
-
-    return [theme, setTheme];
+    // We no longer return the theme state from this hook. No component currently needs it.
+    // The styling is handled entirely by the class on the <html> tag.
+    return [setTheme];
 }
