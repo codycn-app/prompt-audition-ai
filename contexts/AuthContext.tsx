@@ -106,17 +106,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (error) throw new Error(error.message);
     if (!data.user) throw new Error('Đăng ký thất bại, vui lòng thử lại.');
 
-    // Create a profile for the new user
+    // QUAN TRỌNG: TẠO HỒ SƠ NGƯỜI DÙNG
+    // Payload được gửi đến Supabase để chèn vào bảng `profiles` chỉ chứa những trường cần thiết.
+    // Chúng ta KHÔNG BAO GIỜ gửi trường `createdAt` hay `created_at` từ phía client.
+    // Lý do: Cột `created_at` trong database đã được thiết lập với giá trị `DEFAULT now()`.
+    // Điều này có nghĩa là Supabase sẽ tự động điền thời gian hiện tại vào cột đó khi một dòng mới được tạo.
+    // Việc này giúp tránh hoàn toàn lỗi "column not found" do cache hoặc sự không nhất quán về tên (createdAt vs created_at).
     const { error: profileError } = await supabase.from('profiles').insert({
       id: data.user.id,
       username: username,
-      email: email, // You might want to store email here too for easier access
+      email: email,
       role: 'user',
     });
 
     if (profileError) {
-        // This is tricky. User is created in auth, but profile failed.
-        // For a real app, you'd want a cleanup mechanism.
+        // Lỗi này xảy ra khi user được tạo trong `auth` nhưng tạo profile trong `database` thất bại.
+        // Nguyên nhân có thể là do RLS (Row Level Security) chưa được cấu hình đúng.
+        // Cần có một Policy cho phép người dùng đã xác thực (authenticated users) có thể INSERT vào bảng profiles.
         throw new Error(`Tạo tài khoản thành công nhưng không thể tạo hồ sơ: ${profileError.message}`);
     }
   };
