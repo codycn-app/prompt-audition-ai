@@ -90,7 +90,6 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
     setIsSaving(true);
     setError('');
     let imagePath = '';
-    let publicUrl = '';
 
     try {
         // Step 1: Upload image file to storage.
@@ -104,42 +103,18 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
 
         const { data: urlData } = supabase.storage.from('images').getPublicUrl(imagePath);
         if (!urlData) throw new Error("Không thể lấy URL của ảnh.");
-        publicUrl = urlData.publicUrl;
+        const publicUrl = urlData.publicUrl;
 
-        // Step 2: Insert image metadata into the 'images' table.
-        const { data: newImageData, error: insertImageError } = await supabase
-          .from('images')
-          .insert({
-            title: title,
-            prompt: prompt,
-            imageUrl: publicUrl, // Using the correct camelCase column name
-            user_id: currentUser.id,
-            likes: [],
-            views: 0
-          })
-          .select('id')
-          .single();
+        // Step 2: Call the RPC function to insert image and categories in one transaction.
+        // This is the definitive fix for the RLS issue.
+        const { error: rpcError } = await supabase.rpc('add_image_with_categories', {
+            p_title: title,
+            p_prompt: prompt,
+            p_image_url: publicUrl,
+            p_category_ids: selectedCategoryIds
+        });
 
-        if (insertImageError) throw insertImageError;
-        if (!newImageData) throw new Error("Không thể lấy ID của ảnh vừa tạo.");
-
-        // Step 3: Insert relationships into the 'image_categories' join table.
-        if (selectedCategoryIds.length > 0) {
-            const imageCategoryRelations = selectedCategoryIds.map(catId => ({
-                image_id: newImageData.id,
-                category_id: catId,
-            }));
-
-            const { error: relationError } = await supabase
-                .from('image_categories')
-                .insert(imageCategoryRelations);
-
-            if (relationError) {
-                // If linking categories fails, attempt to clean up by deleting the created image.
-                await supabase.from('images').delete().eq('id', newImageData.id);
-                throw relationError;
-            }
-        }
+        if (rpcError) throw rpcError;
         
         onAddImage();
 
@@ -148,7 +123,7 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
         setError(`Lỗi từ server: ${err.message}` || 'Đã có lỗi xảy ra. Vui lòng thử lại.');
 
         // Cleanup: If any step fails after upload, remove the uploaded file.
-        if (publicUrl) {
+        if (imagePath) {
             await supabase.storage.from('images').remove([imagePath]);
         }
     } finally {

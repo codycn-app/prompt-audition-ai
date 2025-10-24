@@ -43,34 +43,16 @@ const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onCl
     setError('');
 
     try {
-        // Step 1: Update the image details in the 'images' table.
-        const { error: updateError } = await supabase
-            .from('images')
-            .update({ title, prompt })
-            .eq('id', image.id);
+        // Call the RPC function to handle the update transactionally.
+        // This is the definitive fix for the RLS issue.
+        const { error: rpcError } = await supabase.rpc('update_image_with_categories', {
+            p_image_id: image.id,
+            p_title: title,
+            p_prompt: prompt,
+            p_category_ids: selectedCategoryIds
+        });
         
-        if (updateError) throw updateError;
-        
-        // Step 2: Delete all existing category relations for this image.
-        const { error: deleteError } = await supabase
-            .from('image_categories')
-            .delete()
-            .eq('image_id', image.id);
-            
-        if (deleteError) throw deleteError;
-        
-        // Step 3: Insert the new category relations.
-        if (selectedCategoryIds.length > 0) {
-            const newRelations = selectedCategoryIds.map(catId => ({
-                image_id: image.id,
-                category_id: catId
-            }));
-            const { error: insertError } = await supabase
-                .from('image_categories')
-                .insert(newRelations);
-            
-            if (insertError) throw insertError;
-        }
+        if (rpcError) throw rpcError;
 
         onUpdateImage();
     } catch (err: any) {

@@ -75,13 +75,12 @@ const App: React.FC = () => {
         setCategories(categoriesData as Category[]);
     }
 
-    // Definitive fix: Use direct query to bypass failing RPC and schema issues.
-    // This assumes relationships are set up in Supabase.
+    // Definitive fix for ambiguous relationship: specify the foreign key column.
     const { data: imagesData, error: imagesError } = await supabase
       .from('images')
       .select(`
         *,
-        profiles ( username, avatar_url ),
+        profiles!user_id ( username, avatar_url ),
         categories ( id, name ),
         comments ( count )
       `)
