@@ -52,7 +52,7 @@ const App: React.FC = () => {
     setIsLoading(true);
     const { data, error } = await supabase
       .from('images')
-      .select('*, profiles(username, avatar_url), comments(count)')
+      .select('*, profiles!userId(username, avatar_url), comments(count)')
       .order('created_at', { ascending: false });
 
     if (error) {

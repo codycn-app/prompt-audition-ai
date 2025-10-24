@@ -70,7 +70,7 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
         setIsCommentsLoading(true);
         const { data, error } = await supabase
             .from('comments')
-            .select('*, profiles(username, avatar_url)')
+            .select('*, profiles!userId(username, avatar_url)')
             .eq('image_id', image.id)
             .order('created_at', { ascending: true });
 
