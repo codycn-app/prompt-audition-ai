@@ -113,7 +113,7 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
             .insert({
                 title: title,
                 prompt: prompt,
-                imageUrl: publicUrl, // Definitive fix: Use correct camelCase column name
+                image_url: publicUrl, // Definitive fix: Use correct snake_case column name
                 user_id: currentUser.id,
                 likes: [],
                 views: 0

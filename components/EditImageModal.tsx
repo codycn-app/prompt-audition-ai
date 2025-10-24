@@ -104,7 +104,7 @@ const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onCl
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto max-h-[80vh] custom-scrollbar">
           <div>
-            <img src={image.imageUrl} alt="Preview" className="object-contain w-full rounded-lg max-h-60" />
+            <img src={image.image_url} alt="Preview" className="object-contain w-full rounded-lg max-h-60" />
           </div>
           <div>
             <label htmlFor="title-edit" className="block mb-2 text-sm font-medium text-cyber-on-surface">Tiêu đề</label>

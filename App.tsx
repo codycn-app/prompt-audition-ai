@@ -210,8 +210,8 @@ const App: React.FC = () => {
 
     const bucketName = 'images';
 
-    if (imageToDelete.imageUrl) {
-        const imagePath = imageToDelete.imageUrl.split(`/${bucketName}/`)[1];
+    if (imageToDelete.image_url) {
+        const imagePath = imageToDelete.image_url.split(`/${bucketName}/`)[1];
         if (imagePath) {
             await supabase.storage.from(bucketName).remove([imagePath]);
         }

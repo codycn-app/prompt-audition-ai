@@ -20,7 +20,7 @@ const ImageCard: React.FC<ImageCardProps> = ({ image, onClick, currentUser }) =>
       style={{ breakInside: 'avoid' }}
     >
       <img
-        src={image.imageUrl}
+        src={image.image_url}
         alt={image.prompt.substring(0, 30)}
         className="object-cover w-full transition-transform duration-500 group-hover:scale-105"
         loading="lazy"
