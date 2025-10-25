@@ -10,6 +10,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { getRankInfo } from '../lib/ranking';
 import { ShareIcon } from './icons/ShareIcon';
 import { supabase } from '../supabaseClient';
+import { useToast } from '../contexts/ToastContext';
 
 interface ImageDetailModalProps {
   image: ImagePrompt;
@@ -17,9 +18,8 @@ interface ImageDetailModalProps {
   onClose: () => void;
   onRequestDelete: () => void;
   onRequestEdit: (image: ImagePrompt) => void;
-  onCopyPrompt: (prompt: string) => void;
+  onCopyPrompt: (prompt: string) => Promise<void>;
   onToggleLike: (id: number) => void;
-  showToast: (message: string) => void;
   currentUser: User | null;
   onCommentAdded: (imageId: number) => void;
 }
@@ -60,12 +60,13 @@ const CommentSection: React.FC<{ comment: Comment; images: ImagePrompt[] }> = ({
 }
 
 const ImageDetailModal: React.FC<ImageDetailModalProps> = ({ 
-    image, images, onClose, onRequestDelete, onRequestEdit, onCopyPrompt, onToggleLike, showToast, currentUser, onCommentAdded
+    image, images, onClose, onRequestDelete, onRequestEdit, onCopyPrompt, onToggleLike, currentUser, onCommentAdded
 }) => {
   const [copied, setCopied] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [comments, setComments] = useState<Comment[]>([]);
   const [isCommentsLoading, setIsCommentsLoading] = useState(true);
+  const { showToast } = useToast();
 
   const { ranks } = useAuth();
 
@@ -81,7 +82,7 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
 
         if (error) {
             console.error("Error fetching comments:", error);
-            showToast("Không thể tải bình luận.");
+            showToast("Không thể tải bình luận.", 'error');
         } else {
             setComments(data as any[]);
         }
@@ -99,8 +100,8 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
   const authorRankInfo = getRankInfo(author, images, ranks);
   const { icon: rankIcon, name: rankName, className: rankClassName, finalColor: rankColor } = authorRankInfo;
 
-  const handleCopyPrompt = () => {
-    onCopyPrompt(image.prompt);
+  const handleCopyPrompt = async () => {
+    await onCopyPrompt(image.prompt);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -108,7 +109,7 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
   const handleCommentSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
       if (!commentText.trim() || !currentUser) {
-          if(!currentUser) showToast("Bạn phải đăng nhập để bình luận.");
+          if(!currentUser) showToast("Bạn phải đăng nhập để bình luận.", 'info');
           return;
       }
       
@@ -121,10 +122,9 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
       const { data, error } = await supabase.from('comments').insert(newComment).select().single();
 
       if (error) {
-          showToast("Lỗi: Không thể gửi bình luận.");
+          showToast("Lỗi: Không thể gửi bình luận.", 'error');
           console.error(error);
       } else {
-          // Add comment to state immediately for better UX
           const newCommentWithProfile: Comment = {
               ...(data as Comment),
               profiles: {
@@ -137,7 +137,9 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
           }
           setComments(prev => [...prev, newCommentWithProfile]);
           setCommentText('');
-          onCommentAdded(image.id); // Update global comment count
+          showToast('Đã gửi bình luận!', 'success');
+          // Reliably update global comment count for immediate UI feedback.
+          onCommentAdded(image.id); 
       }
   };
   

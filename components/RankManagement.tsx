@@ -4,13 +4,11 @@ import { Rank } from '../types';
 import { PlusIcon } from './icons/PlusIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import { UploadIcon } from './icons/UploadIcon';
+import { useToast } from '../contexts/ToastContext';
 
-interface RankManagementProps {
-    showToast: (message: string) => void;
-}
-
-const RankManagement: React.FC<RankManagementProps> = ({ showToast }) => {
+const RankManagement: React.FC = () => {
     const { ranks, updateRanks } = useAuth();
+    const { showToast } = useToast();
     const [editableRanks, setEditableRanks] = useState<Rank[]>(JSON.parse(JSON.stringify(ranks))); // Deep copy
     const [error, setError] = useState('');
 
@@ -24,7 +22,7 @@ const RankManagement: React.FC<RankManagementProps> = ({ showToast }) => {
         const file = e.target.files?.[0];
         if (file) {
             if (file.size > 1 * 1024 * 1024) { // 1MB limit for icons
-                showToast('Kích thước icon phải nhỏ hơn 1MB.');
+                showToast('Kích thước icon phải nhỏ hơn 1MB.', 'error');
                 return;
             }
             const reader = new FileReader();
@@ -47,11 +45,11 @@ const RankManagement: React.FC<RankManagementProps> = ({ showToast }) => {
 
     const handleRemoveRank = (index: number) => {
         if (editableRanks[index].requiredPosts === -1) {
-            showToast('Không thể xóa cấp bậc Quản trị viên.');
+            showToast('Không thể xóa cấp bậc Quản trị viên.', 'error');
             return;
         }
         if (editableRanks[index].requiredPosts === 0) {
-            showToast('Không thể xóa cấp bậc mặc định (0 bài đăng).');
+            showToast('Không thể xóa cấp bậc mặc định (0 bài đăng).', 'error');
             return;
         }
         const newRanks = editableRanks.filter((_, i) => i !== index);
@@ -76,7 +74,7 @@ const RankManagement: React.FC<RankManagementProps> = ({ showToast }) => {
 
         try {
             updateRanks(editableRanks);
-            showToast('Đã lưu thay đổi hệ thống cấp bậc!');
+            showToast('Đã lưu thay đổi hệ thống cấp bậc!', 'success');
         } catch (err: any) {
             setError(err.message);
         }

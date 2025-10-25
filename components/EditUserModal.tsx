@@ -4,15 +4,16 @@ import { User } from '../types';
 import { CloseIcon } from './icons/CloseIcon';
 import { UserCircleIcon } from './icons/UserCircleIcon';
 import { supabase } from '../supabaseClient';
+import { useToast } from '../contexts/ToastContext';
 
 interface EditUserModalProps {
   user: User;
   onClose: () => void;
-  showToast: (message: string) => void;
 }
 
-const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, showToast }) => {
+const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose }) => {
   const { updateUserByAdmin, currentUser } = useAuth();
+  const { showToast } = useToast();
   const [username, setUsername] = useState(user.username);
   const [role, setRole] = useState(user.role);
   const [customTitle, setCustomTitle] = useState(user.customTitle || '');
@@ -59,19 +60,18 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, showToast 
         avatarUrlToSave = `${urlData.publicUrl}?t=${new Date().getTime()}`;
       }
 
+      // Bug fix: Explicitly handle sending null when custom title is empty.
+      const trimmedTitle = customTitle.trim();
       const updatePayload: Partial<Pick<User, 'username' | 'role' | 'customTitle' | 'customTitleColor' | 'avatarUrl'>> = {
           username,
           role,
           avatarUrl: avatarUrlToSave,
-          customTitle: customTitle.trim() || null,
-          customTitleColor: customTitle.trim() ? customTitleColor : null,
+          customTitle: trimmedTitle ? trimmedTitle : null,
+          customTitleColor: trimmedTitle ? customTitleColor : null,
       };
       
-      // Note: Updating password here is complex and requires separate logic for auth.users.
-      // The old code was incorrect. We are only updating the profile data.
-      
       await updateUserByAdmin(user.id, updatePayload);
-      showToast(`Đã cập nhật người dùng ${username}!`);
+      showToast(`Đã cập nhật người dùng ${username}!`, 'success');
       onClose();
     } catch (err: any) {
       setError(err.message);

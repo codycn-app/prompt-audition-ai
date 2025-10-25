@@ -5,16 +5,17 @@ import { SpinnerIcon } from './icons/SpinnerIcon';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
 import { Category } from '../types';
+import { useToast } from '../contexts/ToastContext';
 
 interface AddImageModalProps {
   onClose: () => void;
   onAddImage: () => void;
-  showToast: (message: string) => void;
   categories: Category[];
 }
 
-const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, showToast, categories }) => {
+const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, categories }) => {
   const { currentUser } = useAuth();
+  const { showToast } = useToast();
   const [title, setTitle] = useState('');
   const [prompt, setPrompt] = useState('');
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
@@ -142,7 +143,9 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, show
 
     } catch (err: any) {
         console.error("Error adding image:", err);
-        setError(`Lỗi từ server: ${err.message}` || 'Đã có lỗi xảy ra. Vui lòng thử lại.');
+        const errorMessage = `Lỗi từ server: ${err.message}` || 'Đã có lỗi xảy ra. Vui lòng thử lại.';
+        setError(errorMessage);
+        showToast(errorMessage, 'error');
 
         // Cleanup: If any step fails, remove the uploaded file and the image record.
         if (imagePath) {

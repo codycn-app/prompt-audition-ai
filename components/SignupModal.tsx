@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { CloseIcon } from './icons/CloseIcon';
+import { useToast } from '../contexts/ToastContext';
 
 interface SignupModalProps {
   onClose: () => void;
@@ -14,8 +15,9 @@ const SignupModal: React.FC<SignupModalProps> = ({ onClose, onSwitchToLogin }) =
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const { signup } = useAuth();
+  const { showToast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirmPassword) {
       setError('Mật khẩu không khớp.');
@@ -23,7 +25,8 @@ const SignupModal: React.FC<SignupModalProps> = ({ onClose, onSwitchToLogin }) =
     }
     setError('');
     try {
-      signup(email, password, username);
+      await signup(email, password, username);
+      showToast('Đăng ký thành công! Chào mừng bạn!', 'success');
       onClose();
     // Fix: Corrected malformed try-catch block
     } catch (err: any) {

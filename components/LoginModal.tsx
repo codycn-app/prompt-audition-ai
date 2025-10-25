@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { CloseIcon } from './icons/CloseIcon';
+import { useToast } from '../contexts/ToastContext';
 
 interface LoginModalProps {
   onClose: () => void;
@@ -12,12 +13,14 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose, onSwitchToSignup }) =>
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const { login } = useAuth();
+  const { showToast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     try {
-      login(email, password);
+      await login(email, password);
+      showToast('Đăng nhập thành công!', 'success');
       onClose();
     } catch (err: any) {
       setError(err.message);

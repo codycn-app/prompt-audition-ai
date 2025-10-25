@@ -5,7 +5,6 @@ import { CloseIcon } from './icons/CloseIcon';
 import EditUserModal from './EditUserModal';
 import { getRankInfo } from '../lib/ranking';
 import { PencilIcon } from './icons/PencilIcon';
-import Toast from './Toast';
 
 interface UserManagementModalProps {
   onClose: () => void;
@@ -16,12 +15,6 @@ const UserManagementModal: React.FC<UserManagementModalProps> = ({ onClose, imag
   // Fix: Added `ranks` from useAuth to pass to getRankInfo.
   const { users, currentUser, ranks } = useAuth();
   const [userToEdit, setUserToEdit] = useState<User | null>(null);
-  const [toastMessage, setToastMessage] = useState('');
-
-  const showToast = (message: string) => {
-    setToastMessage(message);
-    setTimeout(() => setToastMessage(''), 3000);
-  };
   
   if (currentUser?.role !== 'admin') {
     return null; // Should not happen if button is hidden, but as a safeguard.
@@ -117,10 +110,11 @@ const UserManagementModal: React.FC<UserManagementModalProps> = ({ onClose, imag
           </div>
         </div>
       </div>
+      {/* FIX: Removed the invalid `showToast` prop. EditUserModal uses the global toast context. */}
       {userToEdit && (
-        <EditUserModal user={userToEdit} onClose={() => setUserToEdit(null)} showToast={showToast} />
+        <EditUserModal user={userToEdit} onClose={() => setUserToEdit(null)} />
       )}
-      {toastMessage && <div className="z-[80]"><Toast message={toastMessage} /></div>}
+      {/* FIX: Removed the local toast implementation, which was incorrect and redundant. */}
     </>
   );
 };

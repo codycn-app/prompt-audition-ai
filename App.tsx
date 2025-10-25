@@ -7,7 +7,6 @@ import ImageDetailModal from './components/ImageDetailModal';
 import AddImageModal from './components/AddImageModal';
 import EditImageModal from './components/EditImageModal';
 import ConfirmationModal from './components/ConfirmationModal';
-import Toast from './components/Toast';
 import Footer from './components/Footer';
 import LoginModal from './components/LoginModal';
 import SignupModal from './components/SignupModal';
@@ -21,6 +20,7 @@ import ProfilePage from './pages/ProfilePage';
 import SupportPage from './pages/SupportPage';
 import CategoriesPage from './pages/CategoriesPage';
 import { supabase } from './supabaseClient';
+import { useToast } from './contexts/ToastContext';
 
 
 export type Page = 'home' | 'settings' | 'user-management' | 'liked-images' | 'leaderboard' | 'profile' | 'support' | 'categories';
@@ -30,6 +30,7 @@ const App: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { currentUser, users } = useAuth();
+  const { showToast } = useToast();
   
   const [selectedImage, setSelectedImage] = useState<ImagePrompt | null>(null);
   const [imageToEdit, setImageToEdit] = useState<ImagePrompt | null>(null);
@@ -39,7 +40,6 @@ const App: React.FC = () => {
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | 'all'>('all');
   
   const [imageToDelete, setImageToDelete] = useState<ImagePrompt | null>(null);
-  const [toastMessage, setToastMessage] = useState('');
   
   const [currentPage, setCurrentPage] = useState<Page>('home');
 
@@ -51,26 +51,18 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const showToast = useCallback((message: string) => {
-    setToastMessage(message);
-    const timer = setTimeout(() => {
-      setToastMessage('');
-    }, 3000);
-    return () => clearTimeout(timer);
-  }, []);
-
   const fetchInitialData = useCallback(async () => {
     setIsLoading(true);
     
-    // Fetch categories first
+    // Fetch categories first, ordered by custom position
     const { data: categoriesData, error: categoriesError } = await supabase
         .from('categories')
         .select('*')
-        .order('name', { ascending: true });
+        .order('position', { ascending: true, nullsFirst: false });
 
     if (categoriesError) {
         console.error('Error fetching categories:', categoriesError);
-        showToast('Lỗi: Không thể tải danh sách chuyên mục.');
+        showToast('Lỗi: Không thể tải danh sách chuyên mục.', 'error');
     } else {
         setCategories(categoriesData as Category[]);
     }
@@ -88,7 +80,7 @@ const App: React.FC = () => {
 
     if (imagesError) {
         console.error('Error fetching images:', imagesError);
-        showToast('Lỗi nghiêm trọng: Không thể tải dữ liệu ảnh.');
+        showToast('Lỗi nghiêm trọng: Không thể tải dữ liệu ảnh.', 'error');
         setIsLoading(false);
         return;
     }
@@ -114,12 +106,16 @@ const App: React.FC = () => {
   }, [images]);
 
   const handleCopyPrompt = async (prompt: string) => {
+    if (!navigator.clipboard) {
+      showToast('Trình duyệt không hỗ trợ sao chép.', 'error');
+      return;
+    }
     try {
       await navigator.clipboard.writeText(prompt);
-      showToast('Đã sao chép câu lệnh!');
+      showToast('Đã sao chép câu lệnh!', 'success');
     } catch (err) {
-      console.error('Failed to copy text: ', err);
-      showToast('Lỗi: không thể sao chép.');
+      console.error('Lỗi sao chép:', err);
+      showToast('Sao chép thất bại.', 'error');
     }
   };
 
@@ -156,20 +152,20 @@ const App: React.FC = () => {
   // Simplified handler: The modal does the heavy lifting via RPC. This just shows a toast and refreshes data.
   const handleAddImage = useCallback(async () => {
     setIsAddModalOpen(false);
-    showToast('Đã thêm ảnh mới thành công!');
+    showToast('Đã thêm ảnh mới thành công!', 'success');
     await fetchInitialData();
   }, [fetchInitialData, showToast]);
   
   // Simplified handler: The modal does the heavy lifting via RPC. This just shows a toast and refreshes data.
   const handleUpdateImage = useCallback(async () => {
     setImageToEdit(null);
-    showToast('Đã cập nhật ảnh thành công!');
+    showToast('Đã cập nhật ảnh thành công!', 'success');
     await fetchInitialData();
   }, [fetchInitialData, showToast]);
 
   const handleRequestDelete = useCallback((image: ImagePrompt) => {
     if (!currentUser || (image.user_id !== currentUser.id && currentUser.role !== 'admin')) {
-        showToast('Bạn không có quyền xóa ảnh này.');
+        showToast('Bạn không có quyền xóa ảnh này.', 'error');
         return;
     }
     setImageToDelete(image);
@@ -190,10 +186,10 @@ const App: React.FC = () => {
     const { error } = await supabase.from('images').delete().eq('id', imageToDelete.id);
 
     if (error) {
-        showToast('Lỗi: không thể xóa ảnh.');
+        showToast('Lỗi: không thể xóa ảnh.', 'error');
         console.error(error);
     } else {
-        showToast('Đã xóa ảnh thành công!');
+        showToast('Đã xóa ảnh thành công!', 'success');
         if (selectedImage && selectedImage.id === imageToDelete.id) {
             handleCloseModal();
         }
@@ -204,7 +200,7 @@ const App: React.FC = () => {
   
   const handleToggleLike = useCallback(async (imageId: number) => {
       if (!currentUser) {
-          showToast('Bạn phải đăng nhập để thích ảnh!');
+          showToast('Bạn phải đăng nhập để thích ảnh!', 'info');
           return;
       }
 
@@ -222,7 +218,7 @@ const App: React.FC = () => {
         .eq('id', imageId);
 
       if (error) {
-          showToast('Đã có lỗi xảy ra.');
+          showToast('Đã có lỗi xảy ra.', 'error');
           console.error(error);
       } else {
           setImages(prevImages => 
@@ -231,10 +227,15 @@ const App: React.FC = () => {
           if (selectedImage && selectedImage.id === imageId) {
             setSelectedImage(prev => prev ? { ...prev, likes: newLikes } : null);
           }
+          if (!hasLiked) {
+             showToast('Đã thích ảnh!', 'success');
+          }
       }
   }, [currentUser, findImageById, selectedImage, showToast]);
   
   const handleCommentAdded = useCallback((imageId: number) => {
+    // This function ensures the comment count is updated immediately across the app
+    // for a smoother user experience.
     setImages(prevImages =>
         prevImages.map(img =>
             img.id === imageId ? { ...img, comments_count: (img.comments_count || 0) + 1 } : img
@@ -253,9 +254,9 @@ const App: React.FC = () => {
   const renderPage = () => {
     switch(currentPage) {
       case 'settings':
-        return currentUser ? <SettingsPage showToast={showToast} categories={categories} onUpdateCategories={fetchInitialData} /> : null;
+        return currentUser ? <SettingsPage categories={categories} onUpdateCategories={fetchInitialData} /> : null;
       case 'user-management':
-        return currentUser?.role === 'admin' ? <UserManagementPage users={users} images={images} showToast={showToast} /> : null;
+        return currentUser?.role === 'admin' ? <UserManagementPage users={users} images={images} /> : null;
       case 'liked-images':
         return currentUser ? <LikedImagesPage images={images} currentUser={currentUser} onImageClick={handleSelectImage} /> : null;
       case 'leaderboard':
@@ -313,7 +314,6 @@ const App: React.FC = () => {
           }}
           onCopyPrompt={handleCopyPrompt}
           onToggleLike={handleToggleLike}
-          showToast={showToast}
           currentUser={currentUser}
           onCommentAdded={handleCommentAdded}
         />
@@ -332,7 +332,6 @@ const App: React.FC = () => {
         <AddImageModal 
           onClose={() => setIsAddModalOpen(false)}
           onAddImage={handleAddImage}
-          showToast={showToast}
           categories={categories}
         />
       )}
@@ -364,8 +363,6 @@ const App: React.FC = () => {
         title="Xác nhận xóa"
         message="Bạn có chắc chắn muốn xóa ảnh và câu lệnh này không? Hành động này không thể hoàn tác."
       />
-
-      {toastMessage && <Toast message={toastMessage} />}
 
       <BottomNavBar 
         currentPage={currentPage}

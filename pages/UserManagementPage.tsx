@@ -4,16 +4,17 @@ import { User, ImagePrompt } from '../types';
 import EditUserModal from '../components/EditUserModal';
 import { getRankInfo } from '../lib/ranking';
 import { PencilIcon } from '../components/icons/PencilIcon';
+import { useToast } from '../contexts/ToastContext';
 
 interface UserManagementPageProps {
   users: User[];
   images: ImagePrompt[];
-  showToast: (message: string) => void;
 }
 
-const UserManagementPage: React.FC<UserManagementPageProps> = ({ users, images, showToast }) => {
+const UserManagementPage: React.FC<UserManagementPageProps> = ({ users, images }) => {
   const { currentUser, ranks } = useAuth();
   const [userToEdit, setUserToEdit] = useState<User | null>(null);
+  const { showToast } = useToast();
 
   if (currentUser?.role !== 'admin') {
     return (
@@ -99,7 +100,7 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ users, images, 
         </div>
       </div>
       {userToEdit && (
-        <EditUserModal user={userToEdit} onClose={() => setUserToEdit(null)} showToast={showToast} />
+        <EditUserModal user={userToEdit} onClose={() => setUserToEdit(null)} />
       )}
     </>
   );

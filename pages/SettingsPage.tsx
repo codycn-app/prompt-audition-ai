@@ -8,16 +8,17 @@ import { supabase } from '../supabaseClient';
 import { Category } from '../types';
 import CategoryManagement from '../components/CategoryManagement';
 import { TagIcon } from '../components/icons/TagIcon';
+import { useToast } from '../contexts/ToastContext';
 
 interface SettingsPageProps {
-  showToast: (message: string) => void;
   categories: Category[];
   onUpdateCategories: () => void;
 }
 
-const SettingsPage: React.FC<SettingsPageProps> = ({ showToast, categories, onUpdateCategories }) => {
+const SettingsPage: React.FC<SettingsPageProps> = ({ categories, onUpdateCategories }) => {
   const { currentUser, updateProfile, changePassword } = useAuth();
   const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'rank-management' | 'category-management'>('profile');
+  const { showToast } = useToast();
 
   if (!currentUser) return null;
 
@@ -72,7 +73,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ showToast, categories, onUp
       }
       
       await updateProfile(currentUser.id, { username, avatarUrl: avatarUrlToSave });
-      showToast('Cập nhật thông tin thành công!');
+      showToast('Cập nhật thông tin thành công!', 'success');
     } catch (err: any) {
       setError(err.message);
     }
@@ -91,7 +92,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ showToast, categories, onUp
     }
     try {
       await changePassword(newPassword);
-      showToast('Đổi mật khẩu thành công!');
+      showToast('Đổi mật khẩu thành công!', 'success');
       setOldPassword('');
       setNewPassword('');
       setConfirmPassword('');
@@ -195,13 +196,12 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ showToast, categories, onUp
                 )}
 
                 {activeTab === 'rank-management' && (
-                    <RankManagement showToast={showToast} />
+                    <RankManagement />
                 )}
 
                 {activeTab === 'category-management' && (
                     <CategoryManagement 
                         categories={categories}
-                        showToast={showToast}
                         onUpdate={onUpdateCategories}
                     />
                 )}

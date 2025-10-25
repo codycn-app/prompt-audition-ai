@@ -8,6 +8,7 @@ import { getRankInfo } from '../lib/ranking';
 import { Page } from '../App';
 import { HeartIcon } from './icons/HeartIcon';
 import { TagIcon } from './icons/TagIcon';
+import { useToast } from '../contexts/ToastContext';
 
 interface UserMenuProps {
   images: ImagePrompt[];
@@ -18,6 +19,7 @@ const UserMenu: React.FC<UserMenuProps> = ({ images, setCurrentPage }) => {
   const { currentUser, logout, ranks } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const { showToast } = useToast();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -30,6 +32,11 @@ const UserMenu: React.FC<UserMenuProps> = ({ images, setCurrentPage }) => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+  
+  const handleLogout = async () => {
+    await logout();
+    showToast('Đã đăng xuất tài khoản.', 'success');
+  };
 
   if (!currentUser) return null;
   
@@ -97,7 +104,7 @@ const UserMenu: React.FC<UserMenuProps> = ({ images, setCurrentPage }) => {
                 </button>
               )}
               <button
-                onClick={logout}
+                onClick={handleLogout}
                 className="flex items-center w-full px-4 py-2 text-sm text-left transition-colors text-cyber-on-surface hover:bg-cyber-pink/10"
               >
                 <LogoutIcon className="w-5 h-5 mr-3" />
