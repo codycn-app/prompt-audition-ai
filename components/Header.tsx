@@ -44,21 +44,21 @@ const Header: React.FC<HeaderProps> = ({ onCategorySelect, categories, selectedC
             )}
         </div>
         <div className="hidden md:flex items-center space-x-2 sm:space-x-4">
-          {currentUser && (
-            <button
-                onClick={() => setCurrentPage('liked-images')}
-                className="flex items-center gap-2 px-3 py-2.5 transition-colors duration-300 border rounded-lg bg-cyber-surface border-cyber-pink/30 hover:border-cyber-pink/80 hover:bg-cyber-pink/10 focus:outline-none focus:ring-2 focus:ring-cyber-pink active:scale-95"
-                aria-label="Ảnh đã thích"
-            >
-                <HeartIcon className="w-5 h-5 text-cyber-pink" />
-            </button>
-          )}
+          <button
+              onClick={() => setCurrentPage('support')}
+              className="flex items-center gap-2 px-4 py-2.5 transition-colors duration-300 border rounded-lg bg-cyber-surface border-cyber-pink/30 hover:border-cyber-pink/80 hover:bg-cyber-pink/10 focus:outline-none focus:ring-2 focus:ring-cyber-pink active:scale-95 text-cyber-pink"
+              aria-label="Ủng hộ tôi"
+          >
+              <HeartIcon className="w-5 h-5" />
+              <span className="text-sm font-semibold">Ủng hộ tôi</span>
+          </button>
           <button
               onClick={() => setCurrentPage('leaderboard')}
-              className="flex items-center gap-2 px-3 py-2.5 transition-colors duration-300 border rounded-lg bg-cyber-surface border-cyber-cyan/30 hover:border-cyber-cyan/80 hover:bg-cyber-cyan/10 focus:outline-none focus:ring-2 focus:ring-cyber-cyan active:scale-95"
+              className="flex items-center gap-2 px-4 py-2.5 transition-colors duration-300 border rounded-lg bg-cyber-surface border-rank-master/30 hover:border-rank-master/80 hover:bg-rank-master/10 focus:outline-none focus:ring-2 focus:ring-rank-master active:scale-95 text-rank-master"
               aria-label="Bảng xếp hạng"
           >
-              <CrownIcon className="w-5 h-5 text-cyber-cyan" />
+              <CrownIcon className="w-5 h-5" />
+              <span className="text-sm font-semibold">BXH</span>
           </button>
           
           {currentUser ? (

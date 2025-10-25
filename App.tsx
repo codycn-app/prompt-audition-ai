@@ -64,15 +64,12 @@ const App: React.FC = () => {
         console.error('Error fetching categories:', categoriesError);
         showToast('Lỗi: Không thể tải danh sách chuyên mục.', 'error');
         setCategories([]);
-    } else {
-        if (Array.isArray(categoriesData)) {
-            setCategories(categoriesData as Category[]);
-        } else {
-            console.error('Received non-array data for categories:', categoriesData);
-            showToast('Lỗi: Dữ liệu chuyên mục không hợp lệ.', 'error');
-            setCategories([]);
-        }
+        setIsLoading(false);
+        return;
     }
+    
+    // Ensure categories is always an array.
+    setCategories(categoriesData || []);
 
     // Definitive fix for ambiguous relationship and column name mismatch.
     const { data: imagesData, error: imagesError } = await supabase

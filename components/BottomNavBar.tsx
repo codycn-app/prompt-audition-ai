@@ -25,11 +25,9 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ currentPage, setCurrentPage
     }
   };
 
-  const NavButton: React.FC<{ page: Page, label: string, icon: React.ReactElement }> = ({ page, label, icon }) => {
+  // FIX: Correctly typed the 'icon' prop to ensure 'className' is accessible, resolving cloneElement errors.
+  const NavButton: React.FC<{ page: Page, label: string, icon: React.ReactElement<{ className?: string }> }> = ({ page, label, icon }) => {
     const isActive = currentPage === page;
-    // FIX: Changed icon prop to React.ReactElement to fix type errors with cloneElement.
-    // This removes the need for `isValidElement` and allows safe access to props.
-    // Also ensuring className is handled correctly if it's initially undefined.
     const iconWrapper = React.cloneElement(icon, {
         className: `${icon.props.className || ''} ${isActive ? 'animate-pulse' : ''}`.trim()
     });
