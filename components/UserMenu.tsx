@@ -76,13 +76,6 @@ const UserMenu: React.FC<UserMenuProps> = ({ images, setCurrentPage }) => {
                 </p>
               </div>
               <button
-                onClick={() => { setCurrentPage('categories'); setIsMenuOpen(false); }}
-                className="flex items-center w-full px-4 py-2 text-sm text-left transition-colors text-cyber-on-surface hover:bg-cyber-pink/10"
-              >
-                <TagIcon className="w-5 h-5 mr-3" />
-                Chuyên mục
-              </button>
-              <button
                 onClick={() => { setCurrentPage('liked-images'); setIsMenuOpen(false); }}
                 className="flex items-center w-full px-4 py-2 text-sm text-left transition-colors text-cyber-on-surface hover:bg-cyber-pink/10"
               >
