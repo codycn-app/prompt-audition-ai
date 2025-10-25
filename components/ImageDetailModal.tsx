@@ -71,7 +71,7 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
   const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
   const { showToast } = useToast();
 
-  const { ranks, addExp } = useAuth();
+  const { ranks, addExp, getUserById } = useAuth();
 
   useEffect(() => {
     const fetchComments = async () => {
@@ -106,8 +106,9 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
   const isOwner = currentUser && currentUser.id === image.user_id;
   const isAdmin = currentUser?.role === 'admin';
   const canEditOrDelete = isOwner || isAdmin;
-
-  const author = image.profiles;
+  
+  // FIX: Use live user data from context cache instead of potentially stale joined data
+  const author = getUserById(image.user_id) || image.profiles;
   const authorRankInfo = getRankInfo(author, images, ranks);
   const { icon: rankIcon, name: rankName, className: rankClassName, finalColor: rankColor } = authorRankInfo;
 

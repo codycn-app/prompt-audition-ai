@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { User, Rank } from '../types';
-import { useLocalStorage } from '../hooks/useLocalStorage';
 import { INITIAL_RANKS } from '../constants';
 import { supabase } from '../supabaseClient';
 import { AuthChangeEvent, Session } from '@supabase/supabase-js';
@@ -17,7 +16,7 @@ interface AuthContextType {
   updateUserByAdmin: (userId: string, updates: Partial<Pick<User, 'username' | 'role' | 'customTitle' | 'customTitleColor' | 'avatarUrl'>>) => Promise<void>;
   updateProfile: (userId: string, updates: Partial<Pick<User, 'username' | 'avatarUrl'>>) => Promise<void>;
   changePassword: (newPass: string) => Promise<void>;
-  updateRanks: (newRanks: Rank[]) => void;
+  updateRanks: (newRanks: Rank[]) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -33,7 +32,7 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]); // Cache for all user profiles
-  const [ranks, setRanks] = useLocalStorage<Rank[]>('app-ranks-v2-exp', INITIAL_RANKS);
+  const [ranks, setRanks] = useState<Rank[]>(INITIAL_RANKS);
 
   useEffect(() => {
     const fetchAllUserProfiles = async () => {
@@ -46,6 +45,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     fetchAllUserProfiles();
+
+    // Fetch ranks from the database
+    const fetchRanks = async () => {
+        const { data, error } = await supabase.from('ranks').select('*').order('requiredExp', { ascending: true });
+        if (!error && data && data.length > 0) {
+            setRanks(data as Rank[]);
+        } else {
+            console.warn('Could not fetch ranks from database, using initial defaults. Error:', error);
+        }
+    };
+    fetchRanks();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: AuthChangeEvent, session: Session | null) => {
@@ -142,7 +152,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (error) throw new Error(error.message);
     
     setUsers(prevUsers => prevUsers.map(u => u.id === userId ? { ...u, ...updates } : u));
-  }, [currentUser?.role]);
+    
+    // If admin is editing themselves, update currentUser state
+    if (currentUser?.id === userId) {
+        setCurrentUser(prev => prev ? { ...prev, ...updates } : null);
+    }
+  }, [currentUser?.role, currentUser?.id]);
 
   const updateProfile = useCallback(async (userId: string, updates: Partial<Pick<User, 'username' | 'avatarUrl'>>) => {
     if (currentUser?.id !== userId) {
@@ -161,12 +176,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (error) throw new Error(error.message);
   }, []);
 
-  const updateRanks = useCallback((newRanks: Rank[]): void => {
+  const updateRanks = useCallback(async (newRanks: Rank[]): Promise<void> => {
     if (currentUser?.role !== 'admin') {
         throw new Error('Chỉ quản trị viên mới có quyền thực hiện hành động này.');
     }
+    
+    // Use requiredExp as the primary key for upserting
+    const { error } = await supabase.from('ranks').upsert(newRanks, { onConflict: 'requiredExp' });
+    if (error) {
+        throw new Error(`Lỗi cập nhật cấp bậc: ${error.message}`);
+    }
+    
     setRanks(newRanks);
-  }, [currentUser?.role, setRanks]);
+  }, [currentUser?.role]);
 
   const value = {
     currentUser,

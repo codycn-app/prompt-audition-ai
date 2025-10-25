@@ -108,13 +108,12 @@ const Header: React.FC<HeaderProps> = ({ onCategorySelect, categories, selectedC
               style={{ backgroundSize: '200% auto', textShadow: '0 0 15px rgba(255, 0, 230, 0.4)' }}>
             Prompt Audition AI
           </h1>
-          <div className="md:hidden">
-              {currentUser ? (
-                <UserMenu images={images} setCurrentPage={setCurrentPage} />
-              ) : (
-                <div className="w-10 h-10"></div>
-              )}
-          </div>
+          {/* Removed redundant user menu icon from mobile header */}
+           {currentUser ? (
+              <div className="w-10 h-10"></div> 
+            ) : (
+              <div className="w-10 h-10"></div>
+            )}
         </div>
         
         {/* Bottom Row */}
