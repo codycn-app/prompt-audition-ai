@@ -12,6 +12,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, username: string) => Promise<void>;
   logout: () => Promise<void>;
+  addExp: (amount: number) => Promise<void>;
   getUserById: (id: string) => User | undefined;
   updateUserByAdmin: (userId: string, updates: Partial<Pick<User, 'username' | 'role' | 'customTitle' | 'customTitleColor' | 'avatarUrl'>>) => Promise<void>;
   updateProfile: (userId: string, updates: Partial<Pick<User, 'username' | 'avatarUrl'>>) => Promise<void>;
@@ -32,7 +33,7 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]); // Cache for all user profiles
-  const [ranks, setRanks] = useLocalStorage<Rank[]>('app-ranks-v1', INITIAL_RANKS);
+  const [ranks, setRanks] = useLocalStorage<Rank[]>('app-ranks-v2-exp', INITIAL_RANKS);
 
   useEffect(() => {
     const fetchAllUserProfiles = async () => {
@@ -112,6 +113,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (error) throw new Error(error.message);
     setCurrentUser(null);
   }, []);
+
+  const addExp = useCallback(async (amount: number) => {
+    if (!currentUser) return;
+
+    // Optimistic UI update
+    const newExp = (currentUser.exp || 0) + amount;
+    setCurrentUser(prev => prev ? { ...prev, exp: newExp } : null);
+
+    const { error } = await supabase.rpc('add_exp', {
+      user_id_to_update: currentUser.id,
+      exp_to_add: amount,
+    });
+
+    if (error) {
+      console.error('Error adding EXP:', error);
+      // Revert UI update on failure
+      setCurrentUser(prev => prev ? { ...prev, exp: (prev.exp || 0) - amount } : null);
+    }
+  }, [currentUser]);
   
   const updateUserByAdmin = useCallback(async (userId: string, updates: Partial<Pick<User, 'username' | 'role' | 'customTitle' | 'customTitleColor' | 'avatarUrl'>>) => {
     if (currentUser?.role !== 'admin') {
@@ -155,6 +175,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     login,
     signup,
     logout,
+    addExp,
     getUserById,
     updateUserByAdmin,
     updateProfile,

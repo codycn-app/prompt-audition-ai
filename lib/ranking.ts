@@ -10,13 +10,15 @@ export interface RankInfo {
 }
 
 export const getRankInfo = (user: User | null | undefined, allImages: ImagePrompt[], ranks: Rank[]): RankInfo => {
-    const defaultRank = ranks.find(r => r.requiredPosts === 0) || {
+    const defaultRank = ranks.find(r => r.requiredExp === 0) || {
         name: 'Thành viên',
         icon: '',
         color: '#A0A0A0',
-        requiredPosts: 0
+        requiredExp: 0
     };
     
+    const postCount = user ? allImages.filter(img => img.user_id === user.id).length : 0;
+
     if (!user) {
         return { 
             name: defaultRank.name,
@@ -27,10 +29,8 @@ export const getRankInfo = (user: User | null | undefined, allImages: ImagePromp
         };
     }
 
-    const postCount = allImages.filter(img => img.user_id === user.id).length;
-
     if (user.role === 'admin') {
-        const adminRank = ranks.find(r => r.requiredPosts === -1) || { ...defaultRank, name: 'Quản trị viên', color: '#FF4141' };
+        const adminRank = ranks.find(r => r.requiredExp === -1) || { ...defaultRank, name: 'Quản trị viên', color: '#FF4141' };
         return {
             name: user.customTitle || adminRank.name,
             icon: adminRank.icon,
@@ -40,17 +40,17 @@ export const getRankInfo = (user: User | null | undefined, allImages: ImagePromp
         };
     }
 
-    // Sort ranks by requiredPosts descending to find the correct tier
+    // Sort ranks by requiredExp descending to find the correct tier
     const sortedRanks = [...ranks]
-      .filter(r => r.requiredPosts >= 0)
-      .sort((a, b) => b.requiredPosts - a.requiredPosts);
+      .filter(r => r.requiredExp >= 0)
+      .sort((a, b) => b.requiredExp - a.requiredExp);
 
-    const currentRank = sortedRanks.find(r => postCount >= r.requiredPosts) || defaultRank;
+    const currentRank = sortedRanks.find(r => (user.exp || 0) >= r.requiredExp) || defaultRank;
 
     let className = 'text-cyber-on-surface';
-    if (postCount >= 50) className = 'text-rank-master animate-text-glow';
-    else if (postCount >= 30) className = 'text-rank-expert animate-text-glow';
-    else if (postCount >= 15) className = 'text-rank-advanced';
+    if (currentRank.requiredExp >= 3000) className = 'text-rank-master animate-text-glow';
+    else if (currentRank.requiredExp >= 1500) className = 'text-rank-expert animate-text-glow';
+    else if (currentRank.requiredExp >= 500) className = 'text-rank-advanced';
     
     return { 
         name: user.customTitle || currentRank.name,

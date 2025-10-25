@@ -39,7 +39,7 @@ const CommentSection: React.FC<{ comment: Comment; images: ImagePrompt[] }> = ({
     const { getUserById, ranks } = useAuth();
     // Use joined profile data if available, otherwise fall back to getUserById
     const author = comment.profiles 
-        ? { ...comment.profiles, id: comment.user_id, email: '', created_at: '' } as User
+        ? { ...comment.profiles, id: comment.user_id, email: '', created_at: '', exp: 0 } as User
         : getUserById(comment.user_id);
 
     const authorRankInfo = getRankInfo(author, images, ranks);
@@ -68,7 +68,7 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
   const [isCommentsLoading, setIsCommentsLoading] = useState(true);
   const { showToast } = useToast();
 
-  const { ranks } = useAuth();
+  const { ranks, addExp } = useAuth();
 
   useEffect(() => {
     const fetchComments = async () => {
@@ -137,8 +137,8 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
           }
           setComments(prev => [...prev, newCommentWithProfile]);
           setCommentText('');
-          showToast('Đã gửi bình luận!', 'success');
-          // Reliably update global comment count for immediate UI feedback.
+          showToast('Đã gửi bình luận! (+10 EXP)', 'success');
+          addExp(10); // Add EXP for commenting
           onCommentAdded(image.id); 
       }
   };

@@ -22,11 +22,13 @@ export interface User {
   customTitleColor?: string;
   avatarUrl?: string; 
   created_at: string; 
+  exp: number;
 }
 
 export interface Category {
   id: number;
   name: string;
+  position?: number;
 }
 
 export interface Comment {
@@ -48,5 +50,5 @@ export interface Rank {
   name: string;
   icon: string; 
   color: string;
-  requiredPosts: number;
+  requiredExp: number;
 }

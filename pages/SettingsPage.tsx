@@ -9,6 +9,7 @@ import { Category } from '../types';
 import CategoryManagement from '../components/CategoryManagement';
 import { TagIcon } from '../components/icons/TagIcon';
 import { useToast } from '../contexts/ToastContext';
+import ExpBar from '../components/ExpBar';
 
 interface SettingsPageProps {
   categories: Category[];
@@ -16,7 +17,7 @@ interface SettingsPageProps {
 }
 
 const SettingsPage: React.FC<SettingsPageProps> = ({ categories, onUpdateCategories }) => {
-  const { currentUser, updateProfile, changePassword } = useAuth();
+  const { currentUser, updateProfile, changePassword, addExp, ranks } = useAuth();
   const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'rank-management' | 'category-management'>('profile');
   const { showToast } = useToast();
 
@@ -50,30 +51,34 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ categories, onUpdateCategor
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    const hasChanged = username !== currentUser.username || avatarFile !== null;
+
     try {
       let avatarUrlToSave = currentUser.avatarUrl;
 
       if (avatarFile) {
         const fileExt = avatarFile.name.split('.').pop();
-        // Definitive fix: The path must be user-specific to pass RLS policies.
-        // The RLS policy likely expects the folder to be the user's ID.
         const filePath = `${currentUser.id}/avatar.${fileExt}`;
         
         const { error: uploadError } = await supabase.storage
           .from('avatars')
           .upload(filePath, avatarFile, { upsert: true });
 
-        if (uploadError) {
-          throw uploadError;
-        }
+        if (uploadError) throw uploadError;
 
-        // Get public URL and add a timestamp to bust cache
         const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(filePath);
         avatarUrlToSave = `${urlData.publicUrl}?t=${new Date().getTime()}`;
       }
       
       await updateProfile(currentUser.id, { username, avatarUrl: avatarUrlToSave });
-      showToast('Cập nhật thông tin thành công!', 'success');
+      
+      if (hasChanged) {
+        showToast('Cập nhật thành công! (+20 EXP)', 'success');
+        addExp(20);
+      } else {
+        showToast('Cập nhật thông tin thành công!', 'success');
+      }
+
     } catch (err: any) {
       setError(err.message);
     }
@@ -143,6 +148,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ categories, onUpdateCategor
             <div className="p-6">
                 {activeTab === 'profile' && (
                     <form onSubmit={handleProfileSubmit} className="space-y-6 animate-fade-in-scale">
+                        <div className="space-y-4">
+                            <label className="block text-sm font-medium text-cyber-on-surface">Thanh kinh nghiệm</label>
+                            <ExpBar currentUser={currentUser} ranks={ranks} />
+                        </div>
                         <div>
                             <label className="block mb-2 text-sm font-medium text-cyber-on-surface">Ảnh đại diện</label>
                             <div className="flex items-center gap-4">

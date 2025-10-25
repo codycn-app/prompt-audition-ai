@@ -36,7 +36,7 @@ const RankManagement: React.FC = () => {
     const handleAddRank = () => {
         const newRank: Rank = {
             name: 'Cấp bậc mới',
-            requiredPosts: Math.max(...editableRanks.map(r => r.requiredPosts >= 0 ? r.requiredPosts : 0)) + 10,
+            requiredExp: Math.max(...editableRanks.map(r => r.requiredExp >= 0 ? r.requiredExp : 0)) + 100,
             color: '#ffffff',
             icon: ''
         };
@@ -44,12 +44,12 @@ const RankManagement: React.FC = () => {
     };
 
     const handleRemoveRank = (index: number) => {
-        if (editableRanks[index].requiredPosts === -1) {
+        if (editableRanks[index].requiredExp === -1) {
             showToast('Không thể xóa cấp bậc Quản trị viên.', 'error');
             return;
         }
-        if (editableRanks[index].requiredPosts === 0) {
-            showToast('Không thể xóa cấp bậc mặc định (0 bài đăng).', 'error');
+        if (editableRanks[index].requiredExp === 0) {
+            showToast('Không thể xóa cấp bậc mặc định (0 EXP).', 'error');
             return;
         }
         const newRanks = editableRanks.filter((_, i) => i !== index);
@@ -59,17 +59,17 @@ const RankManagement: React.FC = () => {
     const handleSaveChanges = () => {
         setError('');
         // Validation
-        const requiredPostsSet = new Set<number>();
+        const requiredExpSet = new Set<number>();
         for (const rank of editableRanks) {
             if (!rank.name.trim()) {
                 setError('Tên cấp bậc không được để trống.');
                 return;
             }
-            if (requiredPostsSet.has(rank.requiredPosts)) {
-                setError(`Yêu cầu bài đăng "${rank.requiredPosts}" bị trùng lặp. Mỗi cấp bậc phải có yêu cầu riêng.`);
+            if (requiredExpSet.has(rank.requiredExp)) {
+                setError(`Yêu cầu EXP "${rank.requiredExp}" bị trùng lặp. Mỗi cấp bậc phải có yêu cầu riêng.`);
                 return;
             }
-            requiredPostsSet.add(rank.requiredPosts);
+            requiredExpSet.add(rank.requiredExp);
         }
 
         try {
@@ -87,15 +87,15 @@ const RankManagement: React.FC = () => {
             <div>
                 <h3 className="text-lg font-semibold text-cyber-on-surface">Cấu hình Cấp bậc</h3>
                 <p className="mt-1 text-sm text-cyber-on-surface-secondary">
-                    Tùy chỉnh tên, icon, màu sắc và số bài đăng yêu cầu cho từng cấp bậc. Các thay đổi sẽ được áp dụng toàn hệ thống.
+                    Tùy chỉnh tên, icon, màu sắc và điểm EXP yêu cầu cho từng cấp bậc. Các thay đổi sẽ được áp dụng toàn hệ thống.
                 </p>
             </div>
 
             <div className="space-y-4">
-                {editableRanks.sort((a,b) => a.requiredPosts - b.requiredPosts).map((rank, index) => {
+                {editableRanks.sort((a,b) => a.requiredExp - b.requiredExp).map((rank, index) => {
                     // Find the original index before sorting to modify the correct item
                     const originalIndex = editableRanks.findIndex(r => r === rank);
-                    const isAdminRank = rank.requiredPosts === -1;
+                    const isAdminRank = rank.requiredExp === -1;
 
                     return (
                         <div key={originalIndex} className="p-4 rounded-lg bg-cyber-black/20 border border-cyber-pink/10">
@@ -119,13 +119,13 @@ const RankManagement: React.FC = () => {
                                         disabled={isAdminRank}
                                     />
                                 </div>
-                                {/* Required Posts */}
+                                {/* Required EXP */}
                                 <div className="md:col-span-2">
-                                     <label className="text-xs text-cyber-on-surface-secondary block mb-1">Bài đăng</label>
+                                     <label className="text-xs text-cyber-on-surface-secondary block mb-1">EXP Yêu cầu</label>
                                     <input 
                                         type="number"
-                                        value={rank.requiredPosts}
-                                        onChange={(e) => handleRankChange(originalIndex, 'requiredPosts', parseInt(e.target.value) || 0)}
+                                        value={rank.requiredExp}
+                                        onChange={(e) => handleRankChange(originalIndex, 'requiredExp', parseInt(e.target.value) || 0)}
                                         className={inputStyle}
                                         disabled={isAdminRank}
                                     />

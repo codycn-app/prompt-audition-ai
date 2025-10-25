@@ -29,7 +29,7 @@ const App: React.FC = () => {
   const [images, setImages] = useState<ImagePrompt[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { currentUser, users } = useAuth();
+  const { currentUser, users, addExp } = useAuth();
   const { showToast } = useToast();
   
   const [selectedImage, setSelectedImage] = useState<ImagePrompt | null>(null);
@@ -50,6 +50,17 @@ const App: React.FC = () => {
       localStorage.setItem('theme', 'dark');
     }
   }, []);
+
+  // Time-based EXP gain
+  useEffect(() => {
+    if (currentUser && addExp) {
+      const intervalId = setInterval(() => {
+        addExp(1); // 1 EXP per minute
+      }, 60000);
+
+      return () => clearInterval(intervalId);
+    }
+  }, [currentUser, addExp]);
 
   const fetchInitialData = useCallback(async () => {
     setIsLoading(true);
@@ -172,14 +183,13 @@ const App: React.FC = () => {
     return images.filter(image => image.categories && image.categories.some(cat => cat.id === selectedCategoryId));
   }, [images, selectedCategoryId]);
   
-  // Simplified handler: The modal does the heavy lifting via RPC. This just shows a toast and refreshes data.
   const handleAddImage = useCallback(async () => {
     setIsAddModalOpen(false);
-    showToast('Đã thêm ảnh mới thành công!', 'success');
+    showToast('Đã thêm ảnh mới thành công! (+50 EXP)', 'success');
+    await addExp(50); // Add EXP for new image
     await fetchInitialData();
-  }, [fetchInitialData, showToast]);
+  }, [fetchInitialData, showToast, addExp]);
   
-  // Simplified handler: The modal does the heavy lifting via RPC. This just shows a toast and refreshes data.
   const handleUpdateImage = useCallback(async () => {
     setImageToEdit(null);
     showToast('Đã cập nhật ảnh thành công!', 'success');
@@ -251,10 +261,11 @@ const App: React.FC = () => {
             setSelectedImage(prev => prev ? { ...prev, likes: newLikes } : null);
           }
           if (!hasLiked) {
-             showToast('Đã thích ảnh!', 'success');
+             showToast('Đã thích ảnh! (+5 EXP)', 'success');
+             addExp(5); // Add EXP for liking
           }
       }
-  }, [currentUser, findImageById, selectedImage, showToast]);
+  }, [currentUser, findImageById, selectedImage, showToast, addExp]);
   
   const handleCommentAdded = useCallback((imageId: number) => {
     // This function ensures the comment count is updated immediately across the app
