@@ -5,7 +5,7 @@ import { CrownIcon } from './icons/CrownIcon';
 import { PlusIcon } from './icons/PlusIcon';
 import { UserCircleIcon } from './icons/UserCircleIcon';
 import { useAuth } from '../contexts/AuthContext';
-import { TagIcon } from './icons/TagIcon';
+import { HeartIcon } from './icons/HeartIcon';
 
 interface BottomNavBarProps {
   currentPage: Page;
@@ -18,21 +18,28 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ currentPage, setCurrentPage
   const { currentUser } = useAuth();
 
   const handleNavigation = (page: Page) => {
-    if (!currentUser && (page === 'profile' || page === 'categories')) {
+    if (!currentUser && page === 'profile') {
         onLogin();
     } else {
         setCurrentPage(page);
     }
   };
 
-  const NavButton: React.FC<{ page: Page, label: string, icon: React.ReactNode }> = ({ page, label, icon }) => {
+  const NavButton: React.FC<{ page: Page, label: string, icon: React.ReactElement }> = ({ page, label, icon }) => {
     const isActive = currentPage === page;
+    // FIX: Changed icon prop to React.ReactElement to fix type errors with cloneElement.
+    // This removes the need for `isValidElement` and allows safe access to props.
+    // Also ensuring className is handled correctly if it's initially undefined.
+    const iconWrapper = React.cloneElement(icon, {
+        className: `${icon.props.className || ''} ${isActive ? 'animate-pulse' : ''}`.trim()
+    });
+
     return (
       <button 
         onClick={() => handleNavigation(page)} 
         className={`flex flex-col items-center justify-center w-full pt-2 pb-1 transition-colors duration-200 ${isActive ? 'text-cyber-pink' : 'text-cyber-on-surface-secondary hover:text-cyber-on-surface'}`}
       >
-        {icon}
+        {iconWrapper}
         <span className="text-[10px] font-medium mt-1">{label}</span>
       </button>
     );
@@ -52,7 +59,7 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ currentPage, setCurrentPage
           <PlusIcon className="w-8 h-8 text-white" />
         </button>
 
-        <NavButton page="categories" label="Chuyên mục" icon={<TagIcon className="w-6 h-6" />} />
+        <NavButton page="support" label="Ủng hộ" icon={<HeartIcon className="w-6 h-6" />} />
         <NavButton page="profile" label="Cá nhân" icon={<UserCircleIcon className="w-6 h-6" />} />
       </div>
     </div>

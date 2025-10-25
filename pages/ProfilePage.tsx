@@ -9,6 +9,7 @@ import { LogoutIcon } from '../components/icons/LogoutIcon';
 import { HeartIcon } from '../components/icons/HeartIcon';
 import { ShieldCheckIcon } from '../components/icons/ShieldCheckIcon';
 import { TagIcon } from '../components/icons/TagIcon';
+import { useToast } from '../contexts/ToastContext';
 
 interface ProfilePageProps {
   images: ImagePrompt[];
@@ -17,11 +18,18 @@ interface ProfilePageProps {
 
 const ProfilePage: React.FC<ProfilePageProps> = ({ images, setCurrentPage }) => {
   const { currentUser, logout, ranks } = useAuth();
+  const { showToast } = useToast();
 
   if (!currentUser) {
     // This page should not be accessible when logged out, but as a safeguard.
     return null; 
   }
+
+  const handleLogout = async () => {
+    await logout();
+    showToast('Đã đăng xuất tài khoản.', 'success');
+    setCurrentPage('home'); // Redirect to home for better UX
+  };
 
   const rankInfo = getRankInfo(currentUser, images, ranks);
 
@@ -73,7 +81,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ images, setCurrentPage }) => 
              })}
              
              <button 
-                onClick={logout}
+                onClick={handleLogout}
                 className="w-full flex items-center gap-4 p-4 text-left transition-colors rounded-lg bg-cyber-surface/50 hover:bg-cyber-surface"
             >
                 <span className="p-2 rounded-full bg-cyber-black/30 text-rank-admin">{<LogoutIcon className="w-5 h-5"/>}</span>

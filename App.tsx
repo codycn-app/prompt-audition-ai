@@ -63,8 +63,15 @@ const App: React.FC = () => {
     if (categoriesError) {
         console.error('Error fetching categories:', categoriesError);
         showToast('Lỗi: Không thể tải danh sách chuyên mục.', 'error');
+        setCategories([]);
     } else {
-        setCategories(categoriesData as Category[]);
+        if (Array.isArray(categoriesData)) {
+            setCategories(categoriesData as Category[]);
+        } else {
+            console.error('Received non-array data for categories:', categoriesData);
+            showToast('Lỗi: Dữ liệu chuyên mục không hợp lệ.', 'error');
+            setCategories([]);
+        }
     }
 
     // Definitive fix for ambiguous relationship and column name mismatch.
@@ -105,19 +112,37 @@ const App: React.FC = () => {
     return images.find(img => img.id === id);
   }, [images]);
 
-  const handleCopyPrompt = async (prompt: string) => {
-    if (!navigator.clipboard) {
-      showToast('Trình duyệt không hỗ trợ sao chép.', 'error');
-      return;
+  const handleCopyPrompt = useCallback(async (prompt: string) => {
+    // Modern async clipboard API with fallback
+    if (navigator.clipboard && window.isSecureContext) {
+        try {
+            await navigator.clipboard.writeText(prompt);
+            showToast('Đã sao chép câu lệnh!', 'success');
+            return;
+        } catch (err) {
+            console.error('Lỗi sao chép (API):', err);
+            // Fallback will be attempted below
+        }
     }
+
+    // Fallback for older browsers / non-secure contexts
+    const textArea = document.createElement("textarea");
+    textArea.value = prompt;
+    textArea.style.position = "absolute";
+    textArea.style.left = "-9999px";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
     try {
-      await navigator.clipboard.writeText(prompt);
-      showToast('Đã sao chép câu lệnh!', 'success');
+        document.execCommand('copy');
+        showToast('Đã sao chép câu lệnh!', 'success');
     } catch (err) {
-      console.error('Lỗi sao chép:', err);
-      showToast('Sao chép thất bại.', 'error');
+        console.error('Lỗi sao chép (fallback):', err);
+        showToast('Sao chép thất bại. Trình duyệt không hỗ trợ.', 'error');
+    } finally {
+        document.body.removeChild(textArea);
     }
-  };
+  }, [showToast]);
 
   const handleCloseModal = () => {
     setSelectedImage(null);

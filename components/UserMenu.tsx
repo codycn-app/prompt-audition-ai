@@ -36,6 +36,8 @@ const UserMenu: React.FC<UserMenuProps> = ({ images, setCurrentPage }) => {
   const handleLogout = async () => {
     await logout();
     showToast('Đã đăng xuất tài khoản.', 'success');
+    setIsMenuOpen(false); // Close menu after action
+    setCurrentPage('home'); // Redirect to home for better UX
   };
 
   if (!currentUser) return null;
@@ -63,7 +65,7 @@ const UserMenu: React.FC<UserMenuProps> = ({ images, setCurrentPage }) => {
         </button>
         
         {isMenuOpen && (
-          <div className="absolute right-0 w-64 mt-2 origin-top-right rounded-lg shadow-lg bg-cyber-surface/90 backdrop-blur-xl ring-1 ring-cyber-pink/20 animate-fade-in-scale">
+          <div className="absolute right-0 z-40 w-64 mt-2 origin-top-right rounded-lg shadow-lg bg-cyber-surface/90 backdrop-blur-xl ring-1 ring-cyber-pink/20 animate-fade-in-scale">
             <div className="py-1">
               <div className="px-4 py-2 border-b border-cyber-pink/10">
                 <p className="text-sm font-semibold text-cyber-on-surface">
