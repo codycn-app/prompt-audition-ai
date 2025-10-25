@@ -23,8 +23,8 @@ const Header: React.FC<HeaderProps> = ({ onCategorySelect, categories, selectedC
   const { currentUser } = useAuth();
 
   return (
-    <header className="sticky top-0 z-30 flex items-center justify-between w-full p-4 border-b bg-cyber-black/70 backdrop-blur-xl border-cyber-pink/20">
-      <div className="flex-1 min-w-0">
+    <header className="sticky top-0 z-30 flex flex-col md:flex-row items-center justify-between w-full p-4 border-b bg-cyber-black/70 backdrop-blur-xl border-cyber-pink/20 gap-4 md:gap-0">
+      <div className="flex items-center justify-between w-full md:w-auto md:flex-1 md:min-w-0">
         <h1 
             onClick={() => {
               onCategorySelect('all');
@@ -34,40 +34,44 @@ const Header: React.FC<HeaderProps> = ({ onCategorySelect, categories, selectedC
             style={{ backgroundSize: '200% auto', textShadow: '0 0 15px rgba(255, 0, 230, 0.4)' }}>
           Prompt Audition AI
         </h1>
-      </div>
-      <div className="hidden md:flex items-center space-x-2 sm:space-x-4">
-        <div className="relative">
-          <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-            <TagIcon className="w-5 h-5 text-cyber-on-surface-secondary" />
-          </span>
-          <select
-            value={selectedCategoryId}
-            onChange={(e) => onCategorySelect(e.target.value === 'all' ? 'all' : parseInt(e.target.value, 10))}
-            className="w-full max-w-xs py-2 pl-10 pr-4 transition-colors duration-300 border rounded-lg appearance-none bg-cyber-surface border-cyber-pink/20 text-cyber-on-surface focus:outline-none focus:ring-2 focus:ring-cyber-pink focus:border-cyber-pink"
-          >
-            <option value="all">Tất cả chuyên mục</option>
-            {categories.map(cat => (
-              <option key={cat.id} value={cat.id}>{cat.name}</option>
-            ))}
-          </select>
+        <div className="md:hidden">
+          {currentUser ? (
+              <UserMenu images={images} setCurrentPage={setCurrentPage} />
+          ) : (
+            <div className="flex items-center space-x-2">
+              <button onClick={onLogin} className="px-4 py-2 text-sm font-medium transition-colors rounded-lg text-cyber-on-surface hover:bg-cyber-surface/50 active:scale-95">Đăng nhập</button>
+            </div>
+          )}
         </div>
-        
-        <button
-            onClick={() => setCurrentPage('leaderboard')}
-            className="flex items-center gap-2 px-3 py-2.5 transition-colors duration-300 border rounded-lg bg-cyber-surface border-rank-master/30 hover:border-rank-master/80 hover:bg-rank-master/10 focus:outline-none focus:ring-2 focus:ring-rank-master active:scale-95"
-            aria-label="Bảng xếp hạng"
-        >
-            <CrownIcon className="w-5 h-5 text-rank-master animate-icon-glow" />
-            <span className="text-sm font-semibold text-rank-master animate-text-glow">BXH</span>
-        </button>
+      </div>
+      
+      <div className="flex items-center w-full pb-1 overflow-x-auto md:w-auto md:pb-0 custom-scrollbar">
+        <div className="flex items-center flex-shrink-0 space-x-2">
+            <button
+              onClick={() => onCategorySelect('all')}
+              className={`flex-shrink-0 px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-300 outline-none focus:ring-2 focus:ring-cyber-pink focus:ring-offset-2 focus:ring-offset-cyber-black ${selectedCategoryId === 'all' ? 'bg-gradient-to-r from-cyber-pink to-cyber-cyan text-white shadow-cyber-glow' : 'bg-cyber-surface text-cyber-on-surface-secondary hover:bg-cyber-surface/50 hover:text-cyber-on-surface'}`}
+            >
+              Tất cả
+            </button>
+            {categories.map(cat => (
+              <button
+                key={cat.id}
+                onClick={() => onCategorySelect(cat.id)}
+                className={`flex-shrink-0 px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-300 outline-none focus:ring-2 focus:ring-cyber-pink focus:ring-offset-2 focus:ring-offset-cyber-black ${selectedCategoryId === cat.id ? 'bg-gradient-to-r from-cyber-pink to-cyber-cyan text-white shadow-cyber-glow' : 'bg-cyber-surface text-cyber-on-surface-secondary hover:bg-cyber-surface/50 hover:text-cyber-on-surface'}`}
+              >
+                {cat.name}
+              </button>
+            ))}
+        </div>
+      </div>
 
+      <div className="hidden md:flex items-center space-x-2 sm:space-x-4">
         <button
             onClick={() => setCurrentPage('support')}
             className="flex items-center gap-2 px-3 py-2.5 transition-colors duration-300 border rounded-lg bg-cyber-surface border-cyber-pink/30 hover:border-cyber-pink/80 hover:bg-cyber-pink/10 focus:outline-none focus:ring-2 focus:ring-cyber-pink active:scale-95"
             aria-label="Ủng hộ dự án"
         >
             <HeartIcon className="w-5 h-5 text-cyber-pink animate-pulse" />
-            <span className="text-sm font-semibold text-cyber-pink">Ủng hộ</span>
         </button>
         
         {currentUser ? (

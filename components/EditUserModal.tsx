@@ -63,8 +63,8 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, showToast 
           username,
           role,
           avatarUrl: avatarUrlToSave,
-          customTitle: customTitle.trim() ? customTitle : '',
-          customTitleColor: customTitle.trim() ? customTitleColor : '',
+          customTitle: customTitle.trim() || null,
+          customTitleColor: customTitle.trim() ? customTitleColor : null,
       };
       
       // Note: Updating password here is complex and requires separate logic for auth.users.
@@ -142,7 +142,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, showToast 
           <hr className="border-cyber-pink/10"/>
           <div>
             <label htmlFor="custom-title" className="block mb-2 text-sm font-medium text-cyber-on-surface">Biệt danh tùy chỉnh</label>
-            <input id="custom-title" type="text" value={customTitle} onChange={(e) => setCustomTitle(e.target.value)} className={formInputStyle} placeholder="Để trống để dùng phân cấp mặc định"/>
+            <input id="custom-title" type="text" value={customTitle} onChange={(e) => setCustomTitle(e.target.value)} className={formInputStyle} placeholder="Chưa có bạn nhảy!"/>
           </div>
           <div className="flex items-center gap-4">
             <div className="flex-grow">

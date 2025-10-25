@@ -21,6 +21,7 @@ interface ImageDetailModalProps {
   onToggleLike: (id: number) => void;
   showToast: (message: string) => void;
   currentUser: User | null;
+  onCommentAdded: (imageId: number) => void;
 }
 
 const AuthorAvatar: React.FC<{ author: User | undefined | null }> = ({ author }) => {
@@ -59,7 +60,7 @@ const CommentSection: React.FC<{ comment: Comment; images: ImagePrompt[] }> = ({
 }
 
 const ImageDetailModal: React.FC<ImageDetailModalProps> = ({ 
-    image, images, onClose, onRequestDelete, onRequestEdit, onCopyPrompt, onToggleLike, showToast, currentUser 
+    image, images, onClose, onRequestDelete, onRequestEdit, onCopyPrompt, onToggleLike, showToast, currentUser, onCommentAdded
 }) => {
   const [copied, setCopied] = useState(false);
   const [commentText, setCommentText] = useState('');
@@ -136,6 +137,7 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
           }
           setComments(prev => [...prev, newCommentWithProfile]);
           setCommentText('');
+          onCommentAdded(image.id); // Update global comment count
       }
   };
   
@@ -229,7 +231,7 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
             
              {/* Comments */}
             <div className="pt-4 border-t border-cyber-pink/20">
-                <h3 className="text-sm font-semibold tracking-wider uppercase text-cyber-on-surface-secondary">Bình luận ({comments.length})</h3>
+                <h3 className="text-sm font-semibold tracking-wider uppercase text-cyber-on-surface-secondary">Bình luận ({image.comments_count})</h3>
                 <div className="mt-2 space-y-2 pr-2 overflow-y-auto max-h-40 custom-scrollbar divide-y divide-cyber-pink/10">
                     {isCommentsLoading ? <p className="text-sm italic text-cyber-on-surface-secondary/70">Đang tải bình luận...</p> :
                      comments.length > 0 ? comments.map(c => <CommentSection key={c.id} comment={c} images={images} />) : <p className="py-2 italic text-sm text-cyber-on-surface-secondary/70">Chưa có bình luận nào.</p>}

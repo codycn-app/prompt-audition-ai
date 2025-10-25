@@ -113,9 +113,14 @@ const App: React.FC = () => {
     return images.find(img => img.id === id);
   }, [images]);
 
-  const handleCopyPrompt = (prompt: string) => {
-    navigator.clipboard.writeText(prompt);
-    showToast('Đã sao chép câu lệnh!');
+  const handleCopyPrompt = async (prompt: string) => {
+    try {
+      await navigator.clipboard.writeText(prompt);
+      showToast('Đã sao chép câu lệnh!');
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
+      showToast('Lỗi: không thể sao chép.');
+    }
   };
 
   const handleCloseModal = () => {
@@ -228,6 +233,17 @@ const App: React.FC = () => {
           }
       }
   }, [currentUser, findImageById, selectedImage, showToast]);
+  
+  const handleCommentAdded = useCallback((imageId: number) => {
+    setImages(prevImages =>
+        prevImages.map(img =>
+            img.id === imageId ? { ...img, comments_count: (img.comments_count || 0) + 1 } : img
+        )
+    );
+    if (selectedImage && selectedImage.id === imageId) {
+        setSelectedImage(prev => prev ? { ...prev, comments_count: (prev.comments_count || 0) + 1 } : null);
+    }
+  }, [selectedImage]);
 
   const handleSetCategory = (id: number | 'all') => {
     setSelectedCategoryId(id);
@@ -299,6 +315,7 @@ const App: React.FC = () => {
           onToggleLike={handleToggleLike}
           showToast={showToast}
           currentUser={currentUser}
+          onCommentAdded={handleCommentAdded}
         />
       )}
       
