@@ -34,7 +34,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ images, setCurrentPage }) => 
   const rankInfo = getRankInfo(currentUser, images, ranks);
 
   const menuItems: { label: string; icon: React.ReactNode; page: Page; requiredRole: Array<'user' | 'admin'> }[] = [
-    { label: 'Chuyên mục', icon: <TagIcon className="w-5 h-5"/>, page: 'categories', requiredRole: ['user', 'admin'] },
     { label: 'Ảnh đã thích', icon: <HeartIcon className="w-5 h-5"/>, page: 'liked-images', requiredRole: ['user', 'admin'] },
     { label: 'Cài đặt Tài khoản', icon: <GearIcon className="w-5 h-5"/>, page: 'settings', requiredRole: ['user', 'admin'] },
     { label: 'Quản lý Người dùng', icon: <UserGroupIcon className="w-5 h-5"/>, page: 'user-management', requiredRole: ['admin'] },
@@ -66,6 +65,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ images, setCurrentPage }) => 
         
         {/* EXP Bar */}
         <div className="mb-8">
+            <h2 className="text-xl font-bold text-center text-cyber-on-surface font-oxanium mb-3">Thanh kinh nghiệm</h2>
             <ExpBar currentUser={currentUser} ranks={ranks} />
         </div>
 

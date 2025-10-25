@@ -147,40 +147,54 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ categories, onUpdateCategor
 
             <div className="p-6">
                 {activeTab === 'profile' && (
-                    <form onSubmit={handleProfileSubmit} className="space-y-6 animate-fade-in-scale">
-                        <div className="space-y-4">
-                            <label className="block text-sm font-medium text-cyber-on-surface">Thanh kinh nghiệm</label>
+                    <div className="space-y-6 animate-fade-in-scale">
+                        <div>
+                            <h2 className="text-xl font-bold text-cyber-on-surface font-oxanium mb-3">Thanh kinh nghiệm</h2>
                             <ExpBar currentUser={currentUser} ranks={ranks} />
                         </div>
-                        <div>
-                            <label className="block mb-2 text-sm font-medium text-cyber-on-surface">Ảnh đại diện</label>
-                            <div className="flex items-center gap-4">
-                                {avatarPreview ? (
-                                    <img src={avatarPreview} alt="Avatar Preview" className="object-cover w-20 h-20 rounded-full" />
-                                ) : (
-                                    <span className="flex items-center justify-center w-20 h-20 text-3xl rounded-full bg-cyber-surface">
-                                    <UserCircleIcon className="w-16 h-16 text-cyber-on-surface-secondary"/>
-                                    </span>
-                                )}
-                                <label htmlFor="avatar-upload" className="px-4 py-2 text-sm font-medium transition-colors border rounded-lg cursor-pointer text-cyber-on-surface bg-cyber-surface hover:bg-cyber-surface/50 active:scale-95 border-cyber-pink/20">
-                                    Tải ảnh lên
-                                </label>
-                                <input id="avatar-upload" type="file" className="hidden" accept="image/png, image/jpeg, image/webp" onChange={handleAvatarChange} />
+
+                        <div className="p-4 rounded-lg bg-cyber-black/30">
+                            <h3 className="font-semibold text-cyber-on-surface mb-2">Làm sao để tăng EXP?</h3>
+                            <ul className="space-y-1.5 text-sm list-disc list-inside text-cyber-on-surface-secondary">
+                                <li><span className="font-semibold text-cyber-cyan">+50 EXP</span> cho mỗi ảnh bạn đăng tải.</li>
+                                <li><span className="font-semibold text-cyber-cyan">+10 EXP</span> cho mỗi bình luận của bạn.</li>
+                                <li><span className="font-semibold text-cyber-cyan">+5 EXP</span> cho mỗi lượt thích ảnh.</li>
+                                <li><span className="font-semibold text-cyber-cyan">+20 EXP</span> khi cập nhật thông tin cá nhân.</li>
+                                <li><span className="font-semibold text-cyber-cyan">+1 EXP</span> cho mỗi phút hoạt động.</li>
+                            </ul>
+                        </div>
+                        
+                        <form onSubmit={handleProfileSubmit} className="space-y-6">
+                            <div>
+                                <label className="block mb-2 text-sm font-medium text-cyber-on-surface">Ảnh đại diện</label>
+                                <div className="flex items-center gap-4">
+                                    {avatarPreview ? (
+                                        <img src={avatarPreview} alt="Avatar Preview" className="object-cover w-20 h-20 rounded-full" />
+                                    ) : (
+                                        <span className="flex items-center justify-center w-20 h-20 text-3xl rounded-full bg-cyber-surface">
+                                        <UserCircleIcon className="w-16 h-16 text-cyber-on-surface-secondary"/>
+                                        </span>
+                                    )}
+                                    <label htmlFor="avatar-upload" className="px-4 py-2 text-sm font-medium transition-colors border rounded-lg cursor-pointer text-cyber-on-surface bg-cyber-surface hover:bg-cyber-surface/50 active:scale-95 border-cyber-pink/20">
+                                        Tải ảnh lên
+                                    </label>
+                                    <input id="avatar-upload" type="file" className="hidden" accept="image/png, image/jpeg, image/webp" onChange={handleAvatarChange} />
+                                </div>
                             </div>
-                        </div>
-                        <div>
-                            <label htmlFor="username-settings" className="block mb-2 text-sm font-medium text-cyber-on-surface">Tên hiển thị</label>
-                            <input id="username-settings" type="text" value={username} onChange={(e) => setUsername(e.target.value)} className={formInputStyle} required/>
-                        </div>
-                        <div>
-                        <label className="block mb-2 text-sm font-medium text-cyber-on-surface-secondary">Email (không thể thay đổi)</label>
-                        <p className="p-2.5 rounded-lg bg-cyber-black/20 text-cyber-on-surface-secondary">{currentUser.email}</p>
-                        </div>
-                        {error && <p className="text-sm text-red-400">{error}</p>}
-                        <div className="flex justify-end pt-2">
-                            <button type="submit" className="px-5 py-2.5 text-sm font-medium text-white transition-all duration-300 rounded-lg shadow-lg bg-gradient-to-r from-cyber-pink to-cyber-cyan hover:shadow-cyber-glow active:scale-95">Lưu thay đổi</button>
-                        </div>
-                    </form>
+                            <div>
+                                <label htmlFor="username-settings" className="block mb-2 text-sm font-medium text-cyber-on-surface">Tên hiển thị</label>
+                                <input id="username-settings" type="text" value={username} onChange={(e) => setUsername(e.target.value)} className={formInputStyle} required/>
+                            </div>
+                            <div>
+                            <label className="block mb-2 text-sm font-medium text-cyber-on-surface-secondary">Email (không thể thay đổi)</label>
+                            <p className="p-2.5 rounded-lg bg-cyber-black/20 text-cyber-on-surface-secondary">{currentUser.email}</p>
+                            </div>
+                            {error && <p className="text-sm text-red-400">{error}</p>}
+                            <div className="flex justify-end pt-2 border-t border-cyber-pink/10">
+                                <button type="submit" className="px-5 py-2.5 text-sm font-medium text-white transition-all duration-300 rounded-lg shadow-lg bg-gradient-to-r from-cyber-pink to-cyber-cyan hover:shadow-cyber-glow active:scale-95">Lưu thay đổi</button>
+                            </div>
+                        </form>
+                    </div>
                 )}
 
                 {activeTab === 'security' && (
