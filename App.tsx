@@ -316,8 +316,6 @@ const App: React.FC = () => {
     }
   }
 
-  const isAnyModalOpen = selectedImage || imageToEdit || isAddModalOpen || isLoginModalOpen || isSignupModalOpen || (imageToDelete !== null);
-
   return (
     <div className="flex flex-col min-h-screen font-sans text-cyber-on-surface bg-cyber-black">
       <Header
@@ -330,7 +328,7 @@ const App: React.FC = () => {
         setCurrentPage={setCurrentPage}
         images={images}
       />
-      <main className={`flex-grow w-full ${!isAnyModalOpen ? 'pb-20 md:pb-0' : ''}`}>
+      <main className="flex-grow w-full">
         {renderPage()}
       </main>
       
