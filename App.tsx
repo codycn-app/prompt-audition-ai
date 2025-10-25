@@ -54,11 +54,12 @@ const App: React.FC = () => {
   const fetchInitialData = useCallback(async () => {
     setIsLoading(true);
     
-    // Fetch categories first, ordered by custom position
+    // Fetch categories first, ordered by name as a sensible default.
+    // The previous ordering by 'position' failed because the column doesn't exist.
     const { data: categoriesData, error: categoriesError } = await supabase
         .from('categories')
         .select('*')
-        .order('position', { ascending: true, nullsFirst: false });
+        .order('name', { ascending: true });
 
     if (categoriesError) {
         console.error('Error fetching categories:', categoriesError);
