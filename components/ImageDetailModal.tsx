@@ -11,6 +11,7 @@ import { getRankInfo } from '../lib/ranking';
 import { ShareIcon } from './icons/ShareIcon';
 import { supabase } from '../supabaseClient';
 import { useToast } from '../contexts/ToastContext';
+import { InformationCircleIcon } from './icons/InformationCircleIcon';
 
 interface ImageDetailModalProps {
   image: ImagePrompt;
@@ -43,13 +44,14 @@ const CommentSection: React.FC<{ comment: Comment; images: ImagePrompt[] }> = ({
         : getUserById(comment.user_id);
 
     const authorRankInfo = getRankInfo(author, images, ranks);
-    const { finalColor: rankColor } = authorRankInfo;
+    const { finalColor: rankColor, name: rankName, icon: rankIcon } = authorRankInfo;
     
     return (
         <div className="flex items-start gap-3 py-3">
             <AuthorAvatar author={author as User} />
             <div className="flex-1">
                 <div className="flex items-center gap-2">
+                    {rankIcon && <img src={rankIcon} alt={rankName} className="w-4 h-4" />}
                     <span className="text-sm font-semibold" style={{ color: rankColor }}>{author?.username ?? 'Người dùng ẩn'}</span>
                     <span className="text-xs text-cyber-on-surface-secondary">{new Date(comment.created_at).toLocaleDateString('vi-VN')}</span>
                 </div>
@@ -66,6 +68,7 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
   const [commentText, setCommentText] = useState('');
   const [comments, setComments] = useState<Comment[]>([]);
   const [isCommentsLoading, setIsCommentsLoading] = useState(true);
+  const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
   const { showToast } = useToast();
 
   const { ranks, addExp } = useAuth();
@@ -74,19 +77,27 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
     const fetchComments = async () => {
         if (!image.id) return;
         setIsCommentsLoading(true);
-        const { data, error } = await supabase
-            .from('comments')
-            .select('*, profiles(*)')
-            .eq('image_id', image.id)
-            .order('created_at', { ascending: true });
+        try {
+            const { data, error } = await supabase
+                .from('comments')
+                .select('*, profiles(*)')
+                .eq('image_id', image.id)
+                .order('created_at', { ascending: true });
 
-        if (error) {
-            console.error("Error fetching comments:", error);
-            showToast("Không thể tải bình luận.", 'error');
-        } else {
-            setComments(data as any[]);
+            if (error) {
+                console.error("Error fetching comments:", error);
+                showToast("Không thể tải bình luận.", 'error');
+                setComments([]);
+            } else {
+                setComments(data as any[]);
+            }
+        } catch (e) {
+            console.error("An unexpected error occurred while fetching comments:", e);
+            showToast("Lỗi không mong muốn khi tải bình luận.", 'error');
+            setComments([]);
+        } finally {
+            setIsCommentsLoading(false);
         }
-        setIsCommentsLoading(false);
     };
 
     fetchComments();
@@ -205,7 +216,14 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
                     <p className="text-sm text-cyber-on-surface-secondary whitespace-pre-wrap">{image.prompt}</p>
                   </div>
               </div>
-              <div className="flex justify-end mt-2">
+              <div className="flex items-center justify-end mt-2 gap-2">
+                 <button
+                    onClick={() => setIsGuideModalOpen(true)}
+                    className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-white transition-all duration-300 border border-transparent rounded-full shadow-md outline-none bg-gradient-to-r from-cyber-cyan/80 to-blue-500/80 group hover:shadow-cyber-glow focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-cyber-surface focus:ring-cyber-cyan active:scale-95"
+                  >
+                    <InformationCircleIcon className="w-4 h-4" />
+                    Hướng dẫn
+                  </button>
                  <button
                     onClick={handleCopyPrompt}
                     className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-white transition-all duration-300 border border-transparent rounded-full shadow-md outline-none bg-gradient-to-r from-cyber-pink/80 to-cyber-cyan/80 group hover:shadow-cyber-glow focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-cyber-surface focus:ring-cyber-pink active:scale-95"
@@ -288,6 +306,49 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
           </div>
         </div>
       </div>
+
+      {isGuideModalOpen && (
+        <div 
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-lg animate-fade-in-scale"
+          onClick={() => setIsGuideModalOpen(false)}
+        >
+          <div 
+            className="relative w-full max-w-lg max-h-full overflow-hidden rounded-xl shadow-2xl bg-cyber-surface/90 backdrop-blur-2xl shadow-cyber-glow-lg"
+            onClick={(e) => e.stopPropagation()}
+            style={{border: '1px solid transparent', background: 'linear-gradient(#1A1A1A, #1A1A1A) padding-box, linear-gradient(120deg, #00FFFF, #FF00E6) border-box'}}
+          >
+            <div className="flex items-center justify-between p-4 border-b border-cyber-cyan/20">
+              <h2 className="text-xl font-semibold text-cyber-cyan flex items-center gap-2"><InformationCircleIcon className="w-6 h-6"/> Hướng dẫn sử dụng</h2>
+              <button 
+                onClick={() => setIsGuideModalOpen(false)}
+                className="p-2 text-gray-400 transition-colors rounded-full hover:bg-cyber-surface active:scale-95"
+                aria-label="Đóng"
+              >
+                <CloseIcon className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-6 text-cyber-on-surface-secondary">
+                <p className="whitespace-pre-wrap leading-relaxed">
+{`Cách sử dụng Câu lệnh AUDITION AI cho ai chưa biết:
+👉B1 : Tải ảnh nhân vật AU rõ nét lên APP AUDITION AI.
+👉B2 : Ấn Sao Chép Prompt và dán vào mô tả ở APP AUDITION AI.
+👉B3 : Ấn Tạo ảnh và Chờ đợi kết quả trong 5-10s.
+
+❗Lưu ý: Vì tạo ảnh bằng AI sẽ không tránh được các lỗi như tư thế nhân vật, biểu cảm nhân vật khác với ảnh tải lên,... Hãy thử 7749 lần với mỗi ảnh khác nhau để có kết quả ưng ý nhất.`}
+                </p>
+            </div>
+             <div className="flex justify-end p-4 bg-cyber-surface/50 border-t border-cyber-cyan/20">
+                <button
+                    type="button"
+                    onClick={() => setIsGuideModalOpen(false)}
+                    className="px-5 py-2.5 text-sm font-medium text-white transition-all duration-300 rounded-lg shadow-lg bg-gradient-to-r from-cyber-cyan to-blue-500 hover:shadow-cyber-glow active:scale-95"
+                >
+                    Đã hiểu
+                </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };
