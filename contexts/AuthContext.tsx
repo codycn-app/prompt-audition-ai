@@ -41,40 +41,57 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [ranks, setRanks] = useLocalStorage<Rank[]>('app-ranks-v2-exp', INITIAL_RANKS);
 
   useEffect(() => {
-    // DEFINITIVE FIX: The previous implementation fetched ALL user profiles on initial load as an anonymous user,
-    // which caused a hang due to Supabase Row Level Security (RLS) policies.
-    // The correct approach is to ONLY listen for auth changes and fetch the logged-in user's profile.
-    // The full user list will be fetched on-demand by the components that actually need it (e.g., Leaderboard).
-    
-    // FIX: The `onAuthStateChange` method exists in older Supabase SDKs. The error is likely due to faulty type definitions in the user's environment. The syntax is correct.
+    // DEFINITIVE FIX for application hang on reload.
+    // This logic is now wrapped in a try/catch block. If fetching the profile fails for any reason
+    // after rehydrating the session (e.g., network error, RLS issue, corrupted but parsable session),
+    // it will be caught, and the user will be safely signed out, clearing the problematic session data.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (session?.user) {
-            const { data: profile, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', session.user.id)
-                .single();
-            
-            if (error) {
-                console.error('Error fetching profile:', error);
-                setCurrentUser(null);
-            } else {
-                setCurrentUser({
-                    ...profile,
-                    email: session.user.email!,
-                });
-                // Ensure the current user's profile is always in the `users` cache
-                setUsers(prev => {
-                    const userExists = prev.some(u => u.id === profile.id);
-                    if (userExists) {
-                        return prev.map(u => u.id === profile.id ? { ...u, ...profile } : u);
-                    }
-                    return [...prev, profile];
-                });
-            }
-        } else {
+      async (_event, session) => {
+        try {
+          // If there's no session or user, we are logged out.
+          if (!session?.user) {
             setCurrentUser(null);
+            return;
+          }
+
+          // A session exists, now fetch the user's profile from the database.
+          const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+
+          // If Supabase returns an error (e.g., RLS violation), treat it as a critical failure.
+          if (error) {
+            throw error;
+          }
+
+          // This can happen if a user exists in auth but their profile was deleted.
+          if (!profile) {
+            throw new Error(`Profile not found for user ID: ${session.user.id}`);
+          }
+          
+          const fullUser: User = {
+            ...profile,
+            email: session.user.email!,
+          };
+
+          setCurrentUser(fullUser);
+
+          // Ensure the current user's profile is always in the `users` cache
+          setUsers(prev => {
+            const userExists = prev.some(u => u.id === fullUser.id);
+            if (userExists) {
+              return prev.map(u => u.id === fullUser.id ? fullUser : u);
+            }
+            return [...prev, fullUser];
+          });
+
+        } catch (e) {
+          console.error('Critical error during session handling. Signing out to prevent app hang.', e);
+          // This is the safety net. If anything goes wrong, sign out to clear the bad session.
+          await supabase.auth.signOut();
+          setCurrentUser(null);
         }
       }
     );
