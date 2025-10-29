@@ -27,28 +27,48 @@
       })();
     </script>
     <script>
-      // Critical bug fix for app hanging on load.
-      // This script checks for a corrupted Supabase session in localStorage, which can cause
-      // the client to hang silently. If invalid JSON is found in the session key,
-      // it clears all Supabase-related storage to break the hang cycle.
+      // DEFINITIVE FIX v2 for app hanging on load.
+      // A session is considered corrupted if it's not valid JSON OR if it's valid JSON
+      // but lacks an essential 'access_token', which causes the Supabase client to hang silently.
       (function() {
-        try {
-          for (var i = 0; i < localStorage.length; i++) {
-            var key = localStorage.key(i);
-            // Target the Supabase auth token key.
-            if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
-              var value = localStorage.getItem(key);
-              if (value) {
-                // Attempt to parse. This will throw an error if the JSON is malformed.
-                JSON.parse(value);
+        var corruptionFound = false;
+        var keysToCheck = [];
+
+        // First, get all potential keys to avoid issues with iterating over a changing collection.
+        for (var i = 0; i < localStorage.length; i++) {
+          var key = localStorage.key(i);
+          if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
+            keysToCheck.push(key);
+          }
+        }
+
+        // Now, check the collected keys for corruption.
+        for (var j = 0; j < keysToCheck.length; j++) {
+          var key = keysToCheck[j];
+          var value = localStorage.getItem(key);
+          if (value) {
+            try {
+              var parsed = JSON.parse(value);
+              // A valid session MUST have an access_token. This handles cases where JSON is
+              // valid but the session data is incomplete, which also causes a hang.
+              if (!parsed || !parsed.access_token) {
+                corruptionFound = true;
+                break; // Found a bad key, no need to check others.
               }
+            } catch (e) {
+              // The value is not valid JSON. This is also corruption.
+              corruptionFound = true;
+              break; // Found a bad key, no need to check others.
             }
           }
-        } catch (e) {
-          console.warn('Corrupted Supabase session detected. Clearing Supabase localStorage to prevent app hang.');
+        }
+
+        // If corruption was found in the check, clear all Supabase-related storage.
+        if (corruptionFound) {
+          console.warn('Corrupted or incomplete Supabase session detected. Clearing Supabase localStorage to prevent app hang.');
           var keysToRemove = [];
-          for (var j = 0; j < localStorage.length; j++) {
-            var keyToRemove = localStorage.key(j);
+          for (var k = 0; k < localStorage.length; k++) {
+            var keyToRemove = localStorage.key(k);
             if (keyToRemove && keyToRemove.startsWith('sb-')) {
               keysToRemove.push(keyToRemove);
             }
@@ -56,6 +76,7 @@
           keysToRemove.forEach(function(key) {
             localStorage.removeItem(key);
           });
+          console.log('Supabase localStorage cleared. The app should now load correctly.');
           // The page will now load correctly, albeit logged out.
         }
       })();
