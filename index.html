@@ -27,67 +27,70 @@
       })();
     </script>
     <script>
-      // DEFINITIVE FIX v3 for app hanging on load.
-      // This is the master cleanup script. It detects corrupted, incomplete, OR legacy Supabase
-      // session data, which all cause the client to hang silently.
+      // FINAL FIX: Ultimate Supabase session recovery script.
+      // This script addresses a subtle bug where a structurally valid, but logically incomplete,
+      // session in localStorage causes the Supabase client to hang indefinitely on initialization.
       (function() {
-        var corruptionFound = false;
-        var keysToCheck = [];
+        try {
+          var keysToPotentiallyRemove = [];
+          var mainSessionKey = null;
 
-        // Gather ALL potential Supabase auth keys, including modern (sb-...) and legacy ones.
-        for (var i = 0; i < localStorage.length; i++) {
-          var key = localStorage.key(i);
-          if (key && (key.startsWith('sb-') || key.startsWith('supabase.auth.token'))) {
-            keysToCheck.push(key);
-          }
-        }
-        
-        if (keysToCheck.length === 0) {
-          return; // No Supabase keys found, nothing to do.
-        }
-
-        for (var j = 0; j < keysToCheck.length; j++) {
-          var key = keysToCheck[j];
-          var value = localStorage.getItem(key);
-          
-          if (!value) { // An empty or null value for an auth key is invalid.
-              corruptionFound = true;
-              break;
-          }
-          
-          try {
-            var parsed = JSON.parse(value);
-            // SUPER ROBUST CHECK: A valid session MUST have an access_token, a refresh_token, 
-            // and a user object with an ID. This covers all cases of incomplete data.
-            if (!parsed || !parsed.access_token || !parsed.refresh_token || !parsed.user || !parsed.user.id) {
-              corruptionFound = true;
-              break; 
-            }
-          } catch (e) {
-            // The value is not valid JSON, which is clear corruption.
-            corruptionFound = true;
-            break;
-          }
-        }
-
-        // If any form of corruption was found, perform a total cleanup.
-        if (corruptionFound) {
-          console.warn('Corrupted, incomplete, or legacy Supabase session detected. Clearing ALL known Supabase localStorage keys to prevent app hang.');
-          
-          var keysToRemove = [];
-          for (var k = 0; k < localStorage.length; k++) {
-            var keyToRemove = localStorage.key(k);
-            // Target all `sb-*` keys and the legacy key for complete removal.
-            if (keyToRemove && (keyToRemove.startsWith('sb-') || keyToRemove.startsWith('supabase.auth.token'))) {
-              keysToRemove.push(keyToRemove);
+          // 1. Find the main session key and gather all other potential Supabase keys.
+          for (var i = 0; i < localStorage.length; i++) {
+            var key = localStorage.key(i);
+            if (key) {
+               if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
+                mainSessionKey = key;
+              }
+              if (key.startsWith('sb-') || key.startsWith('supabase.auth.token')) {
+                keysToPotentiallyRemove.push(key);
+              }
             }
           }
+
+          // 2. If no potential keys exist, the slate is clean. Nothing to do.
+          if (keysToPotentiallyRemove.length === 0) {
+            return;
+          }
           
-          keysToRemove.forEach(function(key) {
-            localStorage.removeItem(key);
-          });
-          
-          console.log('Supabase localStorage cleared. The app will now load correctly.');
+          var isSessionHealthy = false;
+
+          // 3. If a main session key was found, validate it aggressively.
+          if (mainSessionKey) {
+            var value = localStorage.getItem(mainSessionKey);
+            if (value) {
+              try {
+                var parsed = JSON.parse(value);
+                // AGGRESSIVE VALIDATION: A healthy session must have all these properties
+                // with the correct types and non-empty values. This catches "valid-but-poisonous" data.
+                if (
+                  parsed &&
+                  typeof parsed.access_token === 'string' && parsed.access_token.length > 0 &&
+                  typeof parsed.refresh_token === 'string' && parsed.refresh_token.length > 0 &&
+                  typeof parsed.user === 'object' && parsed.user !== null &&
+                  typeof parsed.user.id === 'string' && parsed.user.id.length > 0 &&
+                  parsed.user.aud === 'authenticated'
+                ) {
+                  isSessionHealthy = true;
+                }
+              } catch (e) {
+                // JSON parsing failed. This is definitive corruption. isSessionHealthy remains false.
+              }
+            }
+          }
+
+          // 4. If the session is NOT healthy, perform a full cleanup.
+          if (!isSessionHealthy) {
+            console.warn('Supabase session is invalid, incomplete, or corrupted. Cleaning up localStorage to prevent app hang.');
+            keysToPotentiallyRemove.forEach(function(key) {
+              localStorage.removeItem(key);
+            });
+            console.log('Supabase localStorage cleared. App will now load correctly.');
+          }
+
+        } catch (e) {
+          // If the recovery script itself fails, log it, but do not crash the page.
+          console.error('Critical error in Supabase recovery script:', e);
         }
       })();
     </script>
