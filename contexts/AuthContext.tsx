@@ -37,67 +37,22 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [session, setSession] = useState<any | null>(null); // Using `any` to avoid import issues with older SDK
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [users, setUsers] = useState<User[]>([]);
   const [hasFetchedAllUsers, setHasFetchedAllUsers] = useState(false);
   const [ranks, setRanks] = useLocalStorage<Rank[]>('app-ranks-v2-exp', INITIAL_RANKS);
 
+  // Effect 1: Fast Session Resolution (The "Gatekeeper")
+  // Its only job is to determine if a session object exists and then immediately
+  // update the loading state to un-gate the rest of the application.
+  // This is a fast, non-blocking operation that prevents the app from hanging.
   useEffect(() => {
     const supabase = getSupabaseClient();
-    // This flag ensures isAuthLoading is only set to false once, after the initial
-    // session state has been determined on page load.
-    let isInitialAuthCheckDone = false;
-    
-    // With session persistence re-enabled, onAuthStateChange is the single source of truth.
-    // It fires once on load with the persisted session (or null), and then for any auth event.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        try {
-            if (!session?.user) {
-              setCurrentUser(null);
-              return;
-            }
-
-            // A session is active, fetch the associated profile.
-            const { data: profile, error } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', session.user.id)
-              .single();
-
-            if (error || !profile) {
-              console.error('Error fetching profile for active session, logging out.', error);
-              // If we can't get a profile for an active session, something is wrong. Log out.
-              await supabase.auth.signOut();
-              setCurrentUser(null);
-            } else {
-               const fullUser: User = {
-                ...profile,
-                email: session.user.email!,
-              };
-
-              setCurrentUser(fullUser);
-
-              // Update the local users cache with the current user's data.
-              setUsers(prev => {
-                const userExists = prev.some(u => u.id === fullUser.id);
-                if (userExists) {
-                  return prev.map(u => u.id === fullUser.id ? fullUser : u);
-                }
-                return [...prev, fullUser];
-              });
-            }
-        } catch (e) {
-          console.error("Critical error in onAuthStateChange:", e);
-          setCurrentUser(null);
-        } finally {
-            // This is the "green light". It signals to App.tsx that it's safe to fetch data.
-            // This runs on EVERY page load after the initial auth state is resolved.
-            if (!isInitialAuthCheckDone) {
-                setIsAuthLoading(false);
-                isInitialAuthCheckDone = true;
-            }
-        }
+      (_event, session) => {
+        setSession(session);
+        setIsAuthLoading(false); // This is the "green light". It fires quickly and reliably.
       }
     );
     
@@ -105,6 +60,61 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         subscription?.unsubscribe();
     };
   }, []);
+
+  // Effect 2: Safe Profile Fetching (The "Background Worker")
+  // This effect runs *after* the session is resolved. It safely fetches user details.
+  // If this process fails, it will not hang the app; instead, it will self-heal by logging out.
+  useEffect(() => {
+    // If there's no session, ensure user is logged out and do nothing else.
+    if (!session) {
+      setCurrentUser(null);
+      return;
+    }
+
+    const fetchProfile = async () => {
+      const supabase = getSupabaseClient();
+      try {
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+
+        if (error) {
+            // This could be a network error or an RLS issue.
+            throw error;
+        }
+
+        if (profile) {
+            const fullUser: User = {
+            ...profile,
+            email: session.user.email!,
+          };
+
+          setCurrentUser(fullUser);
+
+          // Update the local users cache with the current user's data.
+          setUsers(prev => {
+            const userExists = prev.some(u => u.id === fullUser.id);
+            if (userExists) {
+              return prev.map(u => u.id === fullUser.id ? fullUser : u);
+            }
+            return [...prev, fullUser];
+          });
+        } else {
+            // This is a critical data inconsistency: a user exists in auth but not in our profiles table.
+            throw new Error(`Profile not found for user ID: ${session.user.id}`);
+        }
+      } catch (e) {
+        console.error("Critical error fetching profile for session. Signing out to self-heal.", e);
+        // Self-healing mechanism: The session is "poisonous". Sign out to clear it.
+        await supabase.auth.signOut();
+        setCurrentUser(null);
+      }
+    };
+
+    fetchProfile();
+  }, [session]); // This effect is solely dependent on the session object.
 
   const getUserById = useCallback((id: string): User | undefined => {
     return users.find(u => u.id === id);
@@ -146,8 +156,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const supabase = getSupabaseClient();
     const { error } = await supabase.auth.signOut();
     if (error) throw new Error(error.message);
-    // Supabase client handles clearing the session from localStorage on sign out.
-    setCurrentUser(null);
+    // onAuthStateChange will fire with a null session, which will clear the currentUser state.
     setHasFetchedAllUsers(false);
   }, []);
 
