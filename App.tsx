@@ -81,14 +81,15 @@ const App: React.FC = () => {
     // Ensure categories is always an array.
     setCategories(categoriesData || []);
 
-    // Definitive fix for ambiguous relationship and column name mismatch.
+    // Definitive fix for query timeout/hang issue.
+    // The `comments(count)` aggregation was too complex for the initial load and caused the request to fail silently.
+    // By removing it, we ensure the primary image data loads reliably. Comment counts are still available in the detail view.
     const { data: imagesData, error: imagesError } = await supabase
       .from('images')
       .select(`
         *,
         profiles!user_id ( * ),
-        categories ( id, name ),
-        comments ( count )
+        categories ( id, name )
       `)
       .order('created_at', { ascending: false });
 
@@ -99,10 +100,11 @@ const App: React.FC = () => {
         return;
     }
 
-    // Transform the data to match the ImagePrompt type, especially the comments_count.
+    // Transform the data to match the ImagePrompt type.
+    // Since we no longer fetch comments_count in the main query, we default it to 0.
     const transformedImages = imagesData.map((img: any) => ({
         ...img,
-        comments_count: Array.isArray(img.comments) && img.comments.length > 0 ? img.comments[0].count : 0,
+        comments_count: 0,
         categories: img.categories || [],
     }));
 
