@@ -2,6 +2,8 @@
 
 
 
+
+
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { ImagePrompt, Comment, User, Category, Page } from './types';
 import { useAuth } from './contexts/AuthContext';
@@ -25,6 +27,7 @@ import SupportPage from './pages/SupportPage';
 import CategoriesPage from './pages/CategoriesPage';
 import { getSupabaseClient } from './supabaseClient';
 import { useToast } from './contexts/ToastContext';
+import RecentImages from './components/RecentImages';
 
 
 const App: React.FC = () => {
@@ -217,6 +220,11 @@ const App: React.FC = () => {
     // Corrected logic for many-to-many relationship
     return images.filter(image => image.categories && image.categories.some(cat => cat.id === selectedCategoryId));
   }, [images, selectedCategoryId]);
+
+  const recentImages = useMemo(() => {
+    // The main images array is already sorted by created_at descending from the initial fetch.
+    return images.slice(0, 15);
+  }, [images]);
   
   const handleAddImage = useCallback(async () => {
     setIsAddModalOpen(false);
@@ -350,13 +358,16 @@ const App: React.FC = () => {
       default:
         return (
           (isLoading && images.length === 0) ? <ImageGridSkeleton /> :
-          <div className="p-4 sm:p-6 lg:p-8">
-            <ImageGrid 
-              images={filteredImages} 
-              onImageClick={handleSelectImage}
-              currentUser={currentUser}
-            />
-          </div>
+          <>
+            <RecentImages images={recentImages} onImageClick={handleSelectImage} />
+            <div className="p-4 sm:p-6 lg:p-8">
+              <ImageGrid 
+                images={filteredImages} 
+                onImageClick={handleSelectImage}
+                currentUser={currentUser}
+              />
+            </div>
+          </>
         );
     }
   }
