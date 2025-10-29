@@ -1,3 +1,5 @@
+
+
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { ImagePrompt, Comment, User, Category, Page } from './types';
 import { useAuth } from './contexts/AuthContext';
@@ -81,16 +83,12 @@ const App: React.FC = () => {
     // Ensure categories is always an array.
     setCategories(categoriesData || []);
 
-    // Definitive fix for query timeout/hang issue.
-    // The `comments(count)` aggregation was too complex for the initial load and caused the request to fail silently.
-    // By removing it, we ensure the primary image data loads reliably. Comment counts are still available in the detail view.
+    // Definitive Fix: The root cause of the application hanging was an incorrect query for the many-to-many relationship
+    // between images and categories. The previous query `categories(*)` attempted a simple join, which is wrong.
+    // The corrected query `image_categories(categories(*))` properly queries through the join table.
     const { data: imagesData, error: imagesError } = await supabase
       .from('images')
-      .select(`
-        *,
-        profiles!user_id ( * ),
-        categories ( id, name )
-      `)
+      .select('*, profiles(*), image_categories(categories(*))')
       .order('created_at', { ascending: false });
 
     if (imagesError) {
@@ -100,12 +98,12 @@ const App: React.FC = () => {
         return;
     }
 
-    // Transform the data to match the ImagePrompt type.
-    // Since we no longer fetch comments_count in the main query, we default it to 0.
+    // Transform the data to handle the nested structure from the many-to-many join.
     const transformedImages = imagesData.map((img: any) => ({
         ...img,
         comments_count: 0,
-        categories: img.categories || [],
+        // Pluck the `categories` object from each entry in the `image_categories` array.
+        categories: img.image_categories ? img.image_categories.map((ic: any) => ic.categories).filter(Boolean) : [],
     }));
 
     setImages(transformedImages as ImagePrompt[]);
