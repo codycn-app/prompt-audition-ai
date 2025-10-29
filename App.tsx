@@ -1,6 +1,5 @@
 
 
-
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { ImagePrompt, Comment, User, Category, Page } from './types';
 import { useAuth } from './contexts/AuthContext';
@@ -65,54 +64,69 @@ const App: React.FC = () => {
 
   const fetchInitialData = useCallback(async () => {
     setIsLoading(true);
-    
-    // Step 1: Fetch all categories. This is fast and efficient.
-    const { data: categoriesData, error: categoriesError } = await supabase
+    try {
+      // Fetch categories first, as they are needed for processing images
+      const { data: categoriesData, error: categoriesError } = await supabase
         .from('categories')
         .select('*')
         .order('position', { ascending: true });
 
-    if (categoriesError) {
-        console.error('Error fetching categories:', categoriesError);
-        showToast('Lỗi: Không thể tải danh sách chuyên mục.', 'error');
-        setCategories([]);
-        setIsLoading(false);
-        return;
+      if (categoriesError) throw categoriesError;
+      setCategories(categoriesData || []);
+
+      // DEFINITIVE FIX:
+      // The old '.from("images").select(...)' was hanging due to a Row Level Security (RLS) policy deadlock on anonymous requests.
+      // This new approach calls a custom, secure database function ('get_all_images_and_categories') that is designed to bypass this specific RLS issue.
+      // This is the correct architectural pattern to solve this problem.
+      const { data: imageData, error: rpcError } = await supabase.rpc('get_all_images_and_categories');
+
+      if (rpcError) throw rpcError;
+
+      // The RPC function returns a flat list. We need to process it into the nested structure our app expects.
+      const imageMap = new Map<number, ImagePrompt>();
+
+      for (const row of imageData) {
+        if (!imageMap.has(row.id)) {
+          imageMap.set(row.id, {
+            id: row.id,
+            image_url: row.image_url,
+            title: row.title,
+            prompt: row.prompt,
+            created_at: row.created_at,
+            user_id: row.user_id,
+            likes: row.likes || [],
+            views: row.views || 0,
+            profiles: null, // Fetched on demand
+            comments_count: row.comments_count || 0,
+            categories: [], // Initialize as an empty array
+          });
+        }
+        
+        const image = imageMap.get(row.id)!;
+        if (row.category_id && row.category_name) {
+          // Avoid adding duplicate categories
+          if (!image.categories!.some(c => c.id === row.category_id)) {
+            image.categories!.push({
+              id: row.category_id,
+              name: row.category_name,
+            });
+          }
+        }
+      }
+
+      const allImages = Array.from(imageMap.values());
+      
+      // Ensure the images are sorted by creation date, as the map doesn't guarantee order.
+      allImages.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      
+      setImages(allImages);
+
+    } catch (error: any) {
+      console.error('CRITICAL: Failed to fetch initial data:', error);
+      showToast('Lỗi nghiêm trọng: Không thể tải dữ liệu từ server.', 'error');
+    } finally {
+      setIsLoading(false);
     }
-    
-    const allCategories = categoriesData || [];
-    setCategories(allCategories);
-
-    // Step 2: Fetch images with simplified joins. This query avoids the complex nested select that was causing the hang.
-    // It fetches the comment count directly and gets the category IDs from the join table.
-    const { data: imagesData, error: imagesError } = await supabase
-      .from('images')
-      .select('*, profiles(*), comments(count), image_categories(category_id)')
-      .order('created_at', { ascending: false });
-
-    if (imagesError) {
-        console.error('Error fetching images:', imagesError);
-        showToast('Lỗi nghiêm trọng: Không thể tải dữ liệu ảnh.', 'error');
-        setIsLoading(false);
-        return;
-    }
-
-    // Step 3: Process and join data on the client side. This is more robust than a complex server-side join.
-    const transformedImages = imagesData.map((img: any) => {
-        const categoryIds = img.image_categories ? img.image_categories.map((ic: any) => ic.category_id) : [];
-        const resolvedCategories = allCategories.filter(cat => categoryIds.includes(cat.id));
-
-        return {
-            ...img,
-            // Restore comment count from the aggregated query result.
-            comments_count: img.comments && img.comments.length > 0 ? img.comments[0].count : 0,
-            // Assign the resolved category objects.
-            categories: resolvedCategories,
-        };
-    });
-
-    setImages(transformedImages as ImagePrompt[]);
-    setIsLoading(false);
   }, [showToast]);
 
   useEffect(() => {
@@ -161,22 +175,40 @@ const App: React.FC = () => {
   };
 
   const handleSelectImage = useCallback(async (image: ImagePrompt) => {
+    // Optimistically open the modal with the data we already have.
     setSelectedImage(image);
     
+    // Asynchronously fetch the full details (author profile). Comment count is now pre-fetched.
+    const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', image.user_id)
+        .single();
+
+    if (profileError) {
+        console.error('Error fetching image details:', profileError);
+    } else {
+        // Update the selected image in state with the newly fetched profile.
+        setSelectedImage(prev => prev ? { 
+            ...prev, 
+            profiles: profileData,
+        } : null);
+    }
+
+    // Update view count in DB and local state.
     const newViews = (image.views || 0) + 1;
-    // Update view count in DB
-    const { error } = await supabase
+    const { error: viewError } = await supabase
       .from('images')
       .update({ views: newViews })
       .eq('id', image.id);
     
-    if (!error) {
-        // Update view count in local state for immediate feedback
+    if (!viewError) {
         setImages(prevImages => 
             prevImages.map(img => 
                 img.id === image.id ? { ...img, views: newViews } : img
             )
         );
+        setSelectedImage(prev => prev ? { ...prev, views: newViews } : null);
     }
   }, []);
 
@@ -189,7 +221,7 @@ const App: React.FC = () => {
   const handleAddImage = useCallback(async () => {
     setIsAddModalOpen(false);
     showToast('Đã thêm ảnh mới thành công! (+50 EXP)', 'success');
-    await addExp(50); // Add EXP for new image
+    if (addExp) await addExp(50); // Add EXP for new image
     await fetchInitialData();
   }, [fetchInitialData, showToast, addExp]);
   
@@ -263,7 +295,7 @@ const App: React.FC = () => {
           if (selectedImage && selectedImage.id === imageId) {
             setSelectedImage(prev => prev ? { ...prev, likes: newLikes } : null);
           }
-          if (!hasLiked) {
+          if (!hasLiked && addExp) {
              showToast('Đã thích ảnh! (+5 EXP)', 'success');
              addExp(5); // Add EXP for liking
           }
@@ -273,13 +305,19 @@ const App: React.FC = () => {
   const handleCommentAdded = useCallback((imageId: number) => {
     // This function ensures the comment count is updated immediately across the app
     // for a smoother user experience.
+    const updateCount = (prev: ImagePrompt | null) => {
+        if (!prev) return null;
+        const currentCount = selectedImage?.id === imageId ? (selectedImage.comments_count || 0) : (prev.comments_count || 0);
+        return { ...prev, comments_count: currentCount + 1 };
+    };
+
     setImages(prevImages =>
         prevImages.map(img =>
-            img.id === imageId ? { ...img, comments_count: (img.comments_count || 0) + 1 } : img
+            img.id === imageId ? updateCount(img) as ImagePrompt : img
         )
     );
     if (selectedImage && selectedImage.id === imageId) {
-        setSelectedImage(prev => prev ? { ...prev, comments_count: (prev.comments_count || 0) + 1 } : null);
+        setSelectedImage(updateCount);
     }
   }, [selectedImage]);
 
