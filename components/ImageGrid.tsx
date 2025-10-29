@@ -18,8 +18,10 @@ const ImageGrid: React.FC<ImageGridProps> = ({ images, onImageClick, currentUser
     );
   }
 
+  // Reverted to a column-based masonry layout to allow images of different heights
+  // to flow naturally, preventing empty spaces under shorter images in a row.
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 items-start">
+    <div className="gap-6 space-y-6 columns-2 sm:columns-3 md:columns-4 lg:columns-5 xl:columns-6">
       {images.map((image) => (
         <ImageCard 
           key={image.id} 

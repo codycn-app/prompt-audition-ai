@@ -19,8 +19,8 @@ const ImageCard: React.FC<ImageCardProps> = ({ image, onClick, currentUser }) =>
       onClick={onClick}
       style={{ breakInside: 'avoid' }}
     >
-      {/* Wrapper to constrain overlay to image dimensions */}
-      <div className="relative">
+      {/* Wrapper to constrain overlay to image dimensions and clip the scaling image */}
+      <div className="relative overflow-hidden rounded-[10px]">
         <img
           src={image.image_url}
           alt={image.prompt.substring(0, 30)}
@@ -28,15 +28,16 @@ const ImageCard: React.FC<ImageCardProps> = ({ image, onClick, currentUser }) =>
           loading="lazy"
         />
         
-        <div className="absolute inset-0 flex flex-col justify-end transition-opacity duration-300 opacity-0 bg-gradient-to-t from-black/80 to-transparent group-hover:opacity-100">
+        {/* Removed the dark gradient overlay (bg-gradient-to-t...) as requested, so only social stats appear on hover. */}
+        <div className="absolute inset-0 flex flex-col justify-end transition-opacity duration-300 opacity-0 group-hover:opacity-100">
           {/* Social Stats */}
           <div className="w-full p-4 pt-0">
             <div className="flex items-center justify-end gap-4 text-sm text-white">
-                <div className="flex items-center gap-1.5 p-1.5 px-2.5 bg-black/40 rounded-full">
+                <div className="flex items-center gap-1.5 p-1.5 px-2.5 bg-black/40 backdrop-blur-sm rounded-full">
                     <HeartIcon className={`w-5 h-5 ${hasLiked ? 'text-cyber-pink' : ''}`} fill={hasLiked ? 'currentColor' : 'none'}/>
                     <span className="font-semibold">{image.likes.length}</span>
                 </div>
-                <div className="flex items-center gap-1.5 p-1.5 px-2.5 bg-black/40 rounded-full">
+                <div className="flex items-center gap-1.5 p-1.5 px-2.5 bg-black/40 backdrop-blur-sm rounded-full">
                     <ChatBubbleIcon className="w-5 h-5" />
                     <span className="font-semibold">{image.comments_count ?? 0}</span>
                 </div>
