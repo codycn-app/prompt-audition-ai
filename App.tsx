@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { ImagePrompt, Comment, User, Category, Page } from './types';
 import { useAuth } from './contexts/AuthContext';
@@ -30,7 +31,7 @@ const App: React.FC = () => {
   const [images, setImages] = useState<ImagePrompt[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { currentUser, users, addExp } = useAuth();
+  const { currentUser, users, addExp, isAuthLoading } = useAuth();
   const { showToast } = useToast();
   
   const [selectedImage, setSelectedImage] = useState<ImagePrompt | null>(null);
@@ -123,8 +124,13 @@ const App: React.FC = () => {
   }, [showToast]);
 
   useEffect(() => {
+    // Architectural Fix: Wait for the authentication to be resolved before fetching initial data.
+    // This prevents a race condition where data is fetched with an unauthenticated client.
+    if (isAuthLoading) {
+      return;
+    }
     fetchInitialData();
-  }, [fetchInitialData]);
+  }, [fetchInitialData, isAuthLoading]);
 
 
   const findImageById = useCallback((id: number) => {

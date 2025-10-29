@@ -10,6 +10,7 @@ interface AuthContextType {
   currentUser: User | null;
   users: User[];
   ranks: Rank[];
+  isAuthLoading: boolean;
   setUsers: React.Dispatch<React.SetStateAction<User[]>>;
   hasFetchedAllUsers: boolean;
   setHasFetchedAllUsers: React.Dispatch<React.SetStateAction<boolean>>;
@@ -36,12 +37,14 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [users, setUsers] = useState<User[]>([]);
   const [hasFetchedAllUsers, setHasFetchedAllUsers] = useState(false);
   const [ranks, setRanks] = useLocalStorage<Rank[]>('app-ranks-v2-exp', INITIAL_RANKS);
 
   useEffect(() => {
     const supabase = getSupabaseClient();
+    let isInitialAuthCheckDone = false;
     
     // --- ARCHITECTURAL FIX: MANUAL SESSION RESTORATION ---
     // With `persistSession: false`, we must manually restore the session.
@@ -96,38 +99,45 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // AND the profile fetching after a successful manual session restoration.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
-        if (!session?.user) {
-          setCurrentUser(null);
-          return;
-        }
-
-        // A session is active, fetch the associated profile.
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-
-        if (error || !profile) {
-          console.error('Error fetching profile for active session, logging out.', error);
-          // If we can't get a profile for an active session, something is wrong. Log out.
-          await supabase.auth.signOut();
-          setCurrentUser(null);
-        } else {
-           const fullUser: User = {
-            ...profile,
-            email: session.user.email!,
-          };
-
-          setCurrentUser(fullUser);
-
-          setUsers(prev => {
-            const userExists = prev.some(u => u.id === fullUser.id);
-            if (userExists) {
-              return prev.map(u => u.id === fullUser.id ? fullUser : u);
+        try {
+            if (!session?.user) {
+              setCurrentUser(null);
+              return;
             }
-            return [...prev, fullUser];
-          });
+
+            // A session is active, fetch the associated profile.
+            const { data: profile, error } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', session.user.id)
+              .single();
+
+            if (error || !profile) {
+              console.error('Error fetching profile for active session, logging out.', error);
+              // If we can't get a profile for an active session, something is wrong. Log out.
+              await supabase.auth.signOut();
+              setCurrentUser(null);
+            } else {
+               const fullUser: User = {
+                ...profile,
+                email: session.user.email!,
+              };
+
+              setCurrentUser(fullUser);
+
+              setUsers(prev => {
+                const userExists = prev.some(u => u.id === fullUser.id);
+                if (userExists) {
+                  return prev.map(u => u.id === fullUser.id ? fullUser : u);
+                }
+                return [...prev, fullUser];
+              });
+            }
+        } finally {
+            if (!isInitialAuthCheckDone) {
+                setIsAuthLoading(false);
+                isInitialAuthCheckDone = true;
+            }
         }
       }
     );
@@ -271,6 +281,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     currentUser,
     users,
     ranks,
+    isAuthLoading,
     setUsers,
     hasFetchedAllUsers,
     setHasFetchedAllUsers,
