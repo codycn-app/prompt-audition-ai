@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { ImagePrompt, Comment, User, Category } from './types';
 import { useAuth } from './contexts/AuthContext';
@@ -88,7 +89,7 @@ const App: React.FC = () => {
       .from('images')
       .select(`
         *,
-        profiles!user_id ( * ),
+        profiles ( * ),
         categories ( id, name ),
         comments ( count )
       `)
