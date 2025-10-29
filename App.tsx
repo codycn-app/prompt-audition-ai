@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { ImagePrompt, Comment, User, Category, Page } from './types';
 import { useAuth } from './contexts/AuthContext';
@@ -65,8 +66,7 @@ const App: React.FC = () => {
   const fetchInitialData = useCallback(async () => {
     setIsLoading(true);
     
-    // Fetch categories first, ordered by the new `position` column.
-    // This allows for manual sorting of categories in the UI.
+    // Step 1: Fetch all categories. This is fast and efficient.
     const { data: categoriesData, error: categoriesError } = await supabase
         .from('categories')
         .select('*')
@@ -80,15 +80,14 @@ const App: React.FC = () => {
         return;
     }
     
-    // Ensure categories is always an array.
-    setCategories(categoriesData || []);
+    const allCategories = categoriesData || [];
+    setCategories(allCategories);
 
-    // Definitive Fix: The root cause of the application hanging was an incorrect query for the many-to-many relationship
-    // between images and categories. The previous query `categories(*)` attempted a simple join, which is wrong.
-    // The corrected query `image_categories(categories(*))` properly queries through the join table.
+    // Step 2: Fetch images with simplified joins. This query avoids the complex nested select that was causing the hang.
+    // It fetches the comment count directly and gets the category IDs from the join table.
     const { data: imagesData, error: imagesError } = await supabase
       .from('images')
-      .select('*, profiles(*), image_categories(categories(*))')
+      .select('*, profiles(*), comments(count), image_categories(category_id)')
       .order('created_at', { ascending: false });
 
     if (imagesError) {
@@ -98,13 +97,19 @@ const App: React.FC = () => {
         return;
     }
 
-    // Transform the data to handle the nested structure from the many-to-many join.
-    const transformedImages = imagesData.map((img: any) => ({
-        ...img,
-        comments_count: 0,
-        // Pluck the `categories` object from each entry in the `image_categories` array.
-        categories: img.image_categories ? img.image_categories.map((ic: any) => ic.categories).filter(Boolean) : [],
-    }));
+    // Step 3: Process and join data on the client side. This is more robust than a complex server-side join.
+    const transformedImages = imagesData.map((img: any) => {
+        const categoryIds = img.image_categories ? img.image_categories.map((ic: any) => ic.category_id) : [];
+        const resolvedCategories = allCategories.filter(cat => categoryIds.includes(cat.id));
+
+        return {
+            ...img,
+            // Restore comment count from the aggregated query result.
+            comments_count: img.comments && img.comments.length > 0 ? img.comments[0].count : 0,
+            // Assign the resolved category objects.
+            categories: resolvedCategories,
+        };
+    });
 
     setImages(transformedImages as ImagePrompt[]);
     setIsLoading(false);
