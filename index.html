@@ -9,58 +9,73 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@600&family=Be+Vietnam+Pro:wght@400;500;700&display=swap" rel="stylesheet">
     <script>
-      // Definitive Supabase Session Recovery Script
-      // This MUST run before any other script to prevent the Supabase client from initializing with corrupted data.
+      // Definitive Supabase Session Recovery Script - "Total Annihilation" Version
+      // This MUST run before any other script. It finds any corrupted, incomplete, or legacy Supabase
+      // session data in localStorage and wipes ALL Supabase-related keys to prevent the client
+      // from initializing with poisonous data and hanging the entire application.
       (function() {
         try {
-          // Find the Supabase auth token key which follows a pattern.
-          let authKey = null;
+          let isAnySessionCorrupted = false;
+
+          // 1. Iterate through ALL localStorage keys to find potential Supabase session keys.
           for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
-            if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
-              authKey = key;
-              break;
-            }
-          }
+            
+            // Check for modern (sb-...) or legacy (supabase.auth.token) keys.
+            if (key && ((key.startsWith('sb-') && key.endsWith('-auth-token')) || key === 'supabase.auth.token')) {
+              
+              const sessionDataRaw = localStorage.getItem(key);
+              if (!sessionDataRaw) {
+                isAnySessionCorrupted = true;
+                break; 
+              }
 
-          if (authKey) {
-            const sessionDataRaw = localStorage.getItem(authKey);
-            if (sessionDataRaw) {
               let sessionData;
-              let isCorrupted = false;
+              let isThisKeyCorrupted = false;
 
-              // 1. Check if the data is valid JSON.
+              // 2. Perform rigorous validation on this key's data.
               try {
                 sessionData = JSON.parse(sessionDataRaw);
               } catch (e) {
-                isCorrupted = true;
-                console.warn('Supabase session is corrupted (invalid JSON). Clearing...');
+                isThisKeyCorrupted = true;
               }
 
-              // 2. If JSON is valid, perform deeper integrity checks.
-              if (!isCorrupted && sessionData) {
+              if (!isThisKeyCorrupted && sessionData) {
                 const hasAccessToken = typeof sessionData.access_token === 'string' && sessionData.access_token;
                 const hasRefreshToken = typeof sessionData.refresh_token === 'string' && sessionData.refresh_token;
                 const hasUser = sessionData.user && typeof sessionData.user.id === 'string' && sessionData.user.id;
                 const isAuthenticated = sessionData.user && sessionData.user.aud === 'authenticated';
                 
                 if (!hasAccessToken || !hasRefreshToken || !hasUser || !isAuthenticated) {
-                  isCorrupted = true;
-                  console.warn('Supabase session is incomplete or invalid. Clearing...');
+                  isThisKeyCorrupted = true;
                 }
               }
 
-              // 3. If corrupted at any stage, wipe all known Supabase keys.
-              if (isCorrupted) {
-                localStorage.removeItem(authKey);
-                // Also remove other potential legacy keys.
-                localStorage.removeItem('supabase.auth.token'); 
-                console.log('Cleared problematic Supabase session data.');
+              if (isThisKeyCorrupted) {
+                isAnySessionCorrupted = true;
+                break; // Found a bad key, no need to check further, proceed to wipe.
               }
             }
           }
+
+          // 4. If ANY session was found to be corrupted, perform a TOTAL wipe of all Supabase keys.
+          if (isAnySessionCorrupted) {
+            console.warn('Corrupted Supabase session detected. Performing a full cleanup...');
+            const allKeys = [];
+            for (let i = 0; i < localStorage.length; i++) {
+              allKeys.push(localStorage.key(i));
+            }
+
+            for (const key of allKeys) {
+              if (key && (key.startsWith('sb-') || key.startsWith('supabase.'))) {
+                localStorage.removeItem(key);
+                console.log(`Supabase Cleanup: Removed key -> ${key}`);
+              }
+            }
+            console.log('Supabase cleanup complete. Application will start fresh.');
+          }
         } catch (e) {
-          console.error('Error during Supabase session pre-check:', e);
+          console.error('Critical error during Supabase session pre-check:', e);
         }
       })();
 

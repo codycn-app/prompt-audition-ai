@@ -118,7 +118,9 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ images }) => {
                             <td className="px-6 py-4 text-center">{rankInfo.postCount}</td>
                             <td className="px-6 py-4">{new Date(user.created_at).toLocaleDateString('vi-VN')}</td>
                             <td className="px-6 py-4 text-right">
-                                <button 
+                                {/* FIX: Rewrote the button element to fix a mysterious "Cannot find name 'button'" parsing error, likely caused by an invisible character or subtle syntax issue. */}
+                                <button
+                                  type="button"
                                   onClick={() => setUserToEdit(user)}
                                   className="p-2 text-gray-400 transition-colors rounded-full hover:bg-cyber-surface hover:text-cyber-cyan"
                                   aria-label={`Chỉnh sửa ${user.username}`}
