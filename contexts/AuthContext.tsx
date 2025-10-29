@@ -44,59 +44,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   useEffect(() => {
     const supabase = getSupabaseClient();
+    // This flag ensures isAuthLoading is only set to false once, after the initial
+    // session state has been determined on page load.
     let isInitialAuthCheckDone = false;
     
-    // --- ARCHITECTURAL FIX: MANUAL SESSION RESTORATION ---
-    // With `persistSession: false`, we must manually restore the session.
-    // This process is wrapped in a try/catch to be completely safe against corrupted data.
-    try {
-      let sessionDataRaw = null;
-      let sessionKey = null;
-
-      // 1. Find the session key in localStorage
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
-          sessionKey = key;
-          break;
-        }
-      }
-
-      if (sessionKey) {
-        sessionDataRaw = localStorage.getItem(sessionKey);
-      }
-      
-      if (sessionDataRaw) {
-        const sessionData = JSON.parse(sessionDataRaw);
-        
-        // 2. Rigorous check for validity before attempting to set session
-        if (sessionData.access_token && sessionData.refresh_token) {
-          supabase.auth.setSession({
-            access_token: sessionData.access_token,
-            refresh_token: sessionData.refresh_token,
-          }).then(({ error }) => {
-            if (error && sessionKey) {
-              // If Supabase rejects the tokens, clear the bad key.
-              localStorage.removeItem(sessionKey);
-            }
-            // The onAuthStateChange listener will handle fetching the profile.
-          });
-        }
-      }
-    } catch (e) {
-      console.error('Failed to restore session from localStorage, starting fresh.', e);
-      // If anything fails (e.g., JSON parse error), we just stay logged out.
-      // For good measure, we can clean up any potential Supabase keys.
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && (key.startsWith('sb-') || key.startsWith('supabase.'))) {
-          localStorage.removeItem(key);
-        }
-      }
-    }
-
-    // This listener now handles real-time events (login, logout, token refresh)
-    // AND the profile fetching after a successful manual session restoration.
+    // With session persistence re-enabled, onAuthStateChange is the single source of truth.
+    // It fires once on load with the persisted session (or null), and then for any auth event.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         try {
@@ -125,6 +78,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
               setCurrentUser(fullUser);
 
+              // Update the local users cache with the current user's data.
               setUsers(prev => {
                 const userExists = prev.some(u => u.id === fullUser.id);
                 if (userExists) {
@@ -133,7 +87,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 return [...prev, fullUser];
               });
             }
+        } catch (e) {
+          console.error("Critical error in onAuthStateChange:", e);
+          setCurrentUser(null);
         } finally {
+            // This is the "green light". It signals to App.tsx that it's safe to fetch data.
+            // This runs on EVERY page load after the initial auth state is resolved.
             if (!isInitialAuthCheckDone) {
                 setIsAuthLoading(false);
                 isInitialAuthCheckDone = true;
@@ -153,24 +112,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = useCallback(async (email: string, password: string): Promise<void> => {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    // Supabase handles session persistence automatically now. No manual localStorage needed.
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw new Error(error.message);
-    if (data.session) {
-       // Since persistSession is false, we must manually save the session to localStorage.
-       // FIX: The `getProject()` method does not exist. The project ID is derived from the Supabase URL environment variable.
-       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-       if (!supabaseUrl) {
-           throw new Error("VITE_SUPABASE_URL is not set in environment variables.");
-       }
-       const projectId = new URL(supabaseUrl).hostname.split('.')[0];
-       const sessionKey = `sb-${projectId}-auth-token`;
-       localStorage.setItem(sessionKey, JSON.stringify(data.session));
-    }
   }, []);
 
   const signup = useCallback(async (email: string, password: string, username: string): Promise<void> => {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -189,18 +138,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
       throw new Error(`Database error saving new user`);
     }
-
-     if (data.session) {
-       // Manually save session on signup as well.
-       // FIX: The `getProject()` method does not exist. The project ID is derived from the Supabase URL environment variable.
-       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-       if (!supabaseUrl) {
-           throw new Error("VITE_SUPABASE_URL is not set in environment variables.");
-       }
-       const projectId = new URL(supabaseUrl).hostname.split('.')[0];
-       const sessionKey = `sb-${projectId}-auth-token`;
-       localStorage.setItem(sessionKey, JSON.stringify(data.session));
-    }
+    // Supabase handles session persistence automatically. No manual localStorage needed.
   }, []);
 
 
@@ -208,15 +146,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const supabase = getSupabaseClient();
     const { error } = await supabase.auth.signOut();
     if (error) throw new Error(error.message);
-    
-    // Manually clear all Supabase-related keys from localStorage on logout.
-    for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && (key.startsWith('sb-') || key.startsWith('supabase.'))) {
-          localStorage.removeItem(key);
-        }
-    }
-
+    // Supabase client handles clearing the session from localStorage on sign out.
     setCurrentUser(null);
     setHasFetchedAllUsers(false);
   }, []);

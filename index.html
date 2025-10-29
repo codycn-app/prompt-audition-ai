@@ -9,6 +9,49 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@600&family=Be+Vietnam+Pro:wght@400;500;700&display=swap" rel="stylesheet">
     <script>
+      // Definitive Supabase Session Corruption Fix - "The Shield"
+      // This script runs BEFORE React and the Supabase client are initialized.
+      // Its purpose is to find and destroy any malformed or "poisonous" session data
+      // in localStorage that would cause the Supabase client to hang silently on startup.
+      (function() {
+        try {
+          const keysToDelete = [];
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            // Identify potential Supabase auth tokens
+            if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
+              const value = localStorage.getItem(key);
+              if (!value) {
+                keysToDelete.push(key);
+                continue;
+              }
+              try {
+                const session = JSON.parse(value);
+                // Perform rigorous validation. If any check fails, the key is invalid.
+                if (
+                  typeof session.access_token !== 'string' || !session.access_token ||
+                  typeof session.refresh_token !== 'string' || !session.refresh_token ||
+                  typeof session.user !== 'object' || session.user === null ||
+                  typeof session.user.id !== 'string' || !session.user.id ||
+                  session.user.aud !== 'authenticated'
+                ) {
+                  keysToDelete.push(key);
+                }
+              } catch (e) {
+                // If it's not valid JSON, it's corrupted.
+                keysToDelete.push(key);
+              }
+            }
+          }
+          // Delete all identified bad keys.
+          for (const key of keysToDelete) {
+            localStorage.removeItem(key);
+          }
+        } catch (e) {
+          console.error("Error during pre-emptive session cleanup:", e);
+        }
+      })();
+
       // Definitive fix for black screen/flicker issue.
       // This script runs BEFORE React and applies the theme instantly.
       (function() {
