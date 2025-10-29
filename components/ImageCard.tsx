@@ -15,8 +15,9 @@ const ImageCard: React.FC<ImageCardProps> = ({ image, onClick, currentUser }) =>
 
   return (
     <div 
-      className="relative overflow-hidden transition-all duration-300 ease-in-out border-2 rounded-xl cursor-pointer group bg-cyber-surface border-cyber-surface/50 hover:shadow-cyber-glow-lg hover:-translate-y-1"
+      className="relative overflow-hidden transition-all duration-300 ease-in-out border-2 rounded-xl cursor-pointer group bg-cyber-surface border-cyber-surface/50 hover:shadow-cyber-glow-lg hover:-translate-y-1 hover:border-cyber-pink/80"
       onClick={onClick}
+      style={{ breakInside: 'avoid' }}
     >
       <img
         src={image.image_url}

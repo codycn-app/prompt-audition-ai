@@ -1,16 +1,14 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { User, Rank } from '../types';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { INITIAL_RANKS } from '../constants';
 import { supabase } from '../supabaseClient';
 import { AuthChangeEvent, Session } from '@supabase/supabase-js';
-import { useToast } from './ToastContext';
 
 interface AuthContextType {
   currentUser: User | null;
   users: User[]; // This will act as a cache for profiles
   ranks: Rank[];
-  authLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, username: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -36,15 +34,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]); // Cache for all user profiles
   const [ranks, setRanks] = useLocalStorage<Rank[]>('app-ranks-v2-exp', INITIAL_RANKS);
-  const [authLoading, setAuthLoading] = useState(true); // New state to manage initial auth check
-  const { showToast } = useToast();
 
   useEffect(() => {
     const fetchAllUserProfiles = async () => {
         const { data, error } = await supabase.from('profiles').select('*');
         if (error) {
             console.error('Error fetching user profiles:', error);
-            showToast('Lỗi: Không thể tải danh sách người dùng.', 'error');
         } else {
             setUsers(data as User[]);
         }
@@ -52,39 +47,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     fetchAllUserProfiles();
 
-    // The onAuthStateChange listener is called immediately with the current session,
-    // which handles the initial check.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: AuthChangeEvent, session: Session | null) => {
-        try {
-            if (session?.user) {
-                const { data: profile, error } = await supabase
-                    .from('profiles')
-                    .select('*')
-                    .eq('id', session.user.id)
-                    .single();
-                
-                if (error) {
-                    console.error('Error fetching profile on auth change:', error);
-                    showToast('Lỗi: Không thể tải thông tin người dùng. Vui lòng đăng nhập lại.', 'error');
-                    await supabase.auth.signOut(); // Force sign out to prevent broken state
-                    setCurrentUser(null);
-                } else {
-                    setCurrentUser({
-                        ...profile,
-                        email: session.user.email!,
-                    });
-                }
-            } else {
+        if (session?.user) {
+            const { data: profile, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', session.user.id)
+                .single();
+            
+            if (error) {
+                console.error('Error fetching profile:', error);
                 setCurrentUser(null);
+            } else {
+                setCurrentUser({
+                    ...profile,
+                    email: session.user.email!,
+                });
             }
-        } catch (e) {
-            console.error("Critical error during auth state change:", e);
-            showToast("Lỗi nghiêm trọng trong quá trình xác thực.", "error");
+        } else {
             setCurrentUser(null);
-        } finally {
-            // This is critical: set loading to false only after the first auth check is complete.
-            setAuthLoading(false);
         }
       }
     );
@@ -92,7 +74,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return () => {
         subscription.unsubscribe();
     };
-  }, [showToast]);
+  }, []);
 
   const getUserById = useCallback((id: string): User | undefined => {
     return users.find(u => u.id === id);
@@ -186,11 +168,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setRanks(newRanks);
   }, [currentUser?.role, setRanks]);
 
-  const value = useMemo(() => ({
+  const value = {
     currentUser,
     users,
     ranks,
-    authLoading,
     login,
     signup,
     logout,
@@ -200,7 +181,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     updateProfile,
     changePassword,
     updateRanks,
-  }), [currentUser, users, ranks, authLoading, login, signup, logout, addExp, getUserById, updateUserByAdmin, updateProfile, changePassword, updateRanks]);
+  };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

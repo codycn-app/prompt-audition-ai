@@ -21,7 +21,7 @@ const Footer: React.FC = () => {
       icon: <TagIcon className="w-4 h-4" />,
     },
     {
-      label: 'APP AI V4',
+      label: 'APP V4',
       fullLabel: 'APP AUDITION AI V4',
       href: 'https://byvn.net/codycn-app',
       icon: <SparklesIcon className="w-4 h-4" />,
@@ -61,10 +61,10 @@ const Footer: React.FC = () => {
           <a href="mailto:contact@audition.ai" aria-label="Email" className="text-cyber-on-surface-secondary hover:text-cyber-pink transition-colors">
             <EmailIcon className="w-5 h-5" />
           </a>
-          <a href="tel:+840824280497" aria-label="Phone" className="text-cyber-on-surface-secondary hover:text-cyber-pink transition-colors">
+          <a href="tel:+84123456789" aria-label="Phone" className="text-cyber-on-surface-secondary hover:text-cyber-pink transition-colors">
             <PhoneIcon className="w-5 h-5" />
           </a>
-          <a href="https://www.facebook.com/iam.cody.real/" target="_blank" rel="noopener noreferrer" aria-label="Facebook" className="text-cyber-on-surface-secondary hover:text-cyber-pink transition-colors">
+          <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" aria-label="Facebook" className="text-cyber-on-surface-secondary hover:text-cyber-pink transition-colors">
             <FacebookIcon className="w-5 h-5" />
           </a>
         </div>

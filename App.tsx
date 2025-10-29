@@ -29,7 +29,7 @@ const App: React.FC = () => {
   const [images, setImages] = useState<ImagePrompt[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { currentUser, users, addExp, authLoading } = useAuth(); // Use new authLoading state
+  const { currentUser, users, addExp } = useAuth();
   const { showToast } = useToast();
   
   const [selectedImage, setSelectedImage] = useState<ImagePrompt | null>(null);
@@ -43,12 +43,12 @@ const App: React.FC = () => {
   
   const [currentPage, setCurrentPage] = useState<Page>('home');
 
-  // Definitive fix for theme initialization to be CSP-compliant.
-  // This logic now runs inside React, replacing the inline script from index.html.
+  // Definitive fix for theme initialization.
+  // This runs only once and ensures a default theme is set if none exists.
   useEffect(() => {
-    // This is a placeholder for Tailwind's dark mode functionality.
-    // Tailwind will handle theme based on the 'dark' class on the html element,
-    // which can be controlled via a theme switcher component if needed later.
+    if (!localStorage.getItem('theme')) {
+      localStorage.setItem('theme', 'dark');
+    }
   }, []);
 
   // Time-based EXP gain
@@ -83,14 +83,14 @@ const App: React.FC = () => {
     // Ensure categories is always an array.
     setCategories(categoriesData || []);
 
-    // Definitive fix for many-to-many join. Query through the join table explicitly.
+    // Definitive fix for ambiguous relationship and column name mismatch.
     const { data: imagesData, error: imagesError } = await supabase
       .from('images')
       .select(`
         *,
-        profiles!user_id(*),
-        image_categories ( categories ( id, name ) ),
-        comments(count)
+        profiles!user_id ( * ),
+        categories ( id, name ),
+        comments ( count )
       `)
       .order('created_at', { ascending: false });
 
@@ -101,20 +101,12 @@ const App: React.FC = () => {
         return;
     }
 
-    // Transform the data to match the ImagePrompt type
-    const transformedImages = imagesData.map((img: any) => {
-        // Definitive fix: Use optional chaining to prevent crash on malformed join data.
-        // This handles cases where a link in image_categories exists but points to a null category.
-        const categories = Array.isArray(img.image_categories)
-            ? img.image_categories.map((join_entry: any) => join_entry?.categories).filter(Boolean)
-            : [];
-
-        return {
-            ...img,
-            comments_count: Array.isArray(img.comments) && img.comments.length > 0 ? img.comments[0].count : 0,
-            categories: categories,
-        };
-    });
+    // Transform the data to match the ImagePrompt type, especially the comments_count.
+    const transformedImages = imagesData.map((img: any) => ({
+        ...img,
+        comments_count: Array.isArray(img.comments) && img.comments.length > 0 ? img.comments[0].count : 0,
+        categories: img.categories || [],
+    }));
 
     setImages(transformedImages as ImagePrompt[]);
     setIsLoading(false);
@@ -292,9 +284,6 @@ const App: React.FC = () => {
     setSelectedCategoryId(id);
     setCurrentPage('home'); // Always return to home when a category is selected
   }
-  
-  // Combine authLoading and isLoading to determine if the skeleton should be shown.
-  const showSkeleton = authLoading || (isLoading && images.length === 0);
 
   const renderPage = () => {
     switch(currentPage) {
@@ -315,7 +304,7 @@ const App: React.FC = () => {
       case 'home':
       default:
         return (
-          showSkeleton ? <ImageGridSkeleton /> :
+          (isLoading && images.length === 0) ? <ImageGridSkeleton /> :
           <div className="p-4 sm:p-6 lg:p-8">
             <ImageGrid 
               images={filteredImages} 
