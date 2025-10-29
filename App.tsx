@@ -29,7 +29,7 @@ const App: React.FC = () => {
   const [images, setImages] = useState<ImagePrompt[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { currentUser, users, addExp } = useAuth();
+  const { currentUser, users, addExp, authLoading } = useAuth(); // Use new authLoading state
   const { showToast } = useToast();
   
   const [selectedImage, setSelectedImage] = useState<ImagePrompt | null>(null);
@@ -46,20 +46,9 @@ const App: React.FC = () => {
   // Definitive fix for theme initialization to be CSP-compliant.
   // This logic now runs inside React, replacing the inline script from index.html.
   useEffect(() => {
-    let theme = localStorage.getItem('theme');
-    if (!theme) {
-      theme = 'dark'; // Default to dark theme
-      localStorage.setItem('theme', theme);
-    }
-    
-    // Apply the theme class to the root element
-    if (theme === 'light') {
-      document.documentElement.classList.remove('dark');
-      document.documentElement.classList.add('light');
-    } else {
-      document.documentElement.classList.remove('light');
-      document.documentElement.classList.add('dark');
-    }
+    // This is a placeholder for Tailwind's dark mode functionality.
+    // Tailwind will handle theme based on the 'dark' class on the html element,
+    // which can be controlled via a theme switcher component if needed later.
   }, []);
 
   // Time-based EXP gain
@@ -303,6 +292,9 @@ const App: React.FC = () => {
     setSelectedCategoryId(id);
     setCurrentPage('home'); // Always return to home when a category is selected
   }
+  
+  // Combine authLoading and isLoading to determine if the skeleton should be shown.
+  const showSkeleton = authLoading || (isLoading && images.length === 0);
 
   const renderPage = () => {
     switch(currentPage) {
@@ -323,7 +315,7 @@ const App: React.FC = () => {
       case 'home':
       default:
         return (
-          (isLoading && images.length === 0) ? <ImageGridSkeleton /> :
+          showSkeleton ? <ImageGridSkeleton /> :
           <div className="p-4 sm:p-6 lg:p-8">
             <ImageGrid 
               images={filteredImages} 
