@@ -65,65 +65,56 @@ const App: React.FC = () => {
   const fetchInitialData = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Fetch categories first, as they are needed for processing images
+      // Step 1: Fetch all categories and create a lookup map.
       const { data: categoriesData, error: categoriesError } = await supabase
         .from('categories')
         .select('*')
         .order('position', { ascending: true });
-
       if (categoriesError) throw categoriesError;
       setCategories(categoriesData || []);
+      const categoryMap = new Map((categoriesData || []).map(cat => [cat.id, cat]));
 
-      // DEFINITIVE FIX:
-      // The old '.from("images").select(...)' was hanging due to a Row Level Security (RLS) policy deadlock on anonymous requests.
-      // This new approach calls a custom, secure database function ('get_all_images_and_categories') that is designed to bypass this specific RLS issue.
-      // This is the correct architectural pattern to solve this problem.
-      const { data: imageData, error: rpcError } = await supabase.rpc('get_all_images_and_categories');
-
-      if (rpcError) throw rpcError;
-
-      // The RPC function returns a flat list. We need to process it into the nested structure our app expects.
-      const imageMap = new Map<number, ImagePrompt>();
-
-      for (const row of imageData) {
-        if (!imageMap.has(row.id)) {
-          imageMap.set(row.id, {
-            id: row.id,
-            image_url: row.image_url,
-            title: row.title,
-            prompt: row.prompt,
-            created_at: row.created_at,
-            user_id: row.user_id,
-            likes: row.likes || [],
-            views: row.views || 0,
-            profiles: null, // Fetched on demand
-            comments_count: row.comments_count || 0,
-            categories: [], // Initialize as an empty array
-          });
+      // Step 2: Fetch the join table data to link images and categories.
+      const { data: imageCategoriesData, error: imageCategoriesError } = await supabase
+        .from('image_categories')
+        .select('image_id, category_id');
+      if (imageCategoriesError) throw imageCategoriesError;
+      
+      const imageToCategoriesMap = new Map<number, number[]>();
+      (imageCategoriesData || []).forEach(link => {
+        if (!imageToCategoriesMap.has(link.image_id)) {
+          imageToCategoriesMap.set(link.image_id, []);
         }
+        imageToCategoriesMap.get(link.image_id)!.push(link.category_id);
+      });
+
+      // Step 3: Fetch images WITHOUT profiles to avoid RLS issues on anonymous load.
+      // Profile data will be lazy-loaded when an image is clicked.
+      const { data: imagesData, error: imagesError } = await supabase
+        .from('images')
+        .select('*') // Simple, safe query.
+        .order('created_at', { ascending: false });
+      
+      if (imagesError) throw imagesError;
+
+      // Step 4: Combine image and category data on the client.
+      const allImages: ImagePrompt[] = (imagesData || []).map(img => {
+        const categoryIds = imageToCategoriesMap.get(img.id) || [];
+        const imgCategories = categoryIds.map(id => categoryMap.get(id)).filter(Boolean) as Category[];
         
-        const image = imageMap.get(row.id)!;
-        if (row.category_id && row.category_name) {
-          // Avoid adding duplicate categories
-          if (!image.categories!.some(c => c.id === row.category_id)) {
-            image.categories!.push({
-              id: row.category_id,
-              name: row.category_name,
-            });
-          }
-        }
-      }
+        return {
+          ...(img as any),
+          profiles: null, // Set to null initially; fetched on demand.
+          categories: imgCategories,
+          comments_count: img.comments_count || 0, // Ensure it's a number
+        };
+      });
 
-      const allImages = Array.from(imageMap.values());
-      
-      // Ensure the images are sorted by creation date, as the map doesn't guarantee order.
-      allImages.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      
       setImages(allImages);
 
     } catch (error: any) {
       console.error('CRITICAL: Failed to fetch initial data:', error);
-      showToast('Lỗi nghiêm trọng: Không thể tải dữ liệu từ server.', 'error');
+      showToast(`Lỗi nghiêm trọng: Không thể tải dữ liệu. (${error.message})`, 'error');
     } finally {
       setIsLoading(false);
     }
