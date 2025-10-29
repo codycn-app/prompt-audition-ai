@@ -331,11 +331,13 @@ const App: React.FC = () => {
       case 'settings':
         return currentUser ? <SettingsPage categories={categories} onUpdateCategories={fetchInitialData} /> : null;
       case 'user-management':
-        return currentUser?.role === 'admin' ? <UserManagementPage users={users} images={images} /> : null;
+        // Fix: Removed redundant 'users' prop. The component gets this data from context.
+        return currentUser?.role === 'admin' ? <UserManagementPage images={images} /> : null;
       case 'liked-images':
         return currentUser ? <LikedImagesPage images={images} currentUser={currentUser} onImageClick={handleSelectImage} /> : null;
       case 'leaderboard':
-        return <LeaderboardPage users={users} images={images} currentUser={currentUser} />;
+        // Fix: Removed redundant 'users' prop. The component gets this data from context.
+        return <LeaderboardPage images={images} currentUser={currentUser} />;
       case 'profile':
         return currentUser ? <ProfilePage images={images} setCurrentPage={setCurrentPage}/> : null;
       case 'support':

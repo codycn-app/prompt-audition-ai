@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { User, ImagePrompt } from '../types';
 import { getRankInfo } from '../lib/ranking';
 import { CrownIcon } from '../components/icons/CrownIcon';
@@ -7,9 +7,9 @@ import { HeartIcon } from '../components/icons/HeartIcon';
 import { ChatBubbleIcon } from '../components/icons/ChatBubbleIcon';
 import { DocumentDuplicateIcon } from '../components/icons/DocumentDuplicateIcon';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../supabaseClient';
 
 interface LeaderboardPageProps {
-    users: User[];
     images: ImagePrompt[];
     currentUser: User | null;
 }
@@ -23,8 +23,30 @@ interface UserStats {
     score: number;
 }
 
-const LeaderboardPage: React.FC<LeaderboardPageProps> = ({ users, images, currentUser }) => {
-    const { ranks } = useAuth();
+const LeaderboardPage: React.FC<LeaderboardPageProps> = ({ images, currentUser }) => {
+    const { users, setUsers, ranks } = useAuth();
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        // DEFINITIVE FIX: Fetch the user list on-demand when this component loads.
+        // This avoids the initial app hang caused by anonymous users trying to fetch all profiles.
+        const fetchAllUsers = async () => {
+            setIsLoading(true);
+            const { data, error } = await supabase.from('profiles').select('*');
+            if (error) {
+                console.error("Error fetching users for leaderboard:", error);
+            } else {
+                setUsers(data as User[]);
+            }
+            setIsLoading(false);
+        };
+
+        if (users.length === 0) {
+           fetchAllUsers();
+        } else {
+           setIsLoading(false);
+        }
+    }, [setUsers, users.length]);
 
     const userStats: UserStats[] = users.map(user => {
         const userImages = images.filter(img => img.user_id === user.id);
@@ -33,7 +55,6 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({ users, images, curren
         const totalComments = userImages.reduce((sum, img) => sum + (img.comments_count ?? 0), 0);
         const totalViews = userImages.reduce((sum, img) => sum + (img.views || 0), 0);
         
-        // Scoring formula: likes are most valuable, then comments, then posts, then views.
         const score = (totalLikes * 5) + (totalComments * 3) + (totalPosts * 10) + (totalViews * 1);
         
         return { user, totalPosts, totalLikes, totalComments, totalViews, score };
@@ -47,6 +68,14 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({ users, images, curren
         if (rank === 2) return 'text-rank-bronze'; // Bronze
         return 'text-cyber-on-surface-secondary';
     };
+
+    if (isLoading) {
+        return (
+            <div className="flex justify-center items-center h-64">
+                <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-cyber-cyan"></div>
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-5xl mx-auto py-8 px-4 sm:px-6 lg:px-8 animate-fade-in-scale">

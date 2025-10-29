@@ -10,6 +10,7 @@ interface AuthContextType {
   currentUser: User | null;
   users: User[]; // This will act as a cache for profiles
   ranks: Rank[];
+  setUsers: React.Dispatch<React.SetStateAction<User[]>>; // Expose setter
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, username: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -37,18 +38,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [ranks, setRanks] = useLocalStorage<Rank[]>('app-ranks-v2-exp', INITIAL_RANKS);
 
   useEffect(() => {
-    const fetchAllUserProfiles = async () => {
-        const { data, error } = await supabase.from('profiles').select('*');
-        if (error) {
-            console.error('Error fetching user profiles:', error);
-        } else {
-            setUsers(data as User[]);
-        }
-    };
-
-    fetchAllUserProfiles();
-
-    // FIX: Destructure subscription correctly for Supabase JS v2 SDK.
+    // DEFINITIVE FIX: The previous implementation fetched ALL user profiles on initial load as an anonymous user,
+    // which caused a hang due to Supabase Row Level Security (RLS) policies.
+    // The correct approach is to ONLY listen for auth changes and fetch the logged-in user's profile.
+    // The full user list will be fetched on-demand by the components that actually need it (e.g., Leaderboard).
+    
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (session?.user) {
@@ -66,6 +60,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     ...profile,
                     email: session.user.email!,
                 });
+                // Ensure the current user's profile is always in the `users` cache
+                setUsers(prev => {
+                    const userExists = prev.some(u => u.id === profile.id);
+                    if (userExists) {
+                        return prev.map(u => u.id === profile.id ? { ...u, ...profile } : u);
+                    }
+                    return [...prev, profile];
+                });
             }
         } else {
             setCurrentUser(null);
@@ -74,7 +76,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     );
     
     return () => {
-        // FIX: The subscription object has the unsubscribe method.
         subscription?.unsubscribe();
     };
   }, []);
@@ -84,13 +85,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [users]);
 
   const login = useCallback(async (email: string, password: string): Promise<void> => {
-    // FIX: Use `signInWithPassword` for Supabase JS v2 SDK.
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw new Error(error.message);
   }, []);
 
   const signup = useCallback(async (email: string, password: string, username: string): Promise<void> => {
-    // FIX: Use a single options object for `signUp` in Supabase JS v2 SDK.
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -114,7 +113,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
 
   const logout = useCallback(async (): Promise<void> => {
-    // FIX: The signOut method call is likely correct, the error might be a side-effect. No change needed here unless other fixes don't resolve it.
     const { error } = await supabase.auth.signOut();
     if (error) throw new Error(error.message);
     setCurrentUser(null);
@@ -123,7 +121,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const addExp = useCallback(async (amount: number) => {
     if (!currentUser) return;
 
-    // Optimistic UI update
     const newExp = (currentUser.exp || 0) + amount;
     setCurrentUser(prev => prev ? { ...prev, exp: newExp } : null);
 
@@ -134,7 +131,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     if (error) {
       console.error('Error adding EXP:', error);
-      // Revert UI update on failure
       setCurrentUser(prev => prev ? { ...prev, exp: (prev.exp || 0) - amount } : null);
     }
   }, [currentUser]);
@@ -163,7 +159,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [currentUser?.id]);
   
   const changePassword = useCallback(async (newPass: string) => {
-    // FIX: Use `updateUser` for Supabase JS v2 SDK.
     const { error } = await supabase.auth.updateUser({ password: newPass });
     if (error) throw new Error(error.message);
   }, []);
@@ -179,6 +174,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     currentUser,
     users,
     ranks,
+    setUsers,
     login,
     signup,
     logout,

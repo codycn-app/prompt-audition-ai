@@ -1,20 +1,47 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { User, ImagePrompt } from '../types';
 import EditUserModal from '../components/EditUserModal';
 import { getRankInfo } from '../lib/ranking';
 import { PencilIcon } from '../components/icons/PencilIcon';
 import { useToast } from '../contexts/ToastContext';
+import { supabase } from '../supabaseClient';
 
 interface UserManagementPageProps {
-  users: User[];
   images: ImagePrompt[];
 }
 
-const UserManagementPage: React.FC<UserManagementPageProps> = ({ users, images }) => {
-  const { currentUser, ranks } = useAuth();
+const UserManagementPage: React.FC<UserManagementPageProps> = ({ images }) => {
+  const { users, setUsers, currentUser, ranks } = useAuth();
   const [userToEdit, setUserToEdit] = useState<User | null>(null);
   const { showToast } = useToast();
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // DEFINITIVE FIX: Fetch the user list on-demand when this admin-only component loads.
+    const fetchAllUsers = async () => {
+        setIsLoading(true);
+        const { data, error } = await supabase.from('profiles').select('*');
+        if (error) {
+            console.error("Error fetching users for management:", error);
+            showToast('Không thể tải danh sách người dùng.', 'error');
+        } else {
+            setUsers(data as User[]);
+        }
+        setIsLoading(false);
+    };
+
+    if (currentUser?.role === 'admin') {
+      if (users.length === 0) {
+         fetchAllUsers();
+      } else {
+        setIsLoading(false);
+      }
+    } else {
+      setIsLoading(false);
+    }
+  }, [setUsers, users.length, currentUser?.role, showToast]);
+
 
   if (currentUser?.role !== 'admin') {
     return (
@@ -24,6 +51,14 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ users, images }
           <p className="mt-2 text-cyber-on-surface-secondary">Bạn không có quyền truy cập trang này.</p>
         </div>
       </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+        <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-cyber-cyan"></div>
+        </div>
     );
   }
 
@@ -49,7 +84,6 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ users, images }
                   </tr>
                 </thead>
                 <tbody>
-                  {/* FIX: User ID is a string (UUID) and cannot be subtracted for sorting. Switched to sorting by creation date. */}
                   {[...users].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()).map(user => {
                       const rankInfo = getRankInfo(user, images, ranks);
                       return (
