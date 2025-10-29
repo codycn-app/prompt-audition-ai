@@ -52,3 +52,5 @@ export interface Rank {
   color: string;
   requiredExp: number;
 }
+
+export type Page = 'home' | 'settings' | 'user-management' | 'liked-images' | 'leaderboard' | 'profile' | 'support' | 'categories';

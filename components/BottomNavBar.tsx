@@ -1,5 +1,5 @@
 import React from 'react';
-import { Page } from '../App';
+import { Page } from '../types';
 import { HomeIcon } from './icons/HomeIcon';
 import { CrownIcon } from './icons/CrownIcon';
 import { PlusIcon } from './icons/PlusIcon';

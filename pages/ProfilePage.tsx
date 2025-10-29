@@ -1,8 +1,7 @@
 import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { ImagePrompt } from '../types';
+import { ImagePrompt, Page } from '../types';
 import { getRankInfo } from '../lib/ranking';
-import { Page } from '../App';
 import { GearIcon } from '../components/icons/GearIcon';
 import { UserGroupIcon } from '../components/icons/UserGroupIcon';
 import { LogoutIcon } from '../components/icons/LogoutIcon';

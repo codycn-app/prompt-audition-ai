@@ -1,3 +1,11 @@
-// This file is intentionally left blank.
-// The project is not running in a Vite environment, so the types for `import.meta.env` are not applicable.
-// Environment variables are accessed via `process.env`.
+// FIX: Removed the reference to 'vite/client' as it was causing a type
+// resolution error in the user's environment. The interface augmentations
+// below should be sufficient for a modern TypeScript setup with Vite.
+interface ImportMetaEnv {
+  readonly VITE_SUPABASE_URL: string;
+  readonly VITE_SUPABASE_ANON_KEY: string;
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}

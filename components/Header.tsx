@@ -2,8 +2,7 @@ import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { PlusIcon } from './icons/PlusIcon';
 import UserMenu from './UserMenu';
-import { ImagePrompt, Category } from '../types';
-import { Page } from '../App';
+import { ImagePrompt, Category, Page } from '../types';
 import { CrownIcon } from './icons/CrownIcon';
 import { HeartIcon } from './icons/HeartIcon';
 

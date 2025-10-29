@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { ImagePrompt, Comment, User, Category } from './types';
+import { ImagePrompt, Comment, User, Category, Page } from './types';
 import { useAuth } from './contexts/AuthContext';
 import Header from './components/Header';
 import ImageGrid from './components/ImageGrid';
@@ -22,8 +22,6 @@ import CategoriesPage from './pages/CategoriesPage';
 import { supabase } from './supabaseClient';
 import { useToast } from './contexts/ToastContext';
 
-
-export type Page = 'home' | 'settings' | 'user-management' | 'liked-images' | 'leaderboard' | 'profile' | 'support' | 'categories';
 
 const App: React.FC = () => {
   const [images, setImages] = useState<ImagePrompt[]>([]);
