@@ -10,6 +10,9 @@ export interface ImagePrompt {
   profiles: User | null;
   comments_count: number;
   categories: Category[] | null;
+  thumbnail_crop_data?: { x: number; y: number; width: number; height: number; } | null;
+  original_width?: number;
+  original_height?: number;
 }
 
 export interface User {

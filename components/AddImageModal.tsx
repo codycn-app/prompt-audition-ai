@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import ReactCrop, { centerCrop, makeAspectCrop, type Crop, type PixelCrop } from 'react-image-crop';
 import { CloseIcon } from './icons/CloseIcon';
 import { UploadIcon } from './icons/UploadIcon';
 import { SpinnerIcon } from './icons/SpinnerIcon';
@@ -20,10 +21,52 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, cate
   const [prompt, setPrompt] = useState('');
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  // State for image cropper
+  const [imgSrc, setImgSrc] = useState('');
+  const imgRef = useRef<HTMLImageElement>(null);
+  const [crop, setCrop] = useState<Crop>();
+  const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
+  const [showCropper, setShowCropper] = useState(false);
+  const [originalDimensions, setOriginalDimensions] = useState({ width: 0, height: 0 });
+
+  function onImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
+    const { width, height } = e.currentTarget;
+    setOriginalDimensions({ width, height });
+    // Show cropper only if image is landscape or square
+    if (width >= height) {
+      setShowCropper(true);
+      const newCrop = centerCrop(
+        makeAspectCrop(
+          {
+            unit: '%',
+            width: 90,
+          },
+          3 / 4, // Aspect ratio for vertical thumbnails
+          width,
+          height
+        ),
+        width,
+        height
+      );
+      setCrop(newCrop);
+      // Also set an initial completed crop
+      const pixelCrop = {
+        unit: 'px' as 'px',
+        x: (newCrop.x * width) / 100,
+        y: (newCrop.y * height) / 100,
+        width: (newCrop.width * width) / 100,
+        height: (newCrop.height * height) / 100,
+      };
+      setCompletedCrop(pixelCrop);
+    } else {
+      setShowCropper(false);
+      setCompletedCrop(undefined); // Ensure no crop data for portrait images
+    }
+  }
 
   const processFile = (file: File | undefined) => {
     if (file) {
@@ -31,12 +74,10 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, cate
         setError('Kích thước file phải nhỏ hơn 5MB.');
         return;
       }
+      setCrop(undefined) // Reset crop on new file
+      setShowCropper(false);
       setImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreviewUrl(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      setImgSrc(URL.createObjectURL(file));
       setError('');
     }
   }
@@ -96,7 +137,6 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, cate
     let newImageId: number | null = null;
 
     try {
-        // Step 1: Upload image file to storage.
         const fileExt = imageFile.name.split('.').pop();
         imagePath = `${currentUser.id}/${Date.now()}.${fileExt}`;
         
@@ -107,18 +147,19 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, cate
 
         const { data: urlData } = supabase.storage.from('images').getPublicUrl(imagePath);
         if (!urlData) throw new Error("Không thể lấy URL của ảnh.");
-        const publicUrl = urlData.publicUrl;
-
-        // Step 2: Insert image metadata into the 'images' table.
+        
         const { data: newImage, error: imageInsertError } = await supabase
             .from('images')
             .insert({
                 title: title,
                 prompt: prompt,
-                image_url: publicUrl, // Definitive fix: Use correct snake_case column name
+                image_url: urlData.publicUrl,
                 user_id: currentUser.id,
                 likes: [],
-                views: 0
+                views: 0,
+                thumbnail_crop_data: showCropper ? completedCrop : null,
+                original_width: originalDimensions.width,
+                original_height: originalDimensions.height,
             })
             .select('id')
             .single();
@@ -128,7 +169,6 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, cate
         
         newImageId = newImage.id;
 
-        // Step 3: Insert into the 'image_categories' join table.
         const categoryLinks = selectedCategoryIds.map(catId => ({
             image_id: newImageId,
             category_id: catId
@@ -148,7 +188,6 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, cate
         setError(errorMessage);
         showToast(errorMessage, 'error');
 
-        // Cleanup: If any step fails, remove the uploaded file and the image record.
         if (imagePath) {
             await supabase.storage.from('images').remove([imagePath]);
         }
@@ -163,7 +202,7 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, cate
 
 
   const formInputStyle = "w-full p-2.5 bg-cyber-surface border border-cyber-pink/20 placeholder-cyber-on-surface-secondary text-cyber-on-surface rounded-lg focus:ring-cyber-pink focus:border-cyber-pink transition";
-  const dropzoneBaseClasses = "flex flex-col items-center justify-center w-full transition-colors border-2 border-dashed rounded-lg cursor-pointer h-52";
+  const dropzoneBaseClasses = "flex flex-col items-center justify-center w-full transition-colors border-2 border-dashed rounded-lg cursor-pointer min-h-52";
   const dropzoneStateClasses = isDragging ? "bg-cyber-cyan/20 border-cyber-cyan" : "bg-cyber-surface/50 hover:bg-cyber-surface/80 border-cyber-pink/30";
 
 
@@ -190,27 +229,39 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, cate
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto max-h-[80vh] custom-scrollbar">
           <div>
             <label className="block mb-2 text-sm font-medium text-cyber-on-surface">Ảnh</label>
-            <div className="flex items-center justify-center w-full">
-              <label 
-                htmlFor="dropzone-file" 
-                className={`${dropzoneBaseClasses} ${dropzoneStateClasses}`}
-                onDragEnter={handleDragEnter}
-                onDragLeave={handleDragLeave}
-                onDragOver={handleDragOver}
-                onDrop={handleDrop}
-              >
-                {previewUrl ? (
-                  <img src={previewUrl} alt="Preview" className="object-cover h-full max-w-full rounded-lg" />
-                ) : (
-                  <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center">
-                    <UploadIcon className="w-10 h-10 mb-3 text-cyber-on-surface-secondary"/>
-                    <p className="mb-2 text-sm text-cyber-on-surface-secondary"><span className="font-semibold text-cyber-on-surface">Nhấn hoặc Kéo ảnh vào đây</span></p>
-                    <p className="text-xs text-cyber-on-surface-secondary">{isDragging ? 'Thả ảnh để tải lên!' : 'PNG, JPG hoặc WEBP (TỐI ĐA 5MB)'}</p>
-                  </div>
-                )}
-                <input id="dropzone-file" type="file" className="hidden" accept="image/png, image/jpeg, image/webp" onChange={handleFileChange} />
-              </label>
-            </div>
+            {!imgSrc && (
+                 <div className="flex items-center justify-center w-full">
+                    <label 
+                        htmlFor="dropzone-file" 
+                        className={`${dropzoneBaseClasses} ${dropzoneStateClasses}`}
+                        onDragEnter={handleDragEnter} onDragLeave={handleDragLeave} onDragOver={handleDragOver} onDrop={handleDrop}
+                    >
+                        <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center">
+                            <UploadIcon className="w-10 h-10 mb-3 text-cyber-on-surface-secondary"/>
+                            <p className="mb-2 text-sm text-cyber-on-surface-secondary"><span className="font-semibold text-cyber-on-surface">Nhấn hoặc Kéo ảnh vào đây</span></p>
+                            <p className="text-xs text-cyber-on-surface-secondary">{isDragging ? 'Thả ảnh để tải lên!' : 'PNG, JPG hoặc WEBP (TỐI ĐA 5MB)'}</p>
+                        </div>
+                        <input id="dropzone-file" type="file" className="hidden" accept="image/png, image/jpeg, image/webp" onChange={handleFileChange} />
+                    </label>
+                </div>
+            )}
+            {imgSrc && (
+                <div className="p-2 rounded-lg bg-cyber-black/20">
+                    {showCropper && <p className="mb-2 text-sm text-center text-cyber-on-surface-secondary">Chọn vùng hiển thị cho ảnh thumbnail</p>}
+                    <ReactCrop
+                        crop={crop}
+                        onChange={(_, percentCrop) => setCrop(percentCrop)}
+                        onComplete={(c) => setCompletedCrop(c)}
+                        aspect={3/4}
+                        className={!showCropper ? 'hidden' : ''}
+                    >
+                        <img ref={imgRef} alt="Crop me" src={imgSrc} onLoad={onImageLoad} className="max-h-[50vh] object-contain"/>
+                    </ReactCrop>
+                    {!showCropper && (
+                         <img ref={imgRef} alt="Image Preview" src={imgSrc} onLoad={onImageLoad} className="w-full max-h-[50vh] object-contain rounded-md"/>
+                    )}
+                </div>
+            )}
           </div>
           <div>
             <label htmlFor="title" className="block mb-2 text-sm font-medium text-cyber-on-surface">Tiêu đề</label>

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import ReactCrop, { centerCrop, makeAspectCrop, type Crop, type PixelCrop } from 'react-image-crop';
 import { ImagePrompt, Category } from '../types';
 import { CloseIcon } from './icons/CloseIcon';
 import { getSupabaseClient } from '../supabaseClient';
@@ -19,6 +20,45 @@ const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onCl
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>(image.categories?.map(c => c.id) || []);
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+
+  // State for image cropper
+  const imgRef = useRef<HTMLImageElement>(null);
+  const [crop, setCrop] = useState<Crop>();
+  const [completedCrop, setCompletedCrop] = useState<PixelCrop | null>(image.thumbnail_crop_data || null);
+  const [showCropper, setShowCropper] = useState(false);
+
+  useEffect(() => {
+    const isWide = (image.original_width ?? 0) >= (image.original_height ?? 0);
+    if (isWide) {
+      setShowCropper(true);
+      // Initialize crop from saved data if it exists
+      if (image.thumbnail_crop_data && image.original_width && image.original_height) {
+        const savedCrop = image.thumbnail_crop_data;
+        setCrop({
+          unit: '%',
+          x: (savedCrop.x / image.original_width) * 100,
+          y: (savedCrop.y / image.original_height) * 100,
+          width: (savedCrop.width / image.original_width) * 100,
+          height: (savedCrop.height / image.original_height) * 100,
+        });
+      }
+    } else {
+      setShowCropper(false);
+    }
+  }, [image]);
+
+  function onImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
+    // If there's no pre-existing crop data, create a default centered one
+    if (showCropper && !image.thumbnail_crop_data) {
+        const { width, height } = e.currentTarget;
+        const newCrop = centerCrop(
+            makeAspectCrop({ unit: '%', width: 90, }, 3/4, width, height),
+            width, height
+        );
+        setCrop(newCrop);
+    }
+  }
+
 
   const handleCategoryChange = (categoryId: number) => {
     setSelectedCategoryIds(prev =>
@@ -44,15 +84,17 @@ const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onCl
 
     const supabase = getSupabaseClient();
     try {
-        // Step 1: Update the main image details in the 'images' table.
         const { error: updateError } = await supabase
             .from('images')
-            .update({ title, prompt })
+            .update({ 
+                title, 
+                prompt,
+                thumbnail_crop_data: showCropper ? completedCrop : null
+            })
             .eq('id', image.id);
 
         if (updateError) throw updateError;
 
-        // Step 2: Delete existing category links for this image from the join table.
         const { error: deleteError } = await supabase
             .from('image_categories')
             .delete()
@@ -60,7 +102,6 @@ const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onCl
         
         if (deleteError) throw deleteError;
 
-        // Step 3: Insert new category links into the join table.
         const newCategoryLinks = selectedCategoryIds.map(catId => ({
             image_id: image.id,
             category_id: catId
@@ -105,7 +146,21 @@ const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onCl
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto max-h-[80vh] custom-scrollbar">
           <div>
-            <img src={image.image_url} alt="Preview" className="object-contain w-full rounded-lg max-h-60" />
+            <div className="p-2 rounded-lg bg-cyber-black/20">
+                {showCropper && <p className="mb-2 text-sm text-center text-cyber-on-surface-secondary">Chỉnh lại vùng hiển thị cho thumbnail</p>}
+                <ReactCrop
+                    crop={crop}
+                    onChange={(_, percentCrop) => setCrop(percentCrop)}
+                    onComplete={(c) => setCompletedCrop(c)}
+                    aspect={3/4}
+                    className={!showCropper ? 'hidden' : ''}
+                >
+                    <img ref={imgRef} alt="Crop me" src={image.image_url} onLoad={onImageLoad} className="max-h-[50vh] object-contain"/>
+                </ReactCrop>
+                {!showCropper && (
+                     <img ref={imgRef} alt="Image Preview" src={image.image_url} onLoad={onImageLoad} className="w-full max-h-[50vh] object-contain rounded-md"/>
+                )}
+            </div>
           </div>
           <div>
             <label htmlFor="title-edit" className="block mb-2 text-sm font-medium text-cyber-on-surface">Tiêu đề</label>
