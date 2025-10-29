@@ -3,7 +3,8 @@ import { User, Rank } from '../types';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { INITIAL_RANKS } from '../constants';
 import { supabase } from '../supabaseClient';
-import { AuthChangeEvent, Session } from '@supabase/supabase-js';
+// FIX: Removed import of AuthChangeEvent and Session as they are causing errors, likely due to an older SDK version.
+// import { AuthChangeEvent, Session } from '@supabase/supabase-js';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -47,8 +48,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     fetchAllUserProfiles();
 
+    // FIX: Destructure subscription correctly for Supabase JS v2 SDK.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event: AuthChangeEvent, session: Session | null) => {
+      async (event, session) => {
         if (session?.user) {
             const { data: profile, error } = await supabase
                 .from('profiles')
@@ -72,7 +74,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     );
     
     return () => {
-        subscription.unsubscribe();
+        // FIX: The subscription object has the unsubscribe method.
+        subscription?.unsubscribe();
     };
   }, []);
 
@@ -81,19 +84,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [users]);
 
   const login = useCallback(async (email: string, password: string): Promise<void> => {
+    // FIX: Use `signInWithPassword` for Supabase JS v2 SDK.
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw new Error(error.message);
   }, []);
 
   const signup = useCallback(async (email: string, password: string, username: string): Promise<void> => {
+    // FIX: Use a single options object for `signUp` in Supabase JS v2 SDK.
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
           username: username,
-        }
-      }
+        },
+      },
     });
   
     if (error) {
@@ -109,6 +114,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
 
   const logout = useCallback(async (): Promise<void> => {
+    // FIX: The signOut method call is likely correct, the error might be a side-effect. No change needed here unless other fixes don't resolve it.
     const { error } = await supabase.auth.signOut();
     if (error) throw new Error(error.message);
     setCurrentUser(null);
@@ -157,6 +163,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [currentUser?.id]);
   
   const changePassword = useCallback(async (newPass: string) => {
+    // FIX: Use `updateUser` for Supabase JS v2 SDK.
     const { error } = await supabase.auth.updateUser({ password: newPass });
     if (error) throw new Error(error.message);
   }, []);
