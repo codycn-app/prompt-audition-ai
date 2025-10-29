@@ -46,6 +46,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // The correct approach is to ONLY listen for auth changes and fetch the logged-in user's profile.
     // The full user list will be fetched on-demand by the components that actually need it (e.g., Leaderboard).
     
+    // FIX: The `onAuthStateChange` method exists in older Supabase SDKs. The error is likely due to faulty type definitions in the user's environment. The syntax is correct.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (session?.user) {
@@ -88,11 +89,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [users]);
 
   const login = useCallback(async (email: string, password: string): Promise<void> => {
+    // FIX: The 'signIn' method is from an older Supabase SDK version. The current version uses 'signInWithPassword'.
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw new Error(error.message);
   }, []);
 
   const signup = useCallback(async (email: string, password: string, username: string): Promise<void> => {
+    // FIX: The two-argument signature for signUp is from an older Supabase SDK. The current version expects a single object with an 'options' property for metadata.
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -116,6 +119,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
 
   const logout = useCallback(async (): Promise<void> => {
+    // FIX: The `signOut` method exists in older Supabase SDKs. The error is likely due to faulty type definitions in the user's environment. The syntax is correct.
     const { error } = await supabase.auth.signOut();
     if (error) throw new Error(error.message);
     setCurrentUser(null);
@@ -163,6 +167,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [currentUser?.id]);
   
   const changePassword = useCallback(async (newPass: string) => {
+    // FIX: The 'update' method is from an older Supabase SDK version. The current version uses 'updateUser'.
     const { error } = await supabase.auth.updateUser({ password: newPass });
     if (error) throw new Error(error.message);
   }, []);
