@@ -4,6 +4,7 @@ import { useLocalStorage } from '../hooks/useLocalStorage';
 import { INITIAL_RANKS } from '../constants';
 import { supabase } from '../supabaseClient';
 import { AuthChangeEvent, Session } from '@supabase/supabase-js';
+import { useToast } from './ToastContext';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -34,6 +35,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]); // Cache for all user profiles
   const [ranks, setRanks] = useLocalStorage<Rank[]>('app-ranks-v2-exp', INITIAL_RANKS);
+  const { showToast } = useToast();
 
   useEffect(() => {
     const fetchAllUserProfiles = async () => {
@@ -58,6 +60,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             
             if (error) {
                 console.error('Error fetching profile:', error);
+                // Now we can show a toast because the provider is outside!
+                showToast('Lỗi: Không thể tải thông tin người dùng. Vui lòng đăng nhập lại.', 'error');
+                // Log out the user from the client side to prevent an inconsistent state
+                await supabase.auth.signOut();
                 setCurrentUser(null);
             } else {
                 setCurrentUser({
@@ -74,7 +80,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return () => {
         subscription.unsubscribe();
     };
-  }, []);
+  }, [showToast]);
 
   const getUserById = useCallback((id: string): User | undefined => {
     return users.find(u => u.id === id);
