@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import ReactCrop, { centerCrop, makeAspectCrop, type Crop, type PixelCrop } from 'react-image-crop';
+import ReactCrop, { centerCrop, makeAspectCrop, type Crop, type PixelCrop } from 'https://aistudiocdn.com/react-image-crop@^11.0.6';
 import { ImagePrompt, Category } from '../types';
 import { CloseIcon } from './icons/CloseIcon';
 import { getSupabaseClient } from '../supabaseClient';
