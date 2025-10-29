@@ -24,7 +24,7 @@ interface UserStats {
 }
 
 const LeaderboardPage: React.FC<LeaderboardPageProps> = ({ images, currentUser }) => {
-    const { users, setUsers, ranks } = useAuth();
+    const { users, setUsers, ranks, hasFetchedAllUsers, setHasFetchedAllUsers } = useAuth();
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
@@ -37,16 +37,17 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({ images, currentUser }
                 console.error("Error fetching users for leaderboard:", error);
             } else {
                 setUsers(data as User[]);
+                setHasFetchedAllUsers(true);
             }
             setIsLoading(false);
         };
 
-        if (users.length === 0) {
+        if (!hasFetchedAllUsers) {
            fetchAllUsers();
         } else {
            setIsLoading(false);
         }
-    }, [setUsers, users.length]);
+    }, [setUsers, hasFetchedAllUsers, setHasFetchedAllUsers]);
 
     const userStats: UserStats[] = users.map(user => {
         const userImages = images.filter(img => img.user_id === user.id);

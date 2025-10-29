@@ -8,9 +8,11 @@ import { supabase } from '../supabaseClient';
 
 interface AuthContextType {
   currentUser: User | null;
-  users: User[]; // This will act as a cache for profiles
+  users: User[];
   ranks: Rank[];
-  setUsers: React.Dispatch<React.SetStateAction<User[]>>; // Expose setter
+  setUsers: React.Dispatch<React.SetStateAction<User[]>>;
+  hasFetchedAllUsers: boolean;
+  setHasFetchedAllUsers: React.Dispatch<React.SetStateAction<boolean>>;
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, username: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -34,7 +36,8 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [users, setUsers] = useState<User[]>([]); // Cache for all user profiles
+  const [users, setUsers] = useState<User[]>([]);
+  const [hasFetchedAllUsers, setHasFetchedAllUsers] = useState(false);
   const [ranks, setRanks] = useLocalStorage<Rank[]>('app-ranks-v2-exp', INITIAL_RANKS);
 
   useEffect(() => {
@@ -116,6 +119,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const { error } = await supabase.auth.signOut();
     if (error) throw new Error(error.message);
     setCurrentUser(null);
+    setHasFetchedAllUsers(false); // Reset on logout
   }, []);
 
   const addExp = useCallback(async (amount: number) => {
@@ -175,6 +179,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     users,
     ranks,
     setUsers,
+    hasFetchedAllUsers,
+    setHasFetchedAllUsers,
     login,
     signup,
     logout,

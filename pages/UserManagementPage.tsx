@@ -12,7 +12,7 @@ interface UserManagementPageProps {
 }
 
 const UserManagementPage: React.FC<UserManagementPageProps> = ({ images }) => {
-  const { users, setUsers, currentUser, ranks } = useAuth();
+  const { users, setUsers, currentUser, ranks, hasFetchedAllUsers, setHasFetchedAllUsers } = useAuth();
   const [userToEdit, setUserToEdit] = useState<User | null>(null);
   const { showToast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
@@ -27,12 +27,13 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ images }) => {
             showToast('Không thể tải danh sách người dùng.', 'error');
         } else {
             setUsers(data as User[]);
+            setHasFetchedAllUsers(true);
         }
         setIsLoading(false);
     };
 
     if (currentUser?.role === 'admin') {
-      if (users.length === 0) {
+      if (!hasFetchedAllUsers) {
          fetchAllUsers();
       } else {
         setIsLoading(false);
@@ -40,7 +41,7 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ images }) => {
     } else {
       setIsLoading(false);
     }
-  }, [setUsers, users.length, currentUser?.role, showToast]);
+  }, [setUsers, currentUser?.role, showToast, hasFetchedAllUsers, setHasFetchedAllUsers]);
 
 
   if (currentUser?.role !== 'admin') {
