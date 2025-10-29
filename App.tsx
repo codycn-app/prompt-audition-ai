@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { ImagePrompt, Comment, User, Category } from './types';
 import { useAuth } from './contexts/AuthContext';
@@ -89,9 +90,9 @@ const App: React.FC = () => {
       .from('images')
       .select(`
         *,
-        profiles ( * ),
-        categories ( id, name ),
-        comments ( count )
+        profiles!user_id(*),
+        categories!image_categories(id, name),
+        comments(count)
       `)
       .order('created_at', { ascending: false });
 
