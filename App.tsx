@@ -1,7 +1,3 @@
-
-
-
-
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { ImagePrompt, Comment, User, Category } from './types';
 import { useAuth } from './contexts/AuthContext';
@@ -47,11 +43,22 @@ const App: React.FC = () => {
   
   const [currentPage, setCurrentPage] = useState<Page>('home');
 
-  // Definitive fix for theme initialization.
-  // This runs only once and ensures a default theme is set if none exists.
+  // Definitive fix for theme initialization to be CSP-compliant.
+  // This logic now runs inside React, replacing the inline script from index.html.
   useEffect(() => {
-    if (!localStorage.getItem('theme')) {
-      localStorage.setItem('theme', 'dark');
+    let theme = localStorage.getItem('theme');
+    if (!theme) {
+      theme = 'dark'; // Default to dark theme
+      localStorage.setItem('theme', theme);
+    }
+    
+    // Apply the theme class to the root element
+    if (theme === 'light') {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.add('light');
+    } else {
+      document.documentElement.classList.remove('light');
+      document.documentElement.classList.add('dark');
     }
   }, []);
 

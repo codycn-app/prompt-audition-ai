@@ -1,6 +1,7 @@
-// FIX: Removed the reference to "vite/client" as the type definition file could not be found.
-// This is likely a project configuration issue, but removing the line allows this file to be processed
-// while still providing the necessary types for `import.meta.env`.
+// This file provides type definitions for Vite's `import.meta.env`.
+// The original `/// <reference types="vite/client" />` was removed as it was causing an error,
+// likely due to a misconfigured environment. The manual definitions below serve as a robust replacement.
+
 interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL: string;
   readonly VITE_SUPABASE_ANON_KEY: string;
