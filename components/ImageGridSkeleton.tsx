@@ -1,12 +1,11 @@
 import React from 'react';
 
-const SkeletonCard: React.FC<{height: number}> = ({ height }) => (
-    <div className="bg-cyber-surface/50 rounded-xl shimmer-animation" style={{ height: `${height}px` }}>
+const SkeletonCard: React.FC = () => (
+    <div className="aspect-[4/5] bg-cyber-surface/50 rounded-xl shimmer-animation">
     </div>
 );
 
 const ImageGridSkeleton: React.FC = () => {
-  const heights = [250, 320, 280, 350, 300, 220, 330, 260];
   return (
     <div className="p-4 sm:p-6 lg:p-8">
         <style>{`
@@ -22,7 +21,7 @@ const ImageGridSkeleton: React.FC = () => {
         `}</style>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
             {Array.from({ length: 18 }).map((_, index) => (
-                <SkeletonCard key={index} height={heights[index % heights.length]}/>
+                <SkeletonCard key={index} />
             ))}
         </div>
     </div>
