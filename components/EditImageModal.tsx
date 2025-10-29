@@ -26,31 +26,43 @@ const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onCl
   const [crop, setCrop] = useState<Crop>();
   const [completedCrop, setCompletedCrop] = useState<PixelCrop | null>(image.thumbnail_crop_data || null);
   const [showCropper, setShowCropper] = useState(false);
+  // FIX: Added state to store original image dimensions, which was missing.
+  const [originalDimensions, setOriginalDimensions] = useState({ width: image.original_width || 0, height: image.original_height || 0 });
+
 
   useEffect(() => {
-    const isWide = (image.original_width ?? 0) >= (image.original_height ?? 0);
+    // Prioritize freshly measured dimensions over potentially null DB values
+    const width = originalDimensions.width || image.original_width || 0;
+    const height = originalDimensions.height || image.original_height || 0;
+    const isWide = width >= height && width > 0;
+
     if (isWide) {
       setShowCropper(true);
       // Initialize crop from saved data if it exists
-      if (image.thumbnail_crop_data && image.original_width && image.original_height) {
+      if (image.thumbnail_crop_data && width && height) {
         const savedCrop = image.thumbnail_crop_data;
         setCrop({
           unit: '%',
-          x: (savedCrop.x / image.original_width) * 100,
-          y: (savedCrop.y / image.original_height) * 100,
-          width: (savedCrop.width / image.original_width) * 100,
-          height: (savedCrop.height / image.original_height) * 100,
+          x: (savedCrop.x / width) * 100,
+          y: (savedCrop.y / height) * 100,
+          width: (savedCrop.width / width) * 100,
+          height: (savedCrop.height / height) * 100,
         });
       }
     } else {
       setShowCropper(false);
     }
-  }, [image]);
+  }, [image, originalDimensions]);
 
   function onImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
-    // If there's no pre-existing crop data, create a default centered one
-    if (showCropper && !image.thumbnail_crop_data) {
-        const { width, height } = e.currentTarget;
+    const { width, height } = e.currentTarget;
+    // CRITICAL FIX: Always capture and store the image's real dimensions.
+    // This backfills data for old images that don't have these values in the DB.
+    setOriginalDimensions({ width, height });
+
+    // If the image is wide but has no pre-existing crop data, create a default centered one.
+    if (width >= height && !image.thumbnail_crop_data) {
+        setShowCropper(true);
         const newCrop = centerCrop(
             makeAspectCrop({ unit: '%', width: 90, }, 3/4, width, height),
             width, height
@@ -84,12 +96,15 @@ const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onCl
 
     const supabase = getSupabaseClient();
     try {
+        // CRITICAL FIX: Include original_width and original_height in the update payload.
         const { error: updateError } = await supabase
             .from('images')
             .update({ 
                 title, 
                 prompt,
-                thumbnail_crop_data: showCropper ? completedCrop : null
+                thumbnail_crop_data: showCropper ? completedCrop : null,
+                original_width: originalDimensions.width,
+                original_height: originalDimensions.height,
             })
             .eq('id', image.id);
 
