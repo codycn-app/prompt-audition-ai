@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { ImagePrompt, Comment, User, Category } from './types';
 import { useAuth } from './contexts/AuthContext';
@@ -106,8 +107,10 @@ const App: React.FC = () => {
 
     // Transform the data to match the ImagePrompt type
     const transformedImages = imagesData.map((img: any) => {
-        const categories = Array.isArray(img.image_categories) 
-            ? img.image_categories.map((join_entry: any) => join_entry.categories).filter(Boolean)
+        // Definitive fix: Use optional chaining to prevent crash on malformed join data.
+        // This handles cases where a link in image_categories exists but points to a null category.
+        const categories = Array.isArray(img.image_categories)
+            ? img.image_categories.map((join_entry: any) => join_entry?.categories).filter(Boolean)
             : [];
 
         return {
