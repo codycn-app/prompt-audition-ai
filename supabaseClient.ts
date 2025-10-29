@@ -29,7 +29,15 @@ if (!sanitizedUrl || !sanitizedAnonKey) {
 
 export const getSupabaseClient = (): SupabaseClient => {
     if (!supabaseInstance) {
-        supabaseInstance = createClient(sanitizedUrl, sanitizedAnonKey);
+        // ARCHITECTURAL FIX: Disable automatic session persistence.
+        // This prevents the client from synchronously reading localStorage on init,
+        // which is the root cause of the hang when data is corrupted.
+        // Session restoration is now handled manually and safely in AuthContext.
+        supabaseInstance = createClient(sanitizedUrl, sanitizedAnonKey, {
+            auth: {
+                persistSession: false
+            }
+        });
     }
     return supabaseInstance;
 };

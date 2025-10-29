@@ -42,44 +42,85 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   useEffect(() => {
     const supabase = getSupabaseClient();
-    // DEFINITIVE FIX for application hang on reload.
-    // This logic is now wrapped in a try/catch block. If fetching the profile fails for any reason
-    // after rehydrating the session (e.g., network error, RLS issue, corrupted but parsable session),
-    // it will be caught, and the user will be safely signed out, clearing the problematic session data.
+    
+    // --- ARCHITECTURAL FIX: MANUAL SESSION RESTORATION ---
+    // With `persistSession: false`, we must manually restore the session.
+    // This process is wrapped in a try/catch to be completely safe against corrupted data.
+    try {
+      let sessionDataRaw = null;
+      let sessionKey = null;
+
+      // 1. Find the session key in localStorage
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
+          sessionKey = key;
+          break;
+        }
+      }
+
+      if (sessionKey) {
+        sessionDataRaw = localStorage.getItem(sessionKey);
+      }
+      
+      if (sessionDataRaw) {
+        const sessionData = JSON.parse(sessionDataRaw);
+        
+        // 2. Rigorous check for validity before attempting to set session
+        if (sessionData.access_token && sessionData.refresh_token) {
+          supabase.auth.setSession({
+            access_token: sessionData.access_token,
+            refresh_token: sessionData.refresh_token,
+          }).then(({ error }) => {
+            if (error && sessionKey) {
+              // If Supabase rejects the tokens, clear the bad key.
+              localStorage.removeItem(sessionKey);
+            }
+            // The onAuthStateChange listener will handle fetching the profile.
+          });
+        }
+      }
+    } catch (e) {
+      console.error('Failed to restore session from localStorage, starting fresh.', e);
+      // If anything fails (e.g., JSON parse error), we just stay logged out.
+      // For good measure, we can clean up any potential Supabase keys.
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('sb-') || key.startsWith('supabase.'))) {
+          localStorage.removeItem(key);
+        }
+      }
+    }
+
+    // This listener now handles real-time events (login, logout, token refresh)
+    // AND the profile fetching after a successful manual session restoration.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
-        try {
-          // If there's no session or user, we are logged out.
-          if (!session?.user) {
-            setCurrentUser(null);
-            return;
-          }
+        if (!session?.user) {
+          setCurrentUser(null);
+          return;
+        }
 
-          // A session exists, now fetch the user's profile from the database.
-          const { data: profile, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
+        // A session is active, fetch the associated profile.
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
 
-          // If Supabase returns an error (e.g., RLS violation), treat it as a critical failure.
-          if (error) {
-            throw error;
-          }
-
-          // This can happen if a user exists in auth but their profile was deleted.
-          if (!profile) {
-            throw new Error(`Profile not found for user ID: ${session.user.id}`);
-          }
-          
-          const fullUser: User = {
+        if (error || !profile) {
+          console.error('Error fetching profile for active session, logging out.', error);
+          // If we can't get a profile for an active session, something is wrong. Log out.
+          await supabase.auth.signOut();
+          setCurrentUser(null);
+        } else {
+           const fullUser: User = {
             ...profile,
             email: session.user.email!,
           };
 
           setCurrentUser(fullUser);
 
-          // Ensure the current user's profile is always in the `users` cache
           setUsers(prev => {
             const userExists = prev.some(u => u.id === fullUser.id);
             if (userExists) {
@@ -87,12 +128,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }
             return [...prev, fullUser];
           });
-
-        } catch (e) {
-          console.error('Critical error during session handling. Signing out to prevent app hang.', e);
-          // This is the safety net. If anything goes wrong, sign out to clear the bad session.
-          await supabase.auth.signOut();
-          setCurrentUser(null);
         }
       }
     );
@@ -108,15 +143,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = useCallback(async (email: string, password: string): Promise<void> => {
     const supabase = getSupabaseClient();
-    // FIX: The 'signIn' method is from an older Supabase SDK version. The current version uses 'signInWithPassword'.
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw new Error(error.message);
+    if (data.session) {
+       // Since persistSession is false, we must manually save the session to localStorage.
+       // FIX: The `getProject()` method does not exist. The project ID is derived from the Supabase URL environment variable.
+       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+       if (!supabaseUrl) {
+           throw new Error("VITE_SUPABASE_URL is not set in environment variables.");
+       }
+       const projectId = new URL(supabaseUrl).hostname.split('.')[0];
+       const sessionKey = `sb-${projectId}-auth-token`;
+       localStorage.setItem(sessionKey, JSON.stringify(data.session));
+    }
   }, []);
 
   const signup = useCallback(async (email: string, password: string, username: string): Promise<void> => {
     const supabase = getSupabaseClient();
-    // FIX: The two-argument signature for signUp is from an older Supabase SDK. The current version expects a single object with an 'options' property for metadata.
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -135,16 +179,36 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
       throw new Error(`Database error saving new user`);
     }
+
+     if (data.session) {
+       // Manually save session on signup as well.
+       // FIX: The `getProject()` method does not exist. The project ID is derived from the Supabase URL environment variable.
+       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+       if (!supabaseUrl) {
+           throw new Error("VITE_SUPABASE_URL is not set in environment variables.");
+       }
+       const projectId = new URL(supabaseUrl).hostname.split('.')[0];
+       const sessionKey = `sb-${projectId}-auth-token`;
+       localStorage.setItem(sessionKey, JSON.stringify(data.session));
+    }
   }, []);
 
 
   const logout = useCallback(async (): Promise<void> => {
     const supabase = getSupabaseClient();
-    // FIX: The `signOut` method exists in older Supabase SDKs. The error is likely due to faulty type definitions in the user's environment. The syntax is correct.
     const { error } = await supabase.auth.signOut();
     if (error) throw new Error(error.message);
+    
+    // Manually clear all Supabase-related keys from localStorage on logout.
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('sb-') || key.startsWith('supabase.'))) {
+          localStorage.removeItem(key);
+        }
+    }
+
     setCurrentUser(null);
-    setHasFetchedAllUsers(false); // Reset on logout
+    setHasFetchedAllUsers(false);
   }, []);
 
   const addExp = useCallback(async (amount: number) => {
@@ -192,7 +256,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   
   const changePassword = useCallback(async (newPass: string) => {
     const supabase = getSupabaseClient();
-    // FIX: The 'update' method is from an older Supabase SDK version. The current version uses 'updateUser'.
     const { error } = await supabase.auth.updateUser({ password: newPass });
     if (error) throw new Error(error.message);
   }, []);
