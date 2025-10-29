@@ -1,8 +1,6 @@
-// Fix: Define the Vite environment variables to provide type safety
-// and resolve errors with `import.meta.env` across the application.
-// This also addresses the issue where `vite/client` types might not be found.
-/// <reference types="vite/client" />
-
+// FIX: Removed the reference to "vite/client" as the type definition file could not be found.
+// This is likely a project configuration issue, but removing the line allows this file to be processed
+// while still providing the necessary types for `import.meta.env`.
 interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL: string;
   readonly VITE_SUPABASE_ANON_KEY: string;

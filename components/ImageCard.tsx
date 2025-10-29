@@ -15,13 +15,14 @@ const ImageCard: React.FC<ImageCardProps> = ({ image, onClick, currentUser }) =>
 
   return (
     <div 
-      className="relative aspect-[4/5] overflow-hidden transition-all duration-300 ease-in-out border-2 rounded-xl cursor-pointer group bg-cyber-surface border-cyber-surface/50 hover:shadow-cyber-glow-lg hover:-translate-y-1 hover:border-cyber-pink/80"
+      className="relative overflow-hidden transition-all duration-300 ease-in-out border-2 rounded-xl cursor-pointer group bg-cyber-surface border-cyber-surface/50 hover:shadow-cyber-glow-lg hover:-translate-y-1 hover:border-cyber-pink/80"
       onClick={onClick}
+      style={{ breakInside: 'avoid' }}
     >
       <img
         src={image.image_url}
         alt={image.prompt.substring(0, 30)}
-        className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-105"
+        className="object-cover w-full transition-transform duration-500 group-hover:scale-105"
         loading="lazy"
       />
       

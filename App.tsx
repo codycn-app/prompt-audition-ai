@@ -83,16 +83,14 @@ const App: React.FC = () => {
     // Ensure categories is always an array.
     setCategories(categoriesData || []);
 
-    // Definitive fix for fetching many-to-many relationship data.
-    // The previous query `categories ( id, name )` was ambiguous and could hang.
-    // This new query explicitly joins through the `image_categories` table.
+    // Definitive fix for ambiguous relationship and column name mismatch.
     const { data: imagesData, error: imagesError } = await supabase
       .from('images')
       .select(`
         *,
-        profiles(*),
-        image_categories(categories(id, name)),
-        comments(count)
+        profiles!user_id ( * ),
+        categories ( id, name ),
+        comments ( count )
       `)
       .order('created_at', { ascending: false });
 
@@ -103,14 +101,11 @@ const App: React.FC = () => {
         return;
     }
 
-    // Transform the data to match the ImagePrompt type.
+    // Transform the data to match the ImagePrompt type, especially the comments_count.
     const transformedImages = imagesData.map((img: any) => ({
         ...img,
         comments_count: Array.isArray(img.comments) && img.comments.length > 0 ? img.comments[0].count : 0,
-        // The new query structure is nested, so we extract categories from the join table.
-        categories: Array.isArray(img.image_categories)
-          ? img.image_categories.map((ic: any) => ic.categories).filter(Boolean)
-          : [],
+        categories: img.categories || [],
     }));
 
     setImages(transformedImages as ImagePrompt[]);
