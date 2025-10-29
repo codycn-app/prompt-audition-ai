@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useCa
 import { User, Rank } from '../types';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { INITIAL_RANKS } from '../constants';
-import { supabase } from '../supabaseClient';
+import { getSupabaseClient } from '../supabaseClient';
 // FIX: Removed import of AuthChangeEvent and Session as they are causing errors, likely due to an older SDK version.
 // import { AuthChangeEvent, Session } from '@supabase/supabase-js';
 
@@ -41,6 +41,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [ranks, setRanks] = useLocalStorage<Rank[]>('app-ranks-v2-exp', INITIAL_RANKS);
 
   useEffect(() => {
+    const supabase = getSupabaseClient();
     // DEFINITIVE FIX for application hang on reload.
     // This logic is now wrapped in a try/catch block. If fetching the profile fails for any reason
     // after rehydrating the session (e.g., network error, RLS issue, corrupted but parsable session),
@@ -106,12 +107,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [users]);
 
   const login = useCallback(async (email: string, password: string): Promise<void> => {
+    const supabase = getSupabaseClient();
     // FIX: The 'signIn' method is from an older Supabase SDK version. The current version uses 'signInWithPassword'.
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw new Error(error.message);
   }, []);
 
   const signup = useCallback(async (email: string, password: string, username: string): Promise<void> => {
+    const supabase = getSupabaseClient();
     // FIX: The two-argument signature for signUp is from an older Supabase SDK. The current version expects a single object with an 'options' property for metadata.
     const { error } = await supabase.auth.signUp({
       email,
@@ -136,6 +139,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
 
   const logout = useCallback(async (): Promise<void> => {
+    const supabase = getSupabaseClient();
     // FIX: The `signOut` method exists in older Supabase SDKs. The error is likely due to faulty type definitions in the user's environment. The syntax is correct.
     const { error } = await supabase.auth.signOut();
     if (error) throw new Error(error.message);
@@ -148,7 +152,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const newExp = (currentUser.exp || 0) + amount;
     setCurrentUser(prev => prev ? { ...prev, exp: newExp } : null);
-
+    
+    const supabase = getSupabaseClient();
     const { error } = await supabase.rpc('add_exp', {
       user_id_to_update: currentUser.id,
       exp_to_add: amount,
@@ -165,6 +170,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       throw new Error('Chỉ quản trị viên mới có quyền thực hiện hành động này.');
     }
     
+    const supabase = getSupabaseClient();
     const { error } = await supabase.from('profiles').update(updates).eq('id', userId);
     if (error) throw new Error(error.message);
     
@@ -176,6 +182,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       throw new Error('Bạn không có quyền chỉnh sửa thông tin người dùng này.');
     }
     
+    const supabase = getSupabaseClient();
     const { error } = await supabase.from('profiles').update(updates).eq('id', userId);
     if (error) throw new Error(error.message);
 
@@ -184,6 +191,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [currentUser?.id]);
   
   const changePassword = useCallback(async (newPass: string) => {
+    const supabase = getSupabaseClient();
     // FIX: The 'update' method is from an older Supabase SDK version. The current version uses 'updateUser'.
     const { error } = await supabase.auth.updateUser({ password: newPass });
     if (error) throw new Error(error.message);

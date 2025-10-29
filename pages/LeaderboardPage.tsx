@@ -7,7 +7,7 @@ import { HeartIcon } from '../components/icons/HeartIcon';
 import { ChatBubbleIcon } from '../components/icons/ChatBubbleIcon';
 import { DocumentDuplicateIcon } from '../components/icons/DocumentDuplicateIcon';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../supabaseClient';
+import { getSupabaseClient } from '../supabaseClient';
 
 interface LeaderboardPageProps {
     images: ImagePrompt[];
@@ -32,6 +32,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({ images, currentUser }
         // This avoids the initial app hang caused by anonymous users trying to fetch all profiles.
         const fetchAllUsers = async () => {
             setIsLoading(true);
+            const supabase = getSupabaseClient();
             const { data, error } = await supabase.from('profiles').select('*');
             if (error) {
                 console.error("Error fetching users for leaderboard:", error);

@@ -5,7 +5,7 @@ import EditUserModal from '../components/EditUserModal';
 import { getRankInfo } from '../lib/ranking';
 import { PencilIcon } from '../components/icons/PencilIcon';
 import { useToast } from '../contexts/ToastContext';
-import { supabase } from '../supabaseClient';
+import { getSupabaseClient } from '../supabaseClient';
 
 interface UserManagementPageProps {
   images: ImagePrompt[];
@@ -21,6 +21,7 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ images }) => {
     // DEFINITIVE FIX: Fetch the user list on-demand when this admin-only component loads.
     const fetchAllUsers = async () => {
         setIsLoading(true);
+        const supabase = getSupabaseClient();
         const { data, error } = await supabase.from('profiles').select('*');
         if (error) {
             console.error("Error fetching users for management:", error);

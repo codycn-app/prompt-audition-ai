@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ImagePrompt, Category } from '../types';
 import { CloseIcon } from './icons/CloseIcon';
-import { supabase } from '../supabaseClient';
+import { getSupabaseClient } from '../supabaseClient';
 import { SpinnerIcon } from './icons/SpinnerIcon';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -42,6 +42,7 @@ const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onCl
     setIsSaving(true);
     setError('');
 
+    const supabase = getSupabaseClient();
     try {
         // Step 1: Update the main image details in the 'images' table.
         const { error: updateError } = await supabase

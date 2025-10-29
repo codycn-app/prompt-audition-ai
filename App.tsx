@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { ImagePrompt, Comment, User, Category, Page } from './types';
 import { useAuth } from './contexts/AuthContext';
@@ -21,7 +22,7 @@ import BottomNavBar from './components/BottomNavBar';
 import ProfilePage from './pages/ProfilePage';
 import SupportPage from './pages/SupportPage';
 import CategoriesPage from './pages/CategoriesPage';
-import { supabase } from './supabaseClient';
+import { getSupabaseClient } from './supabaseClient';
 import { useToast } from './contexts/ToastContext';
 
 
@@ -64,6 +65,7 @@ const App: React.FC = () => {
 
   const fetchInitialData = useCallback(async () => {
     setIsLoading(true);
+    const supabase = getSupabaseClient();
     try {
       // Step 1: Fetch all categories and create a lookup map.
       const { data: categoriesData, error: categoriesError } = await supabase
@@ -166,6 +168,7 @@ const App: React.FC = () => {
   };
 
   const handleSelectImage = useCallback(async (image: ImagePrompt) => {
+    const supabase = getSupabaseClient();
     // Optimistically open the modal with the data we already have.
     setSelectedImage(image);
     
@@ -232,6 +235,7 @@ const App: React.FC = () => {
 
   const handleConfirmDelete = useCallback(async () => {
     if (!imageToDelete) return;
+    const supabase = getSupabaseClient();
 
     const bucketName = 'images';
 
@@ -265,6 +269,7 @@ const App: React.FC = () => {
 
       const image = findImageById(imageId);
       if (!image) return;
+      const supabase = getSupabaseClient();
 
       const hasLiked = image.likes.includes(currentUser.id);
       const newLikes = hasLiked

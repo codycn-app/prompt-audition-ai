@@ -9,7 +9,7 @@ import { HeartIcon } from './icons/HeartIcon';
 import { useAuth } from '../contexts/AuthContext';
 import { getRankInfo } from '../lib/ranking';
 import { ShareIcon } from './icons/ShareIcon';
-import { supabase } from '../supabaseClient';
+import { getSupabaseClient } from '../supabaseClient';
 import { useToast } from '../contexts/ToastContext';
 import { InformationCircleIcon } from './icons/InformationCircleIcon';
 
@@ -74,6 +74,7 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
   const { ranks, addExp } = useAuth();
 
   useEffect(() => {
+    const supabase = getSupabaseClient();
     const fetchComments = async () => {
         if (!image.id) return;
         setIsCommentsLoading(true);
@@ -130,6 +131,7 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
           user_id: currentUser.id,
       };
 
+      const supabase = getSupabaseClient();
       const { data, error } = await supabase.from('comments').insert(newComment).select().single();
 
       if (error) {

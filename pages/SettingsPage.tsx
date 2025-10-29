@@ -4,7 +4,7 @@ import { UserCircleIcon } from '../components/icons/UserCircleIcon';
 import { KeyIcon } from '../components/icons/KeyIcon';
 import { ShieldCheckIcon } from '../components/icons/ShieldCheckIcon';
 import RankManagement from '../components/RankManagement';
-import { supabase } from '../supabaseClient';
+import { getSupabaseClient } from '../supabaseClient';
 import { Category } from '../types';
 import CategoryManagement from '../components/CategoryManagement';
 import { TagIcon } from '../components/icons/TagIcon';
@@ -55,6 +55,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ categories, onUpdateCategor
 
     try {
       let avatarUrlToSave = currentUser.avatarUrl;
+      const supabase = getSupabaseClient();
 
       if (avatarFile) {
         const fileExt = avatarFile.name.split('.').pop();
@@ -212,7 +213,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ categories, onUpdateCategor
                             <input id="confirm-new-password" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className={formInputStyle} placeholder="••••••••" required />
                         </div>
                         {error && <p className="text-sm text-red-400">{error}</p>}
-                        <div className="flex justify-end pt-2">
+                         <div className="flex justify-end pt-2">
                             <button type="submit" className="px-5 py-2.5 text-sm font-medium text-white transition-all duration-300 rounded-lg shadow-lg bg-gradient-to-r from-cyber-pink to-cyber-cyan hover:shadow-cyber-glow active:scale-95">Đổi mật khẩu</button>
                         </div>
                     </form>

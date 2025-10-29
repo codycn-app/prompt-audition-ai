@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Category } from '../types';
-import { supabase } from '../supabaseClient';
+import { getSupabaseClient } from '../supabaseClient';
 import { PlusIcon } from './icons/PlusIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import { PencilIcon } from './icons/PencilIcon';
@@ -40,6 +40,7 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({ categories, onU
         const maxPosition = editableCategories.reduce((max, cat) => Math.max(max, cat.position ?? 0), 0);
         const newPosition = editableCategories.length > 0 ? maxPosition + 1 : 0;
 
+        const supabase = getSupabaseClient();
         const { data, error: insertError } = await supabase
             .from('categories')
             .insert({ name: newCategoryName.trim(), position: newPosition })
@@ -70,6 +71,7 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({ categories, onU
         if (!window.confirm('Bạn có chắc muốn xóa chuyên mục này? Các ảnh trong chuyên mục sẽ không bị xóa.')) {
             return;
         }
+        const supabase = getSupabaseClient();
         const { error: deleteError } = await supabase.from('categories').delete().eq('id', id);
         if (deleteError) {
             showToast(`Lỗi: ${deleteError.message}`, 'error');
@@ -89,6 +91,7 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({ categories, onU
 
     const handleSaveEdit = async () => {
         if (!editingCategory || !editingName.trim()) return;
+        const supabase = getSupabaseClient();
         const { data, error: updateError } = await supabase
             .from('categories')
             .update({ name: editingName.trim() })
@@ -136,6 +139,7 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({ categories, onU
             position: index,
         }));
         
+        const supabase = getSupabaseClient();
         const { error } = await supabase.from('categories').upsert(updates);
         
         if (error) {

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { CloseIcon } from './icons/CloseIcon';
 import { UploadIcon } from './icons/UploadIcon';
 import { SpinnerIcon } from './icons/SpinnerIcon';
-import { supabase } from '../supabaseClient';
+import { getSupabaseClient } from '../supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
 import { Category } from '../types';
 import { useToast } from '../contexts/ToastContext';
@@ -91,6 +91,7 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, cate
     setIsSaving(true);
     setError('');
     
+    const supabase = getSupabaseClient();
     let imagePath = '';
     let newImageId: number | null = null;
 

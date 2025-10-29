@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { User } from '../types';
 import { CloseIcon } from './icons/CloseIcon';
 import { UserCircleIcon } from './icons/UserCircleIcon';
-import { supabase } from '../supabaseClient';
+import { getSupabaseClient } from '../supabaseClient';
 import { useToast } from '../contexts/ToastContext';
 
 interface EditUserModalProps {
@@ -41,6 +41,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose }) => {
     setError('');
     try {
       let avatarUrlToSave = user.avatarUrl;
+      const supabase = getSupabaseClient();
 
       if (avatarFile) {
         const fileExt = avatarFile.name.split('.').pop();
