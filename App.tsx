@@ -88,7 +88,7 @@ const App: React.FC = () => {
       .from('images')
       .select(`
         *,
-        profiles!user_id ( * ),
+        profiles ( * ),
         categories ( id, name ),
         comments ( count )
       `)
