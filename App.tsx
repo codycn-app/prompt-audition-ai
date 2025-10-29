@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { ImagePrompt, Comment, User, Category } from './types';
 import { useAuth } from './contexts/AuthContext';
@@ -85,13 +86,13 @@ const App: React.FC = () => {
     // Ensure categories is always an array.
     setCategories(categoriesData || []);
 
-    // Definitive fix for ambiguous relationship and column name mismatch.
+    // Definitive fix for many-to-many join. Query through the join table explicitly.
     const { data: imagesData, error: imagesError } = await supabase
       .from('images')
       .select(`
         *,
         profiles!user_id(*),
-        categories!image_categories(id, name),
+        image_categories ( categories ( id, name ) ),
         comments(count)
       `)
       .order('created_at', { ascending: false });
@@ -103,12 +104,18 @@ const App: React.FC = () => {
         return;
     }
 
-    // Transform the data to match the ImagePrompt type, especially the comments_count.
-    const transformedImages = imagesData.map((img: any) => ({
-        ...img,
-        comments_count: Array.isArray(img.comments) && img.comments.length > 0 ? img.comments[0].count : 0,
-        categories: img.categories || [],
-    }));
+    // Transform the data to match the ImagePrompt type
+    const transformedImages = imagesData.map((img: any) => {
+        const categories = Array.isArray(img.image_categories) 
+            ? img.image_categories.map((join_entry: any) => join_entry.categories).filter(Boolean)
+            : [];
+
+        return {
+            ...img,
+            comments_count: Array.isArray(img.comments) && img.comments.length > 0 ? img.comments[0].count : 0,
+            categories: categories,
+        };
+    });
 
     setImages(transformedImages as ImagePrompt[]);
     setIsLoading(false);
