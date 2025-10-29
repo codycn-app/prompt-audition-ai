@@ -1,7 +1,7 @@
 import React from 'react';
 
 const SkeletonCard: React.FC<{height: number}> = ({ height }) => (
-    <div className="bg-cyber-surface/50 rounded-xl shimmer-animation" style={{ breakInside: 'avoid', height: `${height}px` }}>
+    <div className="bg-cyber-surface/50 rounded-xl shimmer-animation" style={{ height: `${height}px` }}>
     </div>
 );
 
@@ -20,7 +20,7 @@ const ImageGridSkeleton: React.FC = () => {
                 background-size: 2000px 100%;
             }
         `}</style>
-        <div className="gap-6 space-y-6 columns-2 sm:columns-3 md:columns-4 lg:columns-5 xl:columns-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
             {Array.from({ length: 18 }).map((_, index) => (
                 <SkeletonCard key={index} height={heights[index % heights.length]}/>
             ))}
