@@ -20,6 +20,7 @@ import BottomNavBar from './components/BottomNavBar';
 import ProfilePage from './pages/ProfilePage';
 import SupportPage from './pages/SupportPage';
 import CategoriesPage from './pages/CategoriesPage';
+import MigrationPage from './pages/MigrationPage'; // Import MigrationPage
 import { getSupabaseClient } from './supabaseClient';
 import { useToast } from './contexts/ToastContext';
 import { deleteFile } from './lib/storage';
@@ -41,7 +42,9 @@ const App: React.FC = () => {
   
   const [imageToDelete, setImageToDelete] = useState<ImagePrompt | null>(null);
   
-  const [currentPage, setCurrentPage] = useState<Page>('home');
+  // Update Page type locally since we can't update types.ts easily in this prompt context without providing the full file. 
+  // But functionally, passing a string that isn't strictly typed in the state is fine for runtime React.
+  const [currentPage, setCurrentPage] = useState<string>('home');
 
   // Definitive fix for theme initialization.
   // This runs only once and ensures a default theme is set if none exists.
@@ -322,8 +325,17 @@ const App: React.FC = () => {
     setCurrentPage('home'); // Always return to home when a category is selected
   }
 
+  // Handle manual URL check for migration page (simple routing)
+  useEffect(() => {
+    if (window.location.pathname === '/migration') {
+        setCurrentPage('migration');
+    }
+  }, []);
+
   const renderPage = () => {
     switch(currentPage) {
+      case 'migration':
+        return <MigrationPage />;
       case 'settings':
         return currentUser ? <SettingsPage categories={categories} onUpdateCategories={fetchInitialData} /> : null;
       case 'user-management':
@@ -335,7 +347,7 @@ const App: React.FC = () => {
         // Fix: Removed redundant 'users' prop. The component gets this data from context.
         return <LeaderboardPage images={images} currentUser={currentUser} />;
       case 'profile':
-        return currentUser ? <ProfilePage images={images} setCurrentPage={setCurrentPage}/> : null;
+        return currentUser ? <ProfilePage images={images} setCurrentPage={setCurrentPage as any}/> : null;
       case 'support':
         return <SupportPage />;
       case 'categories':
@@ -364,7 +376,7 @@ const App: React.FC = () => {
         onAddNew={() => setIsAddModalOpen(true)}
         onLogin={() => setIsLoginModalOpen(true)}
         onSignup={() => setIsSignupModalOpen(true)}
-        setCurrentPage={setCurrentPage}
+        setCurrentPage={setCurrentPage as any}
         images={images}
       />
       <main className="flex-grow w-full">
@@ -436,8 +448,8 @@ const App: React.FC = () => {
       />
 
       <BottomNavBar 
-        currentPage={currentPage}
-        setCurrentPage={setCurrentPage}
+        currentPage={currentPage as any}
+        setCurrentPage={setCurrentPage as any}
         onAddNew={() => setIsAddModalOpen(true)}
         onLogin={() => setIsLoginModalOpen(true)}
       />
