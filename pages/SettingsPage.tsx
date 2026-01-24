@@ -5,13 +5,13 @@ import { UserCircleIcon } from '../components/icons/UserCircleIcon';
 import { KeyIcon } from '../components/icons/KeyIcon';
 import { ShieldCheckIcon } from '../components/icons/ShieldCheckIcon';
 import RankManagement from '../components/RankManagement';
-import { getSupabaseClient } from '../supabaseClient';
 import { Category } from '../types';
 import CategoryManagement from '../components/CategoryManagement';
 import { TagIcon } from '../components/icons/TagIcon';
 import { useToast } from '../contexts/ToastContext';
 import ExpBar from '../components/ExpBar';
 import { uploadFile } from '../lib/storage';
+import { DocumentDuplicateIcon } from '../components/icons/DocumentDuplicateIcon'; // Used for generic data icon
 
 interface SettingsPageProps {
   categories: Category[];
@@ -20,7 +20,7 @@ interface SettingsPageProps {
 
 const SettingsPage: React.FC<SettingsPageProps> = ({ categories, onUpdateCategories }) => {
   const { currentUser, updateProfile, changePassword, addExp, ranks } = useAuth();
-  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'rank-management' | 'category-management'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'rank-management' | 'category-management' | 'migration'>('profile');
   const { showToast } = useToast();
 
   if (!currentUser) return null;
@@ -57,8 +57,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ categories, onUpdateCategor
 
     try {
       let avatarUrlToSave = currentUser.avatarUrl;
-      // Removed direct Supabase client call, used uploadFile instead
-
+      
       if (avatarFile) {
         const fileExt = avatarFile.name.split('.').pop();
         const filePath = `${currentUser.id}/avatar.${fileExt}`;
@@ -101,10 +100,14 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ categories, onUpdateCategor
       setError(err.message);
     }
   }
+
+  const navigateToMigration = () => {
+    window.location.href = '/migration';
+  };
   
   const formInputStyle = "w-full p-2.5 bg-cyber-surface border border-cyber-pink/20 placeholder-cyber-on-surface-secondary text-cyber-on-surface rounded-lg focus:ring-cyber-pink focus:border-cyber-pink transition";
   
-  const tabBaseStyle = "flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2";
+  const tabBaseStyle = "flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap";
   const tabActiveStyle = "text-cyber-pink border-cyber-pink";
   const tabInactiveStyle = "text-cyber-on-surface-secondary hover:text-cyber-on-surface border-transparent";
 
@@ -117,7 +120,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ categories, onUpdateCategor
             style={{border: '1px solid transparent', background: 'linear-gradient(#1A1A1A, #1A1A1A) padding-box, linear-gradient(120deg, rgba(255, 0, 230, 0.4), rgba(0, 255, 255, 0.4)) border-box'}}
         >
             <div className="border-b border-cyber-pink/20 px-4">
-                <div className="flex -mb-px overflow-x-auto">
+                <div className="flex -mb-px overflow-x-auto custom-scrollbar pb-1">
                     <button className={`${tabBaseStyle} ${activeTab === 'profile' ? tabActiveStyle : tabInactiveStyle}`} onClick={() => { setActiveTab('profile'); setError(''); }}>
                         <UserCircleIcon className="w-5 h-5"/>
                         Thông tin
@@ -135,6 +138,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ categories, onUpdateCategor
                          <button className={`${tabBaseStyle} ${activeTab === 'rank-management' ? tabActiveStyle : tabInactiveStyle}`} onClick={() => { setActiveTab('rank-management'); setError(''); }}>
                             <ShieldCheckIcon className="w-5 h-5"/>
                             Cấp bậc
+                        </button>
+                        <button className={`${tabBaseStyle} ${activeTab === 'migration' ? tabActiveStyle : tabInactiveStyle}`} onClick={() => { setActiveTab('migration'); setError(''); }}>
+                            <DocumentDuplicateIcon className="w-5 h-5"/>
+                            Dữ liệu
                         </button>
                         </>
                     )}
@@ -223,6 +230,31 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ categories, onUpdateCategor
                         categories={categories}
                         onUpdate={onUpdateCategories}
                     />
+                )}
+
+                {activeTab === 'migration' && (
+                    <div className="space-y-6 animate-fade-in-scale">
+                        <div>
+                            <h3 className="text-lg font-semibold text-cyber-on-surface">Di chuyển dữ liệu (Migration)</h3>
+                            <p className="mt-1 text-sm text-cyber-on-surface-secondary">
+                                Công cụ này giúp bạn chuyển toàn bộ ảnh từ Supabase Storage sang Cloudflare R2 để tối ưu chi phí và tốc độ.
+                            </p>
+                        </div>
+                        
+                        <div className="p-6 text-center border-2 border-dashed rounded-lg bg-cyber-black/20 border-cyber-pink/30">
+                            <DocumentDuplicateIcon className="w-16 h-16 mx-auto mb-4 text-cyber-pink/50"/>
+                            <h4 className="text-xl font-bold text-cyber-on-surface">Sẵn sàng di chuyển?</h4>
+                            <p className="max-w-md mx-auto mt-2 mb-6 text-sm text-cyber-on-surface-secondary">
+                                Quá trình này sẽ chạy ngầm. Vui lòng không tắt trình duyệt trong khi đang di chuyển. Bạn sẽ được chuyển hướng đến trang công cụ chuyên dụng.
+                            </p>
+                            <button 
+                                onClick={navigateToMigration}
+                                className="px-8 py-3 font-bold text-white transition-all duration-300 rounded-lg shadow-lg bg-gradient-to-r from-cyber-pink to-cyber-cyan hover:shadow-cyber-glow active:scale-95"
+                            >
+                                Mở công cụ Migration
+                            </button>
+                        </div>
+                    </div>
                 )}
             </div>
         </div>
