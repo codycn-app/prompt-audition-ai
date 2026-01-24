@@ -18,6 +18,7 @@ const MigrationPage: React.FC = () => {
     const [logs, setLogs] = useState<string[]>([]);
     const [showGuides, setShowGuides] = useState(false);
     const [copiedCors, setCopiedCors] = useState(false);
+    const [copiedSQL, setCopiedSQL] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [activeTab, setActiveTab] = useState<'r2' | 'supabase'>('r2');
 
@@ -28,6 +29,11 @@ const MigrationPage: React.FC = () => {
     "AllowedHeaders": ["*"]
   }
 ]`;
+
+    const sqlConfig = `UPDATE storage.buckets
+SET public = true,
+    cors = '["*"]'::json
+WHERE name = 'images';`;
 
     const fetchImages = async () => {
         setIsRefreshing(true);
@@ -55,6 +61,12 @@ const MigrationPage: React.FC = () => {
         navigator.clipboard.writeText(corsConfig);
         setCopiedCors(true);
         setTimeout(() => setCopiedCors(false), 2000);
+    };
+
+    const handleCopySQL = () => {
+        navigator.clipboard.writeText(sqlConfig);
+        setCopiedSQL(true);
+        setTimeout(() => setCopiedSQL(false), 2000);
     };
 
     const startMigration = async () => {
@@ -154,7 +166,7 @@ const MigrationPage: React.FC = () => {
                 let errMsg = err.message;
                 
                 // Auto-detect Supabase CORS error
-                if (errMsg.includes('Lỗi tải từ Supabase')) {
+                if (errMsg.includes('Lỗi tải từ Supabase') || errMsg.includes('Failed to fetch')) {
                     if (!showGuides) setShowGuides(true);
                     setActiveTab('supabase');
                 }
@@ -220,16 +232,16 @@ const MigrationPage: React.FC = () => {
                     <div className="p-4 pt-0 border-t border-cyber-pink/20 bg-black/20 text-sm text-cyber-on-surface-secondary">
                         <div className="flex border-b border-gray-700 mb-4 mt-2">
                              <button 
-                                className={`px-4 py-2 font-medium ${activeTab === 'r2' ? 'text-cyber-pink border-b-2 border-cyber-pink' : 'text-gray-400 hover:text-white'}`}
-                                onClick={() => setActiveTab('r2')}
-                             >
-                                1. Đích: Cloudflare R2 (Lỗi Upload)
-                             </button>
-                             <button 
                                 className={`px-4 py-2 font-medium ${activeTab === 'supabase' ? 'text-cyber-pink border-b-2 border-cyber-pink' : 'text-gray-400 hover:text-white'}`}
                                 onClick={() => setActiveTab('supabase')}
                              >
-                                2. Nguồn: Supabase Storage (Lỗi Download)
+                                1. Nguồn: Supabase Storage (Lỗi Download)
+                             </button>
+                             <button 
+                                className={`px-4 py-2 font-medium ${activeTab === 'r2' ? 'text-cyber-pink border-b-2 border-cyber-pink' : 'text-gray-400 hover:text-white'}`}
+                                onClick={() => setActiveTab('r2')}
+                             >
+                                2. Đích: Cloudflare R2 (Lỗi Upload)
                              </button>
                         </div>
 
@@ -250,20 +262,31 @@ const MigrationPage: React.FC = () => {
 
                         {activeTab === 'supabase' && (
                             <div className="animate-fade-in-scale">
-                                <p className="mb-2">Nếu lỗi xảy ra khi <strong>"Đang tải về..."</strong>, trình duyệt đang chặn tải ảnh từ Supabase. Bạn cần cấu hình CORS cho Supabase Bucket:</p>
+                                <p className="mb-2 text-yellow-300">
+                                    <strong>Vấn đề:</strong> Bạn không tìm thấy chỗ chỉnh CORS trong Supabase Dashboard hoặc giao diện đã đổi.
+                                </p>
+                                <p className="mb-2">
+                                    <strong>Giải pháp:</strong> Chạy lệnh SQL trực tiếp để mở quyền truy cập (CORS) cho bucket <code>images</code>.
+                                </p>
                                 <ol className="list-decimal list-inside space-y-1 ml-1 mb-3">
-                                    <li>Vào Supabase Dashboard {'>'} Storage {'>'} Buckets.</li>
-                                    <li>Chọn bucket chứa ảnh (ví dụ: <code>images</code>).</li>
-                                    <li>Vào <strong>Configuration</strong> {'>'} <strong>CORS Configuration</strong>.</li>
-                                    <li>Thêm URL trang web của bạn (ví dụ: <code>https://caulenhau.io.vn</code> hoặc <code>*</code>) vào danh sách.</li>
+                                    <li>Vào Supabase Dashboard {'>'} <strong>SQL Editor</strong> (Icon hình 2 dấu ngoặc nhọn bên trái).</li>
+                                    <li>Tạo một New Query.</li>
+                                    <li>Copy và dán đoạn mã bên dưới vào.</li>
+                                    <li>Bấm nút <strong>Run</strong> (màu xanh).</li>
+                                    <li>Sau khi chạy xong (thấy chữ Success), quay lại đây và bấm "Tiếp tục Di chuyển".</li>
                                 </ol>
-                                <div className="p-3 bg-yellow-900/20 border border-yellow-600/30 rounded text-yellow-200">
-                                    <strong>Mẹo:</strong> Nếu bạn không tìm thấy chỗ chỉnh CORS trên Supabase UI, hãy chạy lệnh SQL này trong SQL Editor của Supabase:
-                                    <pre className="mt-2 bg-black p-2 rounded text-xs font-mono text-blue-300 overflow-x-auto select-all">
-{`update storage.buckets
-set cors = '["https://caulenhau.io.vn", "http://localhost:5173"]'::json
-where name = 'images';`}
+                                <div className="relative group mt-2">
+                                    <pre className="bg-black p-3 rounded text-xs font-mono text-blue-300 overflow-x-auto border border-blue-500/30">
+{sqlConfig}
                                     </pre>
+                                    <button 
+                                        onClick={handleCopySQL} 
+                                        className="absolute top-2 right-2 p-1.5 bg-gray-800 rounded hover:bg-gray-700 text-white flex items-center gap-1 text-xs" 
+                                        title="Sao chép SQL"
+                                    >
+                                        {copiedSQL ? <CheckIcon className="w-4 h-4 text-green-500"/> : <DocumentDuplicateIcon className="w-4 h-4"/>}
+                                        {copiedSQL ? 'Đã chép' : 'Copy SQL'}
+                                    </button>
                                 </div>
                             </div>
                         )}
