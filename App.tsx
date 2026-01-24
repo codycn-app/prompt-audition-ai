@@ -20,16 +20,28 @@ import BottomNavBar from './components/BottomNavBar';
 import ProfilePage from './pages/ProfilePage';
 import SupportPage from './pages/SupportPage';
 import CategoriesPage from './pages/CategoriesPage';
-import MigrationPage from './pages/MigrationPage'; // Import MigrationPage
+import MigrationPage from './pages/MigrationPage';
 import { getSupabaseClient } from './supabaseClient';
 import { useToast } from './contexts/ToastContext';
 import { deleteFile } from './lib/storage';
 
+// Constants for pagination
+const ITEMS_PER_PAGE = 24;
 
 const App: React.FC = () => {
+  // Main data state
   const [images, setImages] = useState<ImagePrompt[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  
+  // Pagination & Data Management State
+  const [allImageIds, setAllImageIds] = useState<{id: number, created_at: string}[]>([]); // Lightweight list
+  const [filteredIds, setFilteredIds] = useState<number[]>([]); // IDs after category filter
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [imageCategoryMap, setImageCategoryMap] = useState<Map<number, number[]>>(new Map());
+
   const { currentUser, users, addExp, isAuthLoading } = useAuth();
   const { showToast } = useToast();
   
@@ -42,79 +54,61 @@ const App: React.FC = () => {
   
   const [imageToDelete, setImageToDelete] = useState<ImagePrompt | null>(null);
   
-  // Update Page type locally since we can't update types.ts easily in this prompt context without providing the full file. 
-  // But functionally, passing a string that isn't strictly typed in the state is fine for runtime React.
   const [currentPage, setCurrentPage] = useState<string>('home');
 
-  // Definitive fix for theme initialization.
-  // This runs only once and ensures a default theme is set if none exists.
   useEffect(() => {
     if (!localStorage.getItem('theme')) {
       localStorage.setItem('theme', 'dark');
     }
   }, []);
 
-  // Time-based EXP gain
   useEffect(() => {
     if (currentUser && addExp) {
       const intervalId = setInterval(() => {
-        addExp(1); // 1 EXP per minute
+        addExp(1);
       }, 60000);
 
       return () => clearInterval(intervalId);
     }
   }, [currentUser, addExp]);
 
+  // 1. Initial Data Fetch (Lightweight)
   const fetchInitialData = useCallback(async () => {
     setIsLoading(true);
     const supabase = getSupabaseClient();
     try {
-      // Step 1: Fetch all categories and create a lookup map.
+      // A. Fetch Categories
       const { data: categoriesData, error: categoriesError } = await supabase
         .from('categories')
         .select('*')
         .order('position', { ascending: true });
       if (categoriesError) throw categoriesError;
       setCategories(categoriesData || []);
-      const categoryMap = new Map((categoriesData || []).map(cat => [cat.id, cat]));
 
-      // Step 2: Fetch the join table data to link images and categories.
+      // B. Fetch Image-Category Links (Lightweight)
       const { data: imageCategoriesData, error: imageCategoriesError } = await supabase
         .from('image_categories')
         .select('image_id, category_id');
       if (imageCategoriesError) throw imageCategoriesError;
       
-      const imageToCategoriesMap = new Map<number, number[]>();
+      const map = new Map<number, number[]>();
       (imageCategoriesData || []).forEach(link => {
-        if (!imageToCategoriesMap.has(link.image_id)) {
-          imageToCategoriesMap.set(link.image_id, []);
+        if (!map.has(link.image_id)) {
+            map.set(link.image_id, []);
         }
-        imageToCategoriesMap.get(link.image_id)!.push(link.category_id);
+        map.get(link.image_id)!.push(link.category_id);
       });
+      setImageCategoryMap(map);
 
-      // Step 3: Fetch images WITHOUT profiles to avoid RLS issues on anonymous load.
-      // Profile data will be lazy-loaded when an image is clicked.
-      const { data: imagesData, error: imagesError } = await supabase
+      // C. Fetch ONLY IDs and timestamps of images (Super Lightweight - fixes Egress)
+      const { data: imageIds, error: imagesError } = await supabase
         .from('images')
-        .select('*') // Simple, safe query.
+        .select('id, created_at')
         .order('created_at', { ascending: false });
       
       if (imagesError) throw imagesError;
 
-      // Step 4: Combine image and category data on the client.
-      const allImages: ImagePrompt[] = (imagesData || []).map(img => {
-        const categoryIds = imageToCategoriesMap.get(img.id) || [];
-        const imgCategories = categoryIds.map(id => categoryMap.get(id)).filter(Boolean) as Category[];
-        
-        return {
-          ...(img as any),
-          profiles: null, // Set to null initially; fetched on demand.
-          categories: imgCategories,
-          comments_count: img.comments_count || 0, // Ensure it's a number
-        };
-      });
-
-      setImages(allImages);
+      setAllImageIds(imageIds || []);
 
     } catch (error: any) {
       console.error('CRITICAL: Failed to fetch initial data:', error);
@@ -125,33 +119,113 @@ const App: React.FC = () => {
   }, [showToast]);
 
   useEffect(() => {
-    // Architectural Fix: Wait for the authentication to be resolved before fetching initial data.
-    // This prevents a race condition where data is fetched with an unauthenticated client.
     if (isAuthLoading) {
       return;
     }
     fetchInitialData();
   }, [fetchInitialData, isAuthLoading]);
 
+  // 2. Filtering Logic (Client-side on IDs)
+  useEffect(() => {
+    let ids = allImageIds.map(item => item.id);
+    
+    if (selectedCategoryId !== 'all') {
+        ids = ids.filter(id => {
+            const catIds = imageCategoryMap.get(id);
+            return catIds && catIds.includes(selectedCategoryId);
+        });
+    }
+
+    setFilteredIds(ids);
+    setPage(1); // Reset page on filter change
+    setImages([]); // Clear current images
+    setHasMore(ids.length > 0);
+  }, [selectedCategoryId, allImageIds, imageCategoryMap]);
+
+  // 3. Fetch Full Image Data (Chunked)
+  const loadImages = useCallback(async (pageToLoad: number, currentFilteredIds: number[]) => {
+      if (currentFilteredIds.length === 0) return;
+
+      const startIndex = (pageToLoad - 1) * ITEMS_PER_PAGE;
+      const endIndex = startIndex + ITEMS_PER_PAGE;
+      const idsBatch = currentFilteredIds.slice(startIndex, endIndex);
+
+      if (idsBatch.length === 0) {
+          setHasMore(false);
+          return;
+      }
+
+      setIsLoadingMore(true);
+      const supabase = getSupabaseClient();
+      
+      try {
+          // Fetch full data ONLY for the current batch
+          const { data: imagesData, error } = await supabase
+              .from('images')
+              .select('*')
+              .in('id', idsBatch)
+              .order('created_at', { ascending: false }); // Maintain order
+
+          if (error) throw error;
+
+          const categoryLookup = new Map(categories.map(c => [c.id, c]));
+
+          const processedImages: ImagePrompt[] = (imagesData || []).map(img => {
+            const categoryIds = imageCategoryMap.get(img.id) || [];
+            const imgCategories = categoryIds.map(id => categoryLookup.get(id)).filter(Boolean) as Category[];
+            return {
+                ...(img as any),
+                profiles: null,
+                categories: imgCategories,
+                comments_count: img.comments_count || 0,
+            };
+          });
+
+          // If page 1, replace. If page > 1, append.
+          setImages(prev => pageToLoad === 1 ? processedImages : [...prev, ...processedImages]);
+          setHasMore(endIndex < currentFilteredIds.length);
+
+      } catch (err) {
+          console.error("Error loading image chunk:", err);
+          showToast("Không thể tải thêm ảnh.", "error");
+      } finally {
+          setIsLoadingMore(false);
+          // Initial loading state for the whole app is done in fetchInitialData, 
+          // but we ensure it's off here just in case.
+          if (pageToLoad === 1) setIsLoading(false);
+      }
+  }, [categories, imageCategoryMap, showToast]);
+
+  // Trigger load when filtered IDs or Page changes
+  useEffect(() => {
+      // Only load if we have filtered IDs (initial fetch done)
+      if (filteredIds.length > 0 || (allImageIds.length > 0 && filteredIds.length === 0 && selectedCategoryId !== 'all')) {
+          loadImages(page, filteredIds);
+      } else if (allImageIds.length > 0 && filteredIds.length === 0 && selectedCategoryId === 'all') {
+          // Case where there are simply no images in DB
+           setImages([]);
+           setHasMore(false);
+      }
+  }, [page, filteredIds, loadImages, allImageIds.length, selectedCategoryId]);
+
+  const handleLoadMore = () => {
+      setPage(prev => prev + 1);
+  };
+
+  // --- Handlers ---
 
   const findImageById = useCallback((id: number) => {
     return images.find(img => img.id === id);
   }, [images]);
 
   const handleCopyPrompt = useCallback(async (prompt: string) => {
-    // Modern async clipboard API with fallback
     if (navigator.clipboard && window.isSecureContext) {
         try {
             await navigator.clipboard.writeText(prompt);
             showToast('Đã sao chép câu lệnh!', 'success');
             return;
-        } catch (err) {
-            console.error('Lỗi sao chép (API):', err);
-            // Fallback will be attempted below
-        }
+        } catch (err) { console.error(err); }
     }
-
-    // Fallback for older browsers / non-secure contexts
     const textArea = document.createElement("textarea");
     textArea.value = prompt;
     textArea.style.position = "absolute";
@@ -163,8 +237,7 @@ const App: React.FC = () => {
         document.execCommand('copy');
         showToast('Đã sao chép câu lệnh!', 'success');
     } catch (err) {
-        console.error('Lỗi sao chép (fallback):', err);
-        showToast('Sao chép thất bại. Trình duyệt không hỗ trợ.', 'error');
+        showToast('Sao chép thất bại.', 'error');
     } finally {
         document.body.removeChild(textArea);
     }
@@ -176,61 +249,39 @@ const App: React.FC = () => {
 
   const handleSelectImage = useCallback(async (image: ImagePrompt) => {
     const supabase = getSupabaseClient();
-    // Optimistically open the modal with the data we already have.
     setSelectedImage(image);
     
-    // Asynchronously fetch the full details (author profile). Comment count is now pre-fetched.
-    const { data: profileData, error: profileError } = await supabase
+    const { data: profileData } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', image.user_id)
         .single();
 
-    if (profileError) {
-        console.error('Error fetching image details:', profileError);
-    } else {
-        // Update the selected image in state with the newly fetched profile.
-        setSelectedImage(prev => prev ? { 
-            ...prev, 
-            profiles: profileData,
-        } : null);
+    if (profileData) {
+        setSelectedImage(prev => prev ? { ...prev, profiles: profileData } : null);
     }
 
-    // Update view count in DB and local state.
     const newViews = (image.views || 0) + 1;
-    const { error: viewError } = await supabase
-      .from('images')
-      .update({ views: newViews })
-      .eq('id', image.id);
+    await supabase.from('images').update({ views: newViews }).eq('id', image.id);
     
-    if (!viewError) {
-        setImages(prevImages => 
-            prevImages.map(img => 
-                img.id === image.id ? { ...img, views: newViews } : img
-            )
-        );
-        setSelectedImage(prev => prev ? { ...prev, views: newViews } : null);
-    }
+    setImages(prev => prev.map(img => img.id === image.id ? { ...img, views: newViews } : img));
+    setSelectedImage(prev => prev ? { ...prev, views: newViews } : null);
   }, []);
 
-  const filteredImages = useMemo(() => {
-    if (selectedCategoryId === 'all') return images;
-    // Corrected logic for many-to-many relationship
-    return images.filter(image => image.categories && image.categories.some(cat => cat.id === selectedCategoryId));
-  }, [images, selectedCategoryId]);
-  
   const handleAddImage = useCallback(async () => {
     setIsAddModalOpen(false);
     showToast('Đã thêm ảnh mới thành công! (+50 EXP)', 'success');
-    if (addExp) await addExp(50); // Add EXP for new image
-    await fetchInitialData();
+    if (addExp) await addExp(50);
+    // Refresh lightweight data to get new ID at top
+    fetchInitialData();
   }, [fetchInitialData, showToast, addExp]);
   
   const handleUpdateImage = useCallback(async () => {
     setImageToEdit(null);
     showToast('Đã cập nhật ảnh thành công!', 'success');
-    await fetchInitialData();
-  }, [fetchInitialData, showToast]);
+    // Reload current page of images to reflect changes
+    loadImages(page, filteredIds);
+  }, [loadImages, page, filteredIds, showToast]);
 
   const handleRequestDelete = useCallback((image: ImagePrompt) => {
     if (!currentUser || (image.user_id !== currentUser.id && currentUser.role !== 'admin')) {
@@ -244,7 +295,6 @@ const App: React.FC = () => {
     if (!imageToDelete) return;
     const supabase = getSupabaseClient();
 
-    // Use the abstraction to delete (handles both R2 and Supabase Storage)
     if (imageToDelete.image_url) {
         await deleteFile(imageToDelete.image_url);
     }
@@ -253,12 +303,13 @@ const App: React.FC = () => {
 
     if (error) {
         showToast('Lỗi: không thể xóa ảnh.', 'error');
-        console.error(error);
     } else {
         showToast('Đã xóa ảnh thành công!', 'success');
         if (selectedImage && selectedImage.id === imageToDelete.id) {
             handleCloseModal();
         }
+        // Update local state by removing ID and Image
+        setAllImageIds(prev => prev.filter(i => i.id !== imageToDelete.id));
         setImages(prev => prev.filter(image => image.id !== imageToDelete.id));
     }
     setImageToDelete(null);
@@ -279,53 +330,36 @@ const App: React.FC = () => {
           ? image.likes.filter(id => id !== currentUser.id)
           : [...image.likes, currentUser.id];
 
-      const { error } = await supabase
-        .from('images')
-        .update({ likes: newLikes })
-        .eq('id', imageId);
+      const { error } = await supabase.from('images').update({ likes: newLikes }).eq('id', imageId);
 
-      if (error) {
-          showToast('Đã có lỗi xảy ra.', 'error');
-          console.error(error);
-      } else {
-          setImages(prevImages => 
-            prevImages.map(img => img.id === imageId ? { ...img, likes: newLikes } : img)
-          );
+      if (!error) {
+          setImages(prev => prev.map(img => img.id === imageId ? { ...img, likes: newLikes } : img));
           if (selectedImage && selectedImage.id === imageId) {
             setSelectedImage(prev => prev ? { ...prev, likes: newLikes } : null);
           }
           if (!hasLiked && addExp) {
              showToast('Đã thích ảnh! (+5 EXP)', 'success');
-             addExp(5); // Add EXP for liking
+             addExp(5);
           }
       }
   }, [currentUser, findImageById, selectedImage, showToast, addExp]);
   
   const handleCommentAdded = useCallback((imageId: number) => {
-    // This function ensures the comment count is updated immediately across the app
-    // for a smoother user experience.
     const updateCount = (prev: ImagePrompt | null) => {
         if (!prev) return null;
         const currentCount = selectedImage?.id === imageId ? (selectedImage.comments_count || 0) : (prev.comments_count || 0);
         return { ...prev, comments_count: currentCount + 1 };
     };
 
-    setImages(prevImages =>
-        prevImages.map(img =>
-            img.id === imageId ? updateCount(img) as ImagePrompt : img
-        )
-    );
-    if (selectedImage && selectedImage.id === imageId) {
-        setSelectedImage(updateCount);
-    }
+    setImages(prev => prev.map(img => img.id === imageId ? updateCount(img) as ImagePrompt : img));
+    if (selectedImage && selectedImage.id === imageId) setSelectedImage(updateCount);
   }, [selectedImage]);
 
   const handleSetCategory = (id: number | 'all') => {
     setSelectedCategoryId(id);
-    setCurrentPage('home'); // Always return to home when a category is selected
+    setCurrentPage('home');
   }
 
-  // Handle manual URL check for migration page (simple routing)
   useEffect(() => {
     if (window.location.pathname === '/migration') {
         setCurrentPage('migration');
@@ -339,12 +373,10 @@ const App: React.FC = () => {
       case 'settings':
         return currentUser ? <SettingsPage categories={categories} onUpdateCategories={fetchInitialData} setCurrentPage={setCurrentPage as any} /> : null;
       case 'user-management':
-        // Fix: Removed redundant 'users' prop. The component gets this data from context.
         return currentUser?.role === 'admin' ? <UserManagementPage images={images} /> : null;
       case 'liked-images':
         return currentUser ? <LikedImagesPage images={images} currentUser={currentUser} onImageClick={handleSelectImage} /> : null;
       case 'leaderboard':
-        // Fix: Removed redundant 'users' prop. The component gets this data from context.
         return <LeaderboardPage images={images} currentUser={currentUser} />;
       case 'profile':
         return currentUser ? <ProfilePage images={images} setCurrentPage={setCurrentPage as any}/> : null;
@@ -355,13 +387,44 @@ const App: React.FC = () => {
       case 'home':
       default:
         return (
-          (isLoading && images.length === 0) ? <ImageGridSkeleton /> :
-          <div className="p-4 sm:p-6 lg:p-8">
-            <ImageGrid 
-              images={filteredImages} 
-              onImageClick={handleSelectImage}
-              currentUser={currentUser}
-            />
+          <div className="p-4 sm:p-6 lg:p-8 min-h-screen">
+            {isLoading && page === 1 ? (
+              <ImageGridSkeleton />
+            ) : (
+              <>
+                <ImageGrid 
+                  images={images} 
+                  onImageClick={handleSelectImage}
+                  currentUser={currentUser}
+                />
+                
+                {/* Load More Button */}
+                {hasMore && (
+                  <div className="mt-8 flex justify-center pb-8">
+                    <button
+                      onClick={handleLoadMore}
+                      disabled={isLoadingMore}
+                      className="px-8 py-3 font-semibold text-white transition-all duration-300 rounded-full shadow-lg bg-gradient-to-r from-cyber-pink to-cyber-cyan hover:shadow-cyber-glow hover:-translate-y-1 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      {isLoadingMore ? (
+                        <>
+                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          <span>Đang tải...</span>
+                        </>
+                      ) : (
+                        <span>Xem thêm ({filteredIds.length - images.length})</span>
+                      )}
+                    </button>
+                  </div>
+                )}
+                
+                {!hasMore && images.length > 0 && (
+                   <div className="mt-8 text-center text-cyber-on-surface-secondary pb-8 text-sm italic">
+                      Đã hiển thị hết tất cả ảnh.
+                   </div>
+                )}
+              </>
+            )}
           </div>
         );
     }
