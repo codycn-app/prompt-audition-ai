@@ -7,6 +7,7 @@ import { ImagePrompt } from '../types';
 import { InformationCircleIcon } from '../components/icons/InformationCircleIcon';
 import { DocumentDuplicateIcon } from '../components/icons/DocumentDuplicateIcon';
 import { CheckIcon } from '../components/icons/CheckIcon';
+import { ExclamationTriangleIcon } from '../components/icons/ExclamationTriangleIcon';
 
 const MigrationPage: React.FC = () => {
     const { currentUser } = useAuth();
@@ -55,14 +56,11 @@ const MigrationPage: React.FC = () => {
         let failCount = 0;
         let skipCount = 0;
 
-        // Use a for...of loop or standard for loop to handle async properly
-        // Note: Processing one by one to avoid overwhelming the browser/network
         for (let i = 0; i < images.length; i++) {
             const img = images[i];
             setProgress(Math.round(((i + 1) / images.length) * 100));
 
-            // 1. Kiểm tra xem ảnh đã ở R2 chưa (Check domain R2)
-            // Cập nhật logic: Nếu URL chứa r2.dev HOẶC chứa domain custom của R2 (nếu có sau này)
+            // 1. Kiểm tra xem ảnh đã ở R2 chưa
             if (img.image_url && (img.image_url.includes('r2.dev') || img.image_url.includes('pub-'))) {
                 skipCount++;
                 addLog(`⏩ Bỏ qua (đã ở R2): ${img.title}`);
@@ -70,19 +68,32 @@ const MigrationPage: React.FC = () => {
             }
 
             try {
-                // 2. Tải ảnh từ Supabase về (dưới dạng Blob)
+                // 2. Tải ảnh từ Supabase về
                 addLog(`⬇️ Đang tải về: ${img.title}...`);
                 const response = await fetch(img.image_url);
                 if (!response.ok) throw new Error(`Không thể tải ảnh gốc (${response.status})`);
-                const blob = await response.blob();
+                
+                const rawBlob = await response.blob();
+                
+                // CRITICAL FIX: Ensure Content-Type is valid. 
+                // Empty Content-Type causes signature mismatches (403 Forbidden).
+                let mimeType = rawBlob.type;
+                if (!mimeType) {
+                    const ext = img.image_url.split('.').pop()?.toLowerCase();
+                    if (ext === 'png') mimeType = 'image/png';
+                    else if (ext === 'webp') mimeType = 'image/webp';
+                    else mimeType = 'image/jpeg';
+                }
+                // Recreate blob with enforced type
+                const blob = rawBlob.type === mimeType ? rawBlob : new Blob([rawBlob], { type: mimeType });
 
                 // 3. Upload lên R2
-                const fileExt = blob.type.split('/')[1] || 'jpg';
+                const fileExt = mimeType.split('/')[1] || 'jpg';
                 const fileName = `${img.user_id}/${Date.now()}_migrated.${fileExt}`;
                 
                 addLog(`⬆️ Đang upload lên R2...`);
-                // Upload sẽ dùng PUT request trực tiếp từ trình duyệt lên R2
-                // Nếu R2 chưa cấu hình CORS, bước này sẽ lỗi "Failed to fetch"
+                
+                // Calling the migration helper
                 const newUrl = await migrateBlobToR2(blob, 'images', fileName);
 
                 // 4. Cập nhật Database
@@ -100,11 +111,13 @@ const MigrationPage: React.FC = () => {
             } catch (err: any) {
                 failCount++;
                 let errMsg = err.message;
-                if (errMsg === 'Failed to fetch') {
-                    errMsg = 'Lỗi kết nối hoặc CORS (Xem hướng dẫn bên trên)';
-                    // Auto open guide if CORS error suspected
+                
+                // Enhance error detection
+                if (errMsg === 'Failed to fetch' || errMsg.includes('403')) {
+                    errMsg = 'Lỗi 403/CORS: Kiểm tra quyền API Token (Read/Write) và CORS.';
                     if (!showCorsGuide) setShowCorsGuide(true);
                 }
+                
                 addLog(`❌ Thất bại [${img.title}]: ${errMsg}`);
                 console.error(err);
             }
@@ -122,42 +135,61 @@ const MigrationPage: React.FC = () => {
                 Công cụ chuyển nhà (Migration Tool)
             </h1>
             
-            {/* CORS Warning / Guide */}
+            {/* CORS & Permissions Guide */}
             <div className={`mb-6 border rounded-xl overflow-hidden transition-all duration-300 ${showCorsGuide ? 'bg-cyber-surface border-cyber-pink' : 'bg-cyber-surface/50 border-cyber-pink/20'}`}>
                 <div 
                     className="p-4 flex items-center justify-between cursor-pointer hover:bg-cyber-surface/80"
                     onClick={() => setShowCorsGuide(!showCorsGuide)}
                 >
                     <div className="flex items-center gap-2">
-                        <InformationCircleIcon className="w-6 h-6 text-cyber-cyan" />
-                        <span className="font-semibold text-lg">Cấu hình CORS (Bắt buộc trước khi chạy)</span>
+                        <ExclamationTriangleIcon className="w-6 h-6 text-yellow-400" />
+                        <span className="font-semibold text-lg">Gặp lỗi upload (403/CORS)? Đọc ngay!</span>
                     </div>
-                    <span className="text-sm text-cyber-cyan">{showCorsGuide ? 'Thu gọn' : 'Xem hướng dẫn'}</span>
+                    <span className="text-sm text-cyber-cyan">{showCorsGuide ? 'Thu gọn' : 'Xem hướng dẫn khắc phục'}</span>
                 </div>
                 
                 {showCorsGuide && (
-                    <div className="p-4 pt-0 border-t border-cyber-pink/20 bg-black/20">
-                        <p className="mt-3 text-sm text-cyber-on-surface-secondary mb-3">
-                            Lỗi <strong>"Failed to fetch"</strong> hoặc <strong>"CORS policy"</strong> xảy ra do Cloudflare R2 mặc định chặn trình duyệt upload file. 
-                            Bạn cần thêm cấu hình sau vào R2 Bucket:
-                        </p>
-                        <ol className="list-decimal list-inside text-sm text-cyber-on-surface-secondary mb-4 space-y-1">
-                            <li>Truy cập <strong>Cloudflare Dashboard</strong> &gt; <strong>R2</strong>.</li>
-                            <li>Chọn Bucket <strong>audition-ai-images</strong>.</li>
-                            <li>Vào tab <strong>Settings</strong>, kéo xuống phần <strong>CORS Policy</strong>.</li>
-                            <li>Bấm <strong>Edit CORS Policy</strong> và dán đoạn mã sau:</li>
-                        </ol>
-                        <div className="relative group">
-                            <pre className="bg-black p-4 rounded-lg text-xs sm:text-sm font-mono text-green-400 overflow-x-auto border border-gray-700">
-                                {corsConfig}
-                            </pre>
-                            <button 
-                                onClick={handleCopyCors}
-                                className="absolute top-2 right-2 p-2 bg-cyber-surface rounded-md border border-gray-600 hover:border-cyber-cyan text-white transition-all"
-                                title="Sao chép"
-                            >
-                                {copiedCors ? <CheckIcon className="w-5 h-5 text-green-500"/> : <DocumentDuplicateIcon className="w-5 h-5"/>}
-                            </button>
+                    <div className="p-4 pt-0 border-t border-cyber-pink/20 bg-black/20 text-sm text-cyber-on-surface-secondary">
+                        <div className="mb-4 space-y-2">
+                            <h3 className="text-white font-bold text-base mt-2">Nguyên nhân phổ biến:</h3>
+                            <ul className="list-disc list-inside space-y-1 ml-1">
+                                <li>
+                                    <strong className="text-red-400">Quan trọng nhất:</strong> API Token R2 của bạn ở Netlify chưa có quyền <strong>Read & Write</strong>. 
+                                    (Nếu token là "Read Only", upload sẽ bị chặn với lỗi 403 Forbidden).
+                                </li>
+                                <li>Chưa cấu hình CORS cho Bucket (lỗi "blocked by CORS policy").</li>
+                            </ul>
+                        </div>
+
+                        <div className="grid md:grid-cols-2 gap-4">
+                            <div className="p-3 bg-black/40 rounded border border-gray-700">
+                                <h4 className="text-cyber-cyan font-bold mb-2">1. Kiểm tra API Token (Cloudflare)</h4>
+                                <ol className="list-decimal list-inside space-y-1 text-xs">
+                                    <li>Vào Cloudflare R2 Dashboard {'>'} Manage R2 API Tokens.</li>
+                                    <li>Tạo token mới (hoặc sửa token cũ).</li>
+                                    <li>
+                                        <strong>Permissions:</strong> Chọn 
+                                        <span className="text-green-400 font-bold"> Admin Read & Write</span>.
+                                    </li>
+                                    <li>Cập nhật lại biến môi trường (Access Key/Secret Key) trên Netlify.</li>
+                                </ol>
+                            </div>
+
+                            <div className="p-3 bg-black/40 rounded border border-gray-700">
+                                <h4 className="text-cyber-cyan font-bold mb-2">2. Cấu hình CORS (như bạn đã làm)</h4>
+                                <div className="relative group mt-1">
+                                    <pre className="bg-black p-2 rounded text-[10px] font-mono text-green-400 overflow-x-auto border border-gray-700">
+                                        {corsConfig}
+                                    </pre>
+                                    <button 
+                                        onClick={handleCopyCors}
+                                        className="absolute top-1 right-1 p-1 bg-cyber-surface rounded hover:border-cyber-cyan text-white"
+                                        title="Sao chép JSON"
+                                    >
+                                        {copiedCors ? <CheckIcon className="w-4 h-4 text-green-500"/> : <DocumentDuplicateIcon className="w-4 h-4"/>}
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -165,7 +197,7 @@ const MigrationPage: React.FC = () => {
 
             <div className="bg-cyber-surface/50 p-6 rounded-xl border border-cyber-pink/20 shadow-cyber-glow">
                 <p className="mb-4 text-cyber-on-surface-secondary">
-                    Công cụ này sẽ tải từng ảnh từ Supabase Storage và upload sang Cloudflare R2, sau đó cập nhật lại đường dẫn trong Database.
+                    Công cụ này sẽ tải từng ảnh từ Supabase Storage và upload sang Cloudflare R2.
                 </p>
                 
                 <div className="flex flex-col sm:flex-row items-center gap-4 mb-6">
