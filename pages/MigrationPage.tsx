@@ -9,6 +9,7 @@ import { DocumentDuplicateIcon } from '../components/icons/DocumentDuplicateIcon
 import { CheckIcon } from '../components/icons/CheckIcon';
 import { ExclamationTriangleIcon } from '../components/icons/ExclamationTriangleIcon';
 import { SpinnerIcon } from '../components/icons/SpinnerIcon';
+import { ShieldCheckIcon } from '../components/icons/ShieldCheckIcon';
 
 const MigrationPage: React.FC = () => {
     const { currentUser } = useAuth();
@@ -19,8 +20,9 @@ const MigrationPage: React.FC = () => {
     const [showGuides, setShowGuides] = useState(false);
     const [copiedCors, setCopiedCors] = useState(false);
     const [copiedSQL, setCopiedSQL] = useState(false);
+    const [copiedRLS, setCopiedRLS] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
-    const [activeTab, setActiveTab] = useState<'r2' | 'supabase'>('r2');
+    const [activeTab, setActiveTab] = useState<'r2' | 'supabase' | 'rls'>('rls');
 
     const corsConfig = `[
   {
@@ -30,21 +32,18 @@ const MigrationPage: React.FC = () => {
   }
 ]`;
 
-    // SMART SQL: Detects schema version and updates accordingly
     const sqlConfig = `DO $$
 BEGIN
-    -- 1. Bật Public Access
     UPDATE storage.buckets SET public = true WHERE name = 'images';
-
-    -- 2. Cấu hình CORS (Tự động nhận diện phiên bản Supabase)
     IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'storage' AND table_name = 'buckets' AND column_name = 'cors') THEN
-        -- Phiên bản mới: dùng cột 'cors'
         EXECUTE 'UPDATE storage.buckets SET cors = ''[{"origin": ["*"], "method": ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"], "responseHeader": ["*"], "maxAgeSeconds": 3600}]''::json WHERE name = ''images'';';
     ELSIF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'storage' AND table_name = 'buckets' AND column_name = 'allowed_origins') THEN
-        -- Phiên bản cũ: dùng cột 'allowed_origins'
         EXECUTE 'UPDATE storage.buckets SET allowed_origins = ARRAY[''*''] WHERE name = ''images'';';
     END IF;
 END $$;`;
+
+    // SQL to disable RLS temporarily
+    const sqlRLS = `ALTER TABLE images DISABLE ROW LEVEL SECURITY;`;
 
     const fetchImages = async () => {
         setIsRefreshing(true);
@@ -58,7 +57,6 @@ END $$;`;
         fetchImages();
     }, []);
 
-    // Derived stats
     const stats = useMemo(() => {
         const total = images.length;
         const onR2 = images.filter(img => img.image_url && (img.image_url.includes('r2.dev') || img.image_url.includes('pub-'))).length;
@@ -80,6 +78,12 @@ END $$;`;
         setTimeout(() => setCopiedSQL(false), 2000);
     };
 
+    const handleCopyRLS = () => {
+        navigator.clipboard.writeText(sqlRLS);
+        setCopiedRLS(true);
+        setTimeout(() => setCopiedRLS(false), 2000);
+    };
+
     const startMigration = async () => {
         if (!currentUser || currentUser.role !== 'admin') {
             addLog("Lỗi: Bạn không phải Admin.");
@@ -95,28 +99,22 @@ END $$;`;
 
         for (let i = 0; i < images.length; i++) {
             const img = images[i];
-            
-            // Calculate progress based on total items processed in this loop
             const currentPercent = Math.round(((i + 1) / images.length) * 100);
             if (currentPercent > progress) setProgress(currentPercent);
 
-            // 1. Kiểm tra xem ảnh đã ở R2 chưa
             if (img.image_url && (img.image_url.includes('r2.dev') || img.image_url.includes('pub-'))) {
                 skipCount++;
-                // Don't log skips to keep logs clean unless it's the start
                 if (i < 5) addLog(`⏩ Bỏ qua (đã ở R2): ${img.title}`);
                 continue;
             }
 
             try {
-                // 2. Tải ảnh từ Supabase về
                 addLog(`⬇️ Đang tải về [${i + 1}/${images.length}]: ${img.title}...`);
                 
                 let response;
                 try {
                     response = await fetch(img.image_url);
                 } catch (fetchErr) {
-                     // Catch network errors explicitly (like CORS blocking the GET)
                      throw new Error('Lỗi tải từ Supabase (CORS?). Xem hướng dẫn tab "Supabase Source".');
                 }
 
@@ -124,7 +122,6 @@ END $$;`;
                 
                 const rawBlob = await response.blob();
                 
-                // CRITICAL FIX: Ensure Content-Type is valid. 
                 let mimeType = rawBlob.type;
                 if (!mimeType) {
                     const ext = img.image_url.split('.').pop()?.toLowerCase();
@@ -134,7 +131,6 @@ END $$;`;
                 }
                 const blob = rawBlob.type === mimeType ? rawBlob : new Blob([rawBlob], { type: mimeType });
 
-                // 3. Upload lên R2
                 const fileExt = mimeType.split('/')[1] || 'jpg';
                 const fileName = `${img.user_id}/${Date.now()}_migrated.${fileExt}`;
                 
@@ -144,40 +140,49 @@ END $$;`;
                     const newUrl = await migrateBlobToR2(blob, 'images', fileName);
 
                     // 4. Cập nhật Database
-                    addLog(`💾 Cập nhật DB (Thay thế URL)...`);
-                    const { error } = await supabase
+                    addLog(`💾 Cập nhật DB...`);
+                    
+                    // CRITICAL FIX: Use select() to verify if the row was actually updated.
+                    const { data: updatedRows, error } = await supabase
                         .from('images')
                         .update({ image_url: newUrl })
-                        .eq('id', img.id);
+                        .eq('id', img.id)
+                        .select();
 
                     if (error) throw error;
+                    
+                    // IF NO ROWS UPDATED -> RLS BLOCKED IT
+                    if (!updatedRows || updatedRows.length === 0) {
+                        throw new Error('Lỗi Quyền (RLS): Không thể cập nhật DB. Xem hướng dẫn "Lỗi Quyền DB".');
+                    }
 
-                    // Update local state to reflect change immediately
                     setImages(prev => prev.map(p => p.id === img.id ? { ...p, image_url: newUrl } : p));
 
                     successCount++;
-                    addLog(`✅ Thành công: URL đã chuyển sang R2.`);
+                    addLog(`✅ Thành công: URL đã thay đổi.`);
                     
                 } catch (uploadErr: any) {
-                    // Identify upload vs permission errors
                     let msg = uploadErr.message;
                     if (msg.includes('403') || msg.includes('Failed to fetch')) {
                         msg = 'Lỗi Upload R2 (CORS/Quyền). Xem hướng dẫn tab "Cloudflare R2".';
                         if (!showGuides) setShowGuides(true);
                         setActiveTab('r2');
                     }
+                    // Handle RLS specific error
+                    if (msg.includes('Lỗi Quyền (RLS)')) {
+                         if (!showGuides) setShowGuides(true);
+                         setActiveTab('rls');
+                    }
                     throw new Error(msg);
                 }
 
-                // Small delay to prevent browser throttling
                 await new Promise(r => setTimeout(r, 200));
 
             } catch (err: any) {
                 failCount++;
                 let errMsg = err.message;
                 
-                // Auto-detect Supabase CORS error
-                if (errMsg.includes('Lỗi tải từ Supabase') || errMsg.includes('Failed to fetch')) {
+                if (errMsg.includes('Lỗi tải từ Supabase')) {
                     if (!showGuides) setShowGuides(true);
                     setActiveTab('supabase');
                 }
@@ -189,8 +194,6 @@ END $$;`;
 
         setStatus('completed');
         addLog(`🏁 HOÀN TẤT! Đã chuyển: ${successCount}, Lỗi: ${failCount}, Đã ở R2 từ trước: ${skipCount}`);
-        
-        // Refresh data at the end to be sure
         await fetchImages();
     };
 
@@ -202,7 +205,6 @@ END $$;`;
                 Công cụ chuyển nhà (Migration Tool)
             </h1>
             
-            {/* Status Dashboard */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div className="p-4 rounded-xl bg-cyber-surface border border-cyber-pink/20 flex flex-col items-center justify-center">
                     <span className="text-cyber-on-surface-secondary text-sm uppercase font-bold">Tổng số ảnh</span>
@@ -226,7 +228,6 @@ END $$;`;
                 </div>
             </div>
 
-            {/* Troubleshooting Guides */}
             <div className={`mb-6 border rounded-xl overflow-hidden transition-all duration-300 ${showGuides ? 'bg-cyber-surface border-cyber-pink' : 'bg-cyber-surface/50 border-cyber-pink/20'}`}>
                 <div 
                     className="p-4 flex items-center justify-between cursor-pointer hover:bg-cyber-surface/80"
@@ -234,35 +235,69 @@ END $$;`;
                 >
                     <div className="flex items-center gap-2">
                         <ExclamationTriangleIcon className="w-6 h-6 text-yellow-400" />
-                        <span className="font-semibold text-lg">Khắc phục lỗi "Failed to fetch" / "CORS"</span>
+                        <span className="font-semibold text-lg">Trung tâm khắc phục lỗi</span>
                     </div>
                     <span className="text-sm text-cyber-cyan">{showGuides ? 'Thu gọn' : 'Xem hướng dẫn'}</span>
                 </div>
                 
                 {showGuides && (
                     <div className="p-4 pt-0 border-t border-cyber-pink/20 bg-black/20 text-sm text-cyber-on-surface-secondary">
-                        <div className="flex border-b border-gray-700 mb-4 mt-2">
+                        <div className="flex border-b border-gray-700 mb-4 mt-2 overflow-x-auto">
                              <button 
-                                className={`px-4 py-2 font-medium ${activeTab === 'supabase' ? 'text-cyber-pink border-b-2 border-cyber-pink' : 'text-gray-400 hover:text-white'}`}
-                                onClick={() => setActiveTab('supabase')}
+                                className={`px-4 py-2 font-medium whitespace-nowrap ${activeTab === 'rls' ? 'text-red-400 border-b-2 border-red-500' : 'text-gray-400 hover:text-white'}`}
+                                onClick={() => setActiveTab('rls')}
                              >
-                                1. Nguồn: Supabase Storage (Lỗi Download)
+                                3. Lỗi Quyền DB (QUAN TRỌNG)
                              </button>
                              <button 
-                                className={`px-4 py-2 font-medium ${activeTab === 'r2' ? 'text-cyber-pink border-b-2 border-cyber-pink' : 'text-gray-400 hover:text-white'}`}
+                                className={`px-4 py-2 font-medium whitespace-nowrap ${activeTab === 'supabase' ? 'text-cyber-pink border-b-2 border-cyber-pink' : 'text-gray-400 hover:text-white'}`}
+                                onClick={() => setActiveTab('supabase')}
+                             >
+                                1. Lỗi Download (Supabase CORS)
+                             </button>
+                             <button 
+                                className={`px-4 py-2 font-medium whitespace-nowrap ${activeTab === 'r2' ? 'text-cyber-pink border-b-2 border-cyber-pink' : 'text-gray-400 hover:text-white'}`}
                                 onClick={() => setActiveTab('r2')}
                              >
-                                2. Đích: Cloudflare R2 (Lỗi Upload)
+                                2. Lỗi Upload (Cloudflare CORS)
                              </button>
                         </div>
 
+                         {activeTab === 'rls' && (
+                            <div className="animate-fade-in-scale">
+                                <p className="mb-2 text-red-300 font-bold">
+                                    Đây là lý do bạn thấy "Success" nhưng ảnh vẫn còn ở Supabase!
+                                </p>
+                                <p className="mb-2">
+                                    Supabase chặn bạn sửa dữ liệu của người khác (Row Level Security). Để công cụ này hoạt động triệt để, bạn cần chạy lệnh SQL sau để tắt kiểm soát quyền tạm thời.
+                                </p>
+                                <ol className="list-decimal list-inside space-y-1 ml-1 mb-3">
+                                    <li>Vào Supabase Dashboard {'>'} <strong>SQL Editor</strong>.</li>
+                                    <li>Dán lệnh bên dưới và bấm <strong>Run</strong>.</li>
+                                    <li>Sau khi Migration hoàn tất 100%, bạn có thể bật lại RLS nếu muốn.</li>
+                                </ol>
+                                <div className="relative group mt-2">
+                                    <pre className="bg-black p-3 rounded text-xs font-mono text-red-300 overflow-x-auto border border-red-500/30">
+{sqlRLS}
+                                    </pre>
+                                    <button 
+                                        onClick={handleCopyRLS} 
+                                        className="absolute top-2 right-2 p-1.5 bg-gray-800 rounded hover:bg-gray-700 text-white flex items-center gap-1 text-xs" 
+                                        title="Sao chép SQL"
+                                    >
+                                        {copiedRLS ? <CheckIcon className="w-4 h-4 text-green-500"/> : <ShieldCheckIcon className="w-4 h-4"/>}
+                                        {copiedRLS ? 'Đã chép' : 'Copy SQL'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
                         {activeTab === 'r2' && (
                             <div className="animate-fade-in-scale">
-                                <p className="mb-2">Nếu lỗi xảy ra khi <strong>"Đang upload lên R2..."</strong>, bạn cần:</p>
+                                <p className="mb-2">Nếu lỗi xảy ra khi <strong>"Đang upload lên R2..."</strong>:</p>
                                 <ol className="list-decimal list-inside space-y-1 ml-1 mb-3">
-                                    <li>Vào Cloudflare R2 {'>'} Settings {'>'} CORS Policy {'>'} Edit.</li>
-                                    <li>Dán JSON bên dưới và Save.</li>
-                                    <li>Kiểm tra lại API Token ở Netlify: Phải có quyền <strong>Admin Read & Write</strong>.</li>
+                                    <li>Vào Cloudflare R2 {'>'} Settings {'>'} CORS Policy.</li>
+                                    <li>Dán JSON và Save.</li>
                                 </ol>
                                 <div className="relative group">
                                     <pre className="bg-black p-3 rounded text-[10px] font-mono text-green-400 overflow-x-auto border border-gray-700">{corsConfig}</pre>
@@ -273,17 +308,9 @@ END $$;`;
 
                         {activeTab === 'supabase' && (
                             <div className="animate-fade-in-scale">
-                                <p className="mb-2 text-yellow-300">
-                                    <strong>Vấn đề:</strong> Bạn không tìm thấy chỗ chỉnh CORS hoặc gặp lỗi quyền hạn khi chạy SQL cũ.
-                                </p>
                                 <p className="mb-2">
-                                    <strong>Giải pháp:</strong> Copy đoạn SQL "thông minh" bên dưới. Nó sẽ tự kiểm tra phiên bản Supabase của bạn để chạy lệnh phù hợp.
+                                    Nếu lỗi <strong>"Failed to fetch"</strong> khi tải ảnh về, chạy lệnh này trong SQL Editor của Supabase để sửa lỗi CORS:
                                 </p>
-                                <ol className="list-decimal list-inside space-y-1 ml-1 mb-3">
-                                    <li>Vào Supabase Dashboard {'>'} <strong>SQL Editor</strong>.</li>
-                                    <li>Dán đoạn mã này vào và bấm <strong>Run</strong>.</li>
-                                    <li>Quay lại đây và bấm "Tiếp tục Di chuyển".</li>
-                                </ol>
                                 <div className="relative group mt-2">
                                     <pre className="bg-black p-3 rounded text-xs font-mono text-blue-300 overflow-x-auto border border-blue-500/30">
 {sqlConfig}
@@ -305,7 +332,7 @@ END $$;`;
 
             <div className="bg-cyber-surface/50 p-6 rounded-xl border border-cyber-pink/20 shadow-cyber-glow">
                 <p className="mb-4 text-cyber-on-surface-secondary">
-                    Công cụ này sẽ tiếp tục tải 443 ảnh còn lại từ Supabase và chuyển sang R2. Các ảnh đã chuyển sẽ tự động được bỏ qua.
+                    Công cụ này sẽ tiếp tục tải {stats.onSupabase} ảnh còn lại từ Supabase và chuyển sang R2.
                 </p>
                 
                 <div className="flex flex-col sm:flex-row items-center gap-4 mb-6">
