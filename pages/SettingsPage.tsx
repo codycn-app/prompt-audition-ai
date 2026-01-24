@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { UserCircleIcon } from '../components/icons/UserCircleIcon';
@@ -10,6 +11,7 @@ import CategoryManagement from '../components/CategoryManagement';
 import { TagIcon } from '../components/icons/TagIcon';
 import { useToast } from '../contexts/ToastContext';
 import ExpBar from '../components/ExpBar';
+import { uploadFile } from '../lib/storage';
 
 interface SettingsPageProps {
   categories: Category[];
@@ -55,20 +57,13 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ categories, onUpdateCategor
 
     try {
       let avatarUrlToSave = currentUser.avatarUrl;
-      const supabase = getSupabaseClient();
+      // Removed direct Supabase client call, used uploadFile instead
 
       if (avatarFile) {
         const fileExt = avatarFile.name.split('.').pop();
         const filePath = `${currentUser.id}/avatar.${fileExt}`;
         
-        const { error: uploadError } = await supabase.storage
-          .from('avatars')
-          .upload(filePath, avatarFile, { upsert: true });
-
-        if (uploadError) throw uploadError;
-
-        const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(filePath);
-        avatarUrlToSave = `${urlData.publicUrl}?t=${new Date().getTime()}`;
+        avatarUrlToSave = await uploadFile(avatarFile, 'avatars', filePath);
       }
       
       await updateProfile(currentUser.id, { username, avatarUrl: avatarUrlToSave });

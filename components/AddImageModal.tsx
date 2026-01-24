@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import ReactCrop, { centerCrop, makeAspectCrop, type Crop, type PixelCrop } from 'https://aistudiocdn.com/react-image-crop@^11.0.6';
 import { CloseIcon } from './icons/CloseIcon';
@@ -7,6 +8,7 @@ import { getSupabaseClient } from '../supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
 import { Category } from '../types';
 import { useToast } from '../contexts/ToastContext';
+import { uploadFile, deleteFile } from '../lib/storage';
 
 interface AddImageModalProps {
   onClose: () => void;
@@ -133,27 +135,23 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, cate
     setError('');
     
     const supabase = getSupabaseClient();
-    let imagePath = '';
+    let uploadedImageUrl = '';
     let newImageId: number | null = null;
 
     try {
         const fileExt = imageFile.name.split('.').pop();
-        imagePath = `${currentUser.id}/${Date.now()}.${fileExt}`;
+        // Path construction: userID/timestamp.ext
+        const fileName = `${currentUser.id}/${Date.now()}.${fileExt}`;
         
-        const { error: uploadError } = await supabase.storage
-            .from('images')
-            .upload(imagePath, imageFile);
-        if (uploadError) throw uploadError;
-
-        const { data: urlData } = supabase.storage.from('images').getPublicUrl(imagePath);
-        if (!urlData) throw new Error("Không thể lấy URL của ảnh.");
+        // Use the centralized storage handler
+        uploadedImageUrl = await uploadFile(imageFile, 'images', fileName);
         
         const { data: newImage, error: imageInsertError } = await supabase
             .from('images')
             .insert({
                 title: title,
                 prompt: prompt,
-                image_url: urlData.publicUrl,
+                image_url: uploadedImageUrl,
                 user_id: currentUser.id,
                 likes: [],
                 views: 0,
@@ -184,13 +182,15 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, cate
 
     } catch (err: any) {
         console.error("Error adding image:", err);
-        const errorMessage = `Lỗi từ server: ${err.message}` || 'Đã có lỗi xảy ra. Vui lòng thử lại.';
+        const errorMessage = `Lỗi: ${err.message}` || 'Đã có lỗi xảy ra. Vui lòng thử lại.';
         setError(errorMessage);
         showToast(errorMessage, 'error');
 
-        if (imagePath) {
-            await supabase.storage.from('images').remove([imagePath]);
+        // Cleanup if DB insert failed but image uploaded
+        if (uploadedImageUrl) {
+            await deleteFile(uploadedImageUrl);
         }
+        
         if (newImageId) {
             await supabase.from('image_categories').delete().eq('image_id', newImageId);
             await supabase.from('images').delete().eq('id', newImageId);

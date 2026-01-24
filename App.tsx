@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { ImagePrompt, Comment, User, Category, Page } from './types';
 import { useAuth } from './contexts/AuthContext';
@@ -21,6 +22,7 @@ import SupportPage from './pages/SupportPage';
 import CategoriesPage from './pages/CategoriesPage';
 import { getSupabaseClient } from './supabaseClient';
 import { useToast } from './contexts/ToastContext';
+import { deleteFile } from './lib/storage';
 
 
 const App: React.FC = () => {
@@ -239,13 +241,9 @@ const App: React.FC = () => {
     if (!imageToDelete) return;
     const supabase = getSupabaseClient();
 
-    const bucketName = 'images';
-
+    // Use the abstraction to delete (handles both R2 and Supabase Storage)
     if (imageToDelete.image_url) {
-        const imagePath = imageToDelete.image_url.split(`/${bucketName}/`)[1];
-        if (imagePath) {
-            await supabase.storage.from(bucketName).remove([imagePath]);
-        }
+        await deleteFile(imageToDelete.image_url);
     }
     
     const { error } = await supabase.from('images').delete().eq('id', imageToDelete.id);
