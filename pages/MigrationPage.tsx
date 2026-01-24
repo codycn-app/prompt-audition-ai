@@ -16,9 +16,10 @@ const MigrationPage: React.FC = () => {
     const [status, setStatus] = useState<string>('idle');
     const [progress, setProgress] = useState(0);
     const [logs, setLogs] = useState<string[]>([]);
-    const [showCorsGuide, setShowCorsGuide] = useState(false);
+    const [showGuides, setShowGuides] = useState(false);
     const [copiedCors, setCopiedCors] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [activeTab, setActiveTab] = useState<'r2' | 'supabase'>('r2');
 
     const corsConfig = `[
   {
@@ -87,7 +88,15 @@ const MigrationPage: React.FC = () => {
             try {
                 // 2. Tải ảnh từ Supabase về
                 addLog(`⬇️ Đang tải về [${i + 1}/${images.length}]: ${img.title}...`);
-                const response = await fetch(img.image_url);
+                
+                let response;
+                try {
+                    response = await fetch(img.image_url);
+                } catch (fetchErr) {
+                     // Catch network errors explicitly (like CORS blocking the GET)
+                     throw new Error('Lỗi tải từ Supabase (CORS?). Xem hướng dẫn tab "Supabase Source".');
+                }
+
                 if (!response.ok) throw new Error(`Không thể tải ảnh gốc (${response.status})`);
                 
                 const rawBlob = await response.blob();
@@ -108,30 +117,48 @@ const MigrationPage: React.FC = () => {
                 
                 addLog(`⬆️ Đang upload lên R2...`);
                 
-                const newUrl = await migrateBlobToR2(blob, 'images', fileName);
+                try {
+                    const newUrl = await migrateBlobToR2(blob, 'images', fileName);
 
-                // 4. Cập nhật Database
-                addLog(`💾 Cập nhật DB (Thay thế URL)...`);
-                const { error } = await supabase
-                    .from('images')
-                    .update({ image_url: newUrl })
-                    .eq('id', img.id);
+                    // 4. Cập nhật Database
+                    addLog(`💾 Cập nhật DB (Thay thế URL)...`);
+                    const { error } = await supabase
+                        .from('images')
+                        .update({ image_url: newUrl })
+                        .eq('id', img.id);
 
-                if (error) throw error;
+                    if (error) throw error;
 
-                // Update local state to reflect change immediately
-                setImages(prev => prev.map(p => p.id === img.id ? { ...p, image_url: newUrl } : p));
+                    // Update local state to reflect change immediately
+                    setImages(prev => prev.map(p => p.id === img.id ? { ...p, image_url: newUrl } : p));
 
-                successCount++;
-                addLog(`✅ Thành công: URL đã chuyển sang R2.`);
+                    successCount++;
+                    addLog(`✅ Thành công: URL đã chuyển sang R2.`);
+                    
+                } catch (uploadErr: any) {
+                    // Identify upload vs permission errors
+                    let msg = uploadErr.message;
+                    if (msg.includes('403') || msg.includes('Failed to fetch')) {
+                        msg = 'Lỗi Upload R2 (CORS/Quyền). Xem hướng dẫn tab "Cloudflare R2".';
+                        if (!showGuides) setShowGuides(true);
+                        setActiveTab('r2');
+                    }
+                    throw new Error(msg);
+                }
+
+                // Small delay to prevent browser throttling
+                await new Promise(r => setTimeout(r, 200));
 
             } catch (err: any) {
                 failCount++;
                 let errMsg = err.message;
-                if (errMsg === 'Failed to fetch' || errMsg.includes('403')) {
-                    errMsg = 'Lỗi 403/CORS: Kiểm tra quyền API Token & CORS.';
-                    if (!showCorsGuide) setShowCorsGuide(true);
+                
+                // Auto-detect Supabase CORS error
+                if (errMsg.includes('Lỗi tải từ Supabase')) {
+                    if (!showGuides) setShowGuides(true);
+                    setActiveTab('supabase');
                 }
+
                 addLog(`❌ Thất bại [${img.title}]: ${errMsg}`);
                 console.error(err);
             }
@@ -176,69 +203,77 @@ const MigrationPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* CORS & Permissions Guide */}
-            <div className={`mb-6 border rounded-xl overflow-hidden transition-all duration-300 ${showCorsGuide ? 'bg-cyber-surface border-cyber-pink' : 'bg-cyber-surface/50 border-cyber-pink/20'}`}>
+            {/* Troubleshooting Guides */}
+            <div className={`mb-6 border rounded-xl overflow-hidden transition-all duration-300 ${showGuides ? 'bg-cyber-surface border-cyber-pink' : 'bg-cyber-surface/50 border-cyber-pink/20'}`}>
                 <div 
                     className="p-4 flex items-center justify-between cursor-pointer hover:bg-cyber-surface/80"
-                    onClick={() => setShowCorsGuide(!showCorsGuide)}
+                    onClick={() => setShowGuides(!showGuides)}
                 >
                     <div className="flex items-center gap-2">
                         <ExclamationTriangleIcon className="w-6 h-6 text-yellow-400" />
-                        <span className="font-semibold text-lg">Gặp lỗi upload (403/CORS)? Đọc ngay!</span>
+                        <span className="font-semibold text-lg">Khắc phục lỗi "Failed to fetch" / "CORS"</span>
                     </div>
-                    <span className="text-sm text-cyber-cyan">{showCorsGuide ? 'Thu gọn' : 'Xem hướng dẫn khắc phục'}</span>
+                    <span className="text-sm text-cyber-cyan">{showGuides ? 'Thu gọn' : 'Xem hướng dẫn'}</span>
                 </div>
                 
-                {showCorsGuide && (
+                {showGuides && (
                     <div className="p-4 pt-0 border-t border-cyber-pink/20 bg-black/20 text-sm text-cyber-on-surface-secondary">
-                        <div className="mb-4 space-y-2">
-                            <h3 className="text-white font-bold text-base mt-2">Nguyên nhân phổ biến:</h3>
-                            <ul className="list-disc list-inside space-y-1 ml-1">
-                                <li>
-                                    <strong className="text-red-400">Quan trọng nhất:</strong> API Token R2 của bạn ở Netlify chưa có quyền <strong>Read & Write</strong>. 
-                                    (Nếu token là "Read Only", upload sẽ bị chặn với lỗi 403 Forbidden).
-                                </li>
-                                <li>Chưa cấu hình CORS cho Bucket (lỗi "blocked by CORS policy").</li>
-                            </ul>
+                        <div className="flex border-b border-gray-700 mb-4 mt-2">
+                             <button 
+                                className={`px-4 py-2 font-medium ${activeTab === 'r2' ? 'text-cyber-pink border-b-2 border-cyber-pink' : 'text-gray-400 hover:text-white'}`}
+                                onClick={() => setActiveTab('r2')}
+                             >
+                                1. Đích: Cloudflare R2 (Lỗi Upload)
+                             </button>
+                             <button 
+                                className={`px-4 py-2 font-medium ${activeTab === 'supabase' ? 'text-cyber-pink border-b-2 border-cyber-pink' : 'text-gray-400 hover:text-white'}`}
+                                onClick={() => setActiveTab('supabase')}
+                             >
+                                2. Nguồn: Supabase Storage (Lỗi Download)
+                             </button>
                         </div>
 
-                        <div className="grid md:grid-cols-2 gap-4">
-                            <div className="p-3 bg-black/40 rounded border border-gray-700">
-                                <h4 className="text-cyber-cyan font-bold mb-2">1. Kiểm tra API Token (Cloudflare)</h4>
-                                <ol className="list-decimal list-inside space-y-1 text-xs">
-                                    <li>Vào Cloudflare R2 Dashboard {'>'} Manage R2 API Tokens.</li>
-                                    <li>Tạo token mới (hoặc sửa token cũ).</li>
-                                    <li>
-                                        <strong>Permissions:</strong> Chọn 
-                                        <span className="text-green-400 font-bold"> Admin Read & Write</span>.
-                                    </li>
-                                    <li>Cập nhật lại biến môi trường (Access Key/Secret Key) trên Netlify.</li>
+                        {activeTab === 'r2' && (
+                            <div className="animate-fade-in-scale">
+                                <p className="mb-2">Nếu lỗi xảy ra khi <strong>"Đang upload lên R2..."</strong>, bạn cần:</p>
+                                <ol className="list-decimal list-inside space-y-1 ml-1 mb-3">
+                                    <li>Vào Cloudflare R2 {'>'} Settings {'>'} CORS Policy {'>'} Edit.</li>
+                                    <li>Dán JSON bên dưới và Save.</li>
+                                    <li>Kiểm tra lại API Token ở Netlify: Phải có quyền <strong>Admin Read & Write</strong>.</li>
                                 </ol>
-                            </div>
-
-                            <div className="p-3 bg-black/40 rounded border border-gray-700">
-                                <h4 className="text-cyber-cyan font-bold mb-2">2. Cấu hình CORS (như bạn đã làm)</h4>
-                                <div className="relative group mt-1">
-                                    <pre className="bg-black p-2 rounded text-[10px] font-mono text-green-400 overflow-x-auto border border-gray-700">
-                                        {corsConfig}
-                                    </pre>
-                                    <button 
-                                        onClick={handleCopyCors}
-                                        className="absolute top-1 right-1 p-1 bg-cyber-surface rounded hover:border-cyber-cyan text-white"
-                                        title="Sao chép JSON"
-                                    >
-                                        {copiedCors ? <CheckIcon className="w-4 h-4 text-green-500"/> : <DocumentDuplicateIcon className="w-4 h-4"/>}
-                                    </button>
+                                <div className="relative group">
+                                    <pre className="bg-black p-3 rounded text-[10px] font-mono text-green-400 overflow-x-auto border border-gray-700">{corsConfig}</pre>
+                                    <button onClick={handleCopyCors} className="absolute top-2 right-2 p-1.5 bg-gray-800 rounded hover:bg-gray-700 text-white" title="Sao chép"><DocumentDuplicateIcon className="w-4 h-4"/></button>
                                 </div>
                             </div>
-                        </div>
+                        )}
+
+                        {activeTab === 'supabase' && (
+                            <div className="animate-fade-in-scale">
+                                <p className="mb-2">Nếu lỗi xảy ra khi <strong>"Đang tải về..."</strong>, trình duyệt đang chặn tải ảnh từ Supabase. Bạn cần cấu hình CORS cho Supabase Bucket:</p>
+                                <ol className="list-decimal list-inside space-y-1 ml-1 mb-3">
+                                    <li>Vào Supabase Dashboard {'>'} Storage {'>'} Buckets.</li>
+                                    <li>Chọn bucket chứa ảnh (ví dụ: <code>images</code>).</li>
+                                    <li>Vào <strong>Configuration</strong> {'>'} <strong>CORS Configuration</strong>.</li>
+                                    <li>Thêm URL trang web của bạn (ví dụ: <code>https://caulenhau.io.vn</code> hoặc <code>*</code>) vào danh sách.</li>
+                                </ol>
+                                <div className="p-3 bg-yellow-900/20 border border-yellow-600/30 rounded text-yellow-200">
+                                    <strong>Mẹo:</strong> Nếu bạn không tìm thấy chỗ chỉnh CORS trên Supabase UI, hãy chạy lệnh SQL này trong SQL Editor của Supabase:
+                                    <pre className="mt-2 bg-black p-2 rounded text-xs font-mono text-blue-300 overflow-x-auto select-all">
+{`update storage.buckets
+set cors = '["https://caulenhau.io.vn", "http://localhost:5173"]'::json
+where name = 'images';`}
+                                    </pre>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
 
             <div className="bg-cyber-surface/50 p-6 rounded-xl border border-cyber-pink/20 shadow-cyber-glow">
                 <p className="mb-4 text-cyber-on-surface-secondary">
-                    Công cụ này sẽ tải ảnh từ Supabase, upload sang Cloudflare R2, và <strong>tự động thay thế URL cũ</strong> trong Database.
+                    Công cụ này sẽ tiếp tục tải 443 ảnh còn lại từ Supabase và chuyển sang R2. Các ảnh đã chuyển sẽ tự động được bỏ qua.
                 </p>
                 
                 <div className="flex flex-col sm:flex-row items-center gap-4 mb-6">
@@ -248,7 +283,7 @@ const MigrationPage: React.FC = () => {
                         className="px-4 py-2 text-sm font-medium border border-cyber-pink/30 rounded-lg hover:bg-cyber-pink/10 disabled:opacity-50 transition-colors flex items-center gap-2"
                     >
                         {isRefreshing ? <SpinnerIcon className="w-4 h-4 animate-spin"/> : <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>}
-                        Làm mới dữ liệu
+                        Làm mới
                     </button>
                     
                     <div className="flex-grow"></div>
@@ -259,7 +294,7 @@ const MigrationPage: React.FC = () => {
                             disabled={stats.onSupabase === 0}
                             className="px-8 py-3 bg-gradient-to-r from-cyber-pink to-cyber-cyan text-white font-bold rounded-lg hover:shadow-cyber-glow transform active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {stats.onSupabase === 0 ? 'Tất cả đã ở R2' : 'Bắt đầu Di chuyển'}
+                            {stats.onSupabase === 0 ? 'Tất cả đã ở R2' : 'Tiếp tục Di chuyển'}
                         </button>
                     )}
                     {status === 'running' && (
