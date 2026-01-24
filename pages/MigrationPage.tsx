@@ -30,10 +30,21 @@ const MigrationPage: React.FC = () => {
   }
 ]`;
 
-    const sqlConfig = `UPDATE storage.buckets
-SET public = true,
-    cors = '["*"]'::json
-WHERE name = 'images';`;
+    // SMART SQL: Detects schema version and updates accordingly
+    const sqlConfig = `DO $$
+BEGIN
+    -- 1. Bật Public Access
+    UPDATE storage.buckets SET public = true WHERE name = 'images';
+
+    -- 2. Cấu hình CORS (Tự động nhận diện phiên bản Supabase)
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'storage' AND table_name = 'buckets' AND column_name = 'cors') THEN
+        -- Phiên bản mới: dùng cột 'cors'
+        EXECUTE 'UPDATE storage.buckets SET cors = ''[{"origin": ["*"], "method": ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"], "responseHeader": ["*"], "maxAgeSeconds": 3600}]''::json WHERE name = ''images'';';
+    ELSIF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'storage' AND table_name = 'buckets' AND column_name = 'allowed_origins') THEN
+        -- Phiên bản cũ: dùng cột 'allowed_origins'
+        EXECUTE 'UPDATE storage.buckets SET allowed_origins = ARRAY[''*''] WHERE name = ''images'';';
+    END IF;
+END $$;`;
 
     const fetchImages = async () => {
         setIsRefreshing(true);
@@ -263,17 +274,15 @@ WHERE name = 'images';`;
                         {activeTab === 'supabase' && (
                             <div className="animate-fade-in-scale">
                                 <p className="mb-2 text-yellow-300">
-                                    <strong>Vấn đề:</strong> Bạn không tìm thấy chỗ chỉnh CORS trong Supabase Dashboard hoặc giao diện đã đổi.
+                                    <strong>Vấn đề:</strong> Bạn không tìm thấy chỗ chỉnh CORS hoặc gặp lỗi quyền hạn khi chạy SQL cũ.
                                 </p>
                                 <p className="mb-2">
-                                    <strong>Giải pháp:</strong> Chạy lệnh SQL trực tiếp để mở quyền truy cập (CORS) cho bucket <code>images</code>.
+                                    <strong>Giải pháp:</strong> Copy đoạn SQL "thông minh" bên dưới. Nó sẽ tự kiểm tra phiên bản Supabase của bạn để chạy lệnh phù hợp.
                                 </p>
                                 <ol className="list-decimal list-inside space-y-1 ml-1 mb-3">
-                                    <li>Vào Supabase Dashboard {'>'} <strong>SQL Editor</strong> (Icon hình 2 dấu ngoặc nhọn bên trái).</li>
-                                    <li>Tạo một New Query.</li>
-                                    <li>Copy và dán đoạn mã bên dưới vào.</li>
-                                    <li>Bấm nút <strong>Run</strong> (màu xanh).</li>
-                                    <li>Sau khi chạy xong (thấy chữ Success), quay lại đây và bấm "Tiếp tục Di chuyển".</li>
+                                    <li>Vào Supabase Dashboard {'>'} <strong>SQL Editor</strong>.</li>
+                                    <li>Dán đoạn mã này vào và bấm <strong>Run</strong>.</li>
+                                    <li>Quay lại đây và bấm "Tiếp tục Di chuyển".</li>
                                 </ol>
                                 <div className="relative group mt-2">
                                     <pre className="bg-black p-3 rounded text-xs font-mono text-blue-300 overflow-x-auto border border-blue-500/30">
