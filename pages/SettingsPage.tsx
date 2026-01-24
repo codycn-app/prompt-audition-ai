@@ -5,7 +5,7 @@ import { UserCircleIcon } from '../components/icons/UserCircleIcon';
 import { KeyIcon } from '../components/icons/KeyIcon';
 import { ShieldCheckIcon } from '../components/icons/ShieldCheckIcon';
 import RankManagement from '../components/RankManagement';
-import { Category } from '../types';
+import { Category, Page } from '../types';
 import CategoryManagement from '../components/CategoryManagement';
 import { TagIcon } from '../components/icons/TagIcon';
 import { useToast } from '../contexts/ToastContext';
@@ -16,9 +16,10 @@ import { DocumentDuplicateIcon } from '../components/icons/DocumentDuplicateIcon
 interface SettingsPageProps {
   categories: Category[];
   onUpdateCategories: () => void;
+  setCurrentPage: (page: any) => void;
 }
 
-const SettingsPage: React.FC<SettingsPageProps> = ({ categories, onUpdateCategories }) => {
+const SettingsPage: React.FC<SettingsPageProps> = ({ categories, onUpdateCategories, setCurrentPage }) => {
   const { currentUser, updateProfile, changePassword, addExp, ranks } = useAuth();
   const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'rank-management' | 'category-management' | 'migration'>('profile');
   const { showToast } = useToast();
@@ -102,7 +103,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ categories, onUpdateCategor
   }
 
   const navigateToMigration = () => {
-    window.location.href = '/migration';
+    // Update URL without reload
+    window.history.pushState({}, '', '/migration');
+    // Change internal state
+    setCurrentPage('migration');
   };
   
   const formInputStyle = "w-full p-2.5 bg-cyber-surface border border-cyber-pink/20 placeholder-cyber-on-surface-secondary text-cyber-on-surface rounded-lg focus:ring-cyber-pink focus:border-cyber-pink transition";

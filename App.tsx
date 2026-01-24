@@ -337,7 +337,7 @@ const App: React.FC = () => {
       case 'migration':
         return <MigrationPage />;
       case 'settings':
-        return currentUser ? <SettingsPage categories={categories} onUpdateCategories={fetchInitialData} /> : null;
+        return currentUser ? <SettingsPage categories={categories} onUpdateCategories={fetchInitialData} setCurrentPage={setCurrentPage as any} /> : null;
       case 'user-management':
         // Fix: Removed redundant 'users' prop. The component gets this data from context.
         return currentUser?.role === 'admin' ? <UserManagementPage images={images} /> : null;
