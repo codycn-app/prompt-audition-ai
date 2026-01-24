@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { getSupabaseClient } from '../supabaseClient';
 import { migrateBlobToR2 } from '../lib/storage';
 import { useAuth } from '../contexts/AuthContext';
@@ -8,6 +8,7 @@ import { InformationCircleIcon } from '../components/icons/InformationCircleIcon
 import { DocumentDuplicateIcon } from '../components/icons/DocumentDuplicateIcon';
 import { CheckIcon } from '../components/icons/CheckIcon';
 import { ExclamationTriangleIcon } from '../components/icons/ExclamationTriangleIcon';
+import { SpinnerIcon } from '../components/icons/SpinnerIcon';
 
 const MigrationPage: React.FC = () => {
     const { currentUser } = useAuth();
@@ -17,6 +18,7 @@ const MigrationPage: React.FC = () => {
     const [logs, setLogs] = useState<string[]>([]);
     const [showCorsGuide, setShowCorsGuide] = useState(false);
     const [copiedCors, setCopiedCors] = useState(false);
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
     const corsConfig = `[
   {
@@ -26,14 +28,25 @@ const MigrationPage: React.FC = () => {
   }
 ]`;
 
+    const fetchImages = async () => {
+        setIsRefreshing(true);
+        const supabase = getSupabaseClient();
+        const { data } = await supabase.from('images').select('*');
+        if (data) setImages(data);
+        setIsRefreshing(false);
+    };
+
     useEffect(() => {
-        const fetchImages = async () => {
-            const supabase = getSupabaseClient();
-            const { data } = await supabase.from('images').select('*');
-            if (data) setImages(data);
-        };
         fetchImages();
     }, []);
+
+    // Derived stats
+    const stats = useMemo(() => {
+        const total = images.length;
+        const onR2 = images.filter(img => img.image_url && (img.image_url.includes('r2.dev') || img.image_url.includes('pub-'))).length;
+        const onSupabase = total - onR2;
+        return { total, onR2, onSupabase };
+    }, [images]);
 
     const addLog = (msg: string) => setLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev]);
 
@@ -50,7 +63,7 @@ const MigrationPage: React.FC = () => {
         }
 
         setStatus('running');
-        addLog(`Bắt đầu di chuyển ${images.length} ảnh...`);
+        addLog(`Bắt đầu di chuyển ${stats.onSupabase} ảnh còn lại...`);
         const supabase = getSupabaseClient();
         let successCount = 0;
         let failCount = 0;
@@ -58,25 +71,28 @@ const MigrationPage: React.FC = () => {
 
         for (let i = 0; i < images.length; i++) {
             const img = images[i];
-            setProgress(Math.round(((i + 1) / images.length) * 100));
+            
+            // Calculate progress based on total items processed in this loop
+            const currentPercent = Math.round(((i + 1) / images.length) * 100);
+            if (currentPercent > progress) setProgress(currentPercent);
 
             // 1. Kiểm tra xem ảnh đã ở R2 chưa
             if (img.image_url && (img.image_url.includes('r2.dev') || img.image_url.includes('pub-'))) {
                 skipCount++;
-                addLog(`⏩ Bỏ qua (đã ở R2): ${img.title}`);
+                // Don't log skips to keep logs clean unless it's the start
+                if (i < 5) addLog(`⏩ Bỏ qua (đã ở R2): ${img.title}`);
                 continue;
             }
 
             try {
                 // 2. Tải ảnh từ Supabase về
-                addLog(`⬇️ Đang tải về: ${img.title}...`);
+                addLog(`⬇️ Đang tải về [${i + 1}/${images.length}]: ${img.title}...`);
                 const response = await fetch(img.image_url);
                 if (!response.ok) throw new Error(`Không thể tải ảnh gốc (${response.status})`);
                 
                 const rawBlob = await response.blob();
                 
                 // CRITICAL FIX: Ensure Content-Type is valid. 
-                // Empty Content-Type causes signature mismatches (403 Forbidden).
                 let mimeType = rawBlob.type;
                 if (!mimeType) {
                     const ext = img.image_url.split('.').pop()?.toLowerCase();
@@ -84,7 +100,6 @@ const MigrationPage: React.FC = () => {
                     else if (ext === 'webp') mimeType = 'image/webp';
                     else mimeType = 'image/jpeg';
                 }
-                // Recreate blob with enforced type
                 const blob = rawBlob.type === mimeType ? rawBlob : new Blob([rawBlob], { type: mimeType });
 
                 // 3. Upload lên R2
@@ -93,11 +108,10 @@ const MigrationPage: React.FC = () => {
                 
                 addLog(`⬆️ Đang upload lên R2...`);
                 
-                // Calling the migration helper
                 const newUrl = await migrateBlobToR2(blob, 'images', fileName);
 
                 // 4. Cập nhật Database
-                addLog(`💾 Cập nhật DB...`);
+                addLog(`💾 Cập nhật DB (Thay thế URL)...`);
                 const { error } = await supabase
                     .from('images')
                     .update({ image_url: newUrl })
@@ -105,26 +119,29 @@ const MigrationPage: React.FC = () => {
 
                 if (error) throw error;
 
+                // Update local state to reflect change immediately
+                setImages(prev => prev.map(p => p.id === img.id ? { ...p, image_url: newUrl } : p));
+
                 successCount++;
-                addLog(`✅ Thành công: ${img.title}`);
+                addLog(`✅ Thành công: URL đã chuyển sang R2.`);
 
             } catch (err: any) {
                 failCount++;
                 let errMsg = err.message;
-                
-                // Enhance error detection
                 if (errMsg === 'Failed to fetch' || errMsg.includes('403')) {
-                    errMsg = 'Lỗi 403/CORS: Kiểm tra quyền API Token (Read/Write) và CORS.';
+                    errMsg = 'Lỗi 403/CORS: Kiểm tra quyền API Token & CORS.';
                     if (!showCorsGuide) setShowCorsGuide(true);
                 }
-                
                 addLog(`❌ Thất bại [${img.title}]: ${errMsg}`);
                 console.error(err);
             }
         }
 
         setStatus('completed');
-        addLog(`🏁 HOÀN TẤT! Thành công: ${successCount}, Lỗi: ${failCount}, Bỏ qua: ${skipCount}`);
+        addLog(`🏁 HOÀN TẤT! Đã chuyển: ${successCount}, Lỗi: ${failCount}, Đã ở R2 từ trước: ${skipCount}`);
+        
+        // Refresh data at the end to be sure
+        await fetchImages();
     };
 
     if (currentUser?.role !== 'admin') return <div className="p-10 text-center text-cyber-on-surface">Chỉ dành cho Admin</div>;
@@ -135,6 +152,30 @@ const MigrationPage: React.FC = () => {
                 Công cụ chuyển nhà (Migration Tool)
             </h1>
             
+            {/* Status Dashboard */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="p-4 rounded-xl bg-cyber-surface border border-cyber-pink/20 flex flex-col items-center justify-center">
+                    <span className="text-cyber-on-surface-secondary text-sm uppercase font-bold">Tổng số ảnh</span>
+                    <span className="text-3xl font-oxanium font-bold text-white mt-1">{stats.total}</span>
+                </div>
+                <div className="p-4 rounded-xl bg-green-900/20 border border-green-500/30 flex flex-col items-center justify-center relative overflow-hidden">
+                    <div className="absolute inset-0 bg-green-500/5 z-0"></div>
+                    <span className="text-green-400 text-sm uppercase font-bold z-10">Đã ở Cloudflare R2</span>
+                    <span className="text-3xl font-oxanium font-bold text-green-400 mt-1 z-10">{stats.onR2}</span>
+                    <span className="text-xs text-green-300/70 z-10 mt-1">{Math.round((stats.onR2 / (stats.total || 1)) * 100)}%</span>
+                </div>
+                <div className="p-4 rounded-xl bg-yellow-900/20 border border-yellow-500/30 flex flex-col items-center justify-center relative overflow-hidden">
+                     <div className="absolute inset-0 bg-yellow-500/5 z-0"></div>
+                    <span className="text-yellow-400 text-sm uppercase font-bold z-10">Còn ở Supabase</span>
+                    <span className="text-3xl font-oxanium font-bold text-yellow-400 mt-1 z-10">{stats.onSupabase}</span>
+                    {stats.onSupabase === 0 && stats.total > 0 && (
+                        <span className="text-xs font-bold text-green-400 z-10 mt-1 flex items-center gap-1">
+                            <CheckIcon className="w-3 h-3"/> An toàn để xóa Bucket
+                        </span>
+                    )}
+                </div>
+            </div>
+
             {/* CORS & Permissions Guide */}
             <div className={`mb-6 border rounded-xl overflow-hidden transition-all duration-300 ${showCorsGuide ? 'bg-cyber-surface border-cyber-pink' : 'bg-cyber-surface/50 border-cyber-pink/20'}`}>
                 <div 
@@ -197,22 +238,28 @@ const MigrationPage: React.FC = () => {
 
             <div className="bg-cyber-surface/50 p-6 rounded-xl border border-cyber-pink/20 shadow-cyber-glow">
                 <p className="mb-4 text-cyber-on-surface-secondary">
-                    Công cụ này sẽ tải từng ảnh từ Supabase Storage và upload sang Cloudflare R2.
+                    Công cụ này sẽ tải ảnh từ Supabase, upload sang Cloudflare R2, và <strong>tự động thay thế URL cũ</strong> trong Database.
                 </p>
                 
                 <div className="flex flex-col sm:flex-row items-center gap-4 mb-6">
-                    <div className="text-xl font-bold bg-black/40 px-4 py-2 rounded-lg border border-gray-700">
-                        Tổng số: <span className="text-cyber-pink">{images.length}</span>
-                    </div>
+                    <button 
+                        onClick={fetchImages} 
+                        disabled={isRefreshing || status === 'running'}
+                        className="px-4 py-2 text-sm font-medium border border-cyber-pink/30 rounded-lg hover:bg-cyber-pink/10 disabled:opacity-50 transition-colors flex items-center gap-2"
+                    >
+                        {isRefreshing ? <SpinnerIcon className="w-4 h-4 animate-spin"/> : <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>}
+                        Làm mới dữ liệu
+                    </button>
                     
                     <div className="flex-grow"></div>
 
                     {status === 'idle' && (
                         <button 
                             onClick={startMigration}
-                            className="px-8 py-3 bg-gradient-to-r from-cyber-pink to-cyber-cyan text-white font-bold rounded-lg hover:shadow-cyber-glow transform active:scale-95 transition-all"
+                            disabled={stats.onSupabase === 0}
+                            className="px-8 py-3 bg-gradient-to-r from-cyber-pink to-cyber-cyan text-white font-bold rounded-lg hover:shadow-cyber-glow transform active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            Bắt đầu Di chuyển
+                            {stats.onSupabase === 0 ? 'Tất cả đã ở R2' : 'Bắt đầu Di chuyển'}
                         </button>
                     )}
                     {status === 'running' && (
@@ -225,14 +272,16 @@ const MigrationPage: React.FC = () => {
                 </div>
 
                 {/* Progress Bar */}
-                <div className="relative w-full bg-black/50 rounded-full h-6 mb-6 overflow-hidden border border-gray-700">
-                    <div 
-                        className="bg-gradient-to-r from-cyber-pink to-cyber-cyan h-full transition-all duration-300 ease-out flex items-center justify-center" 
-                        style={{ width: `${progress}%` }}
-                    >
-                        {progress > 5 && <span className="text-[10px] font-bold text-white drop-shadow-md">{progress}%</span>}
+                {status === 'running' && (
+                    <div className="relative w-full bg-black/50 rounded-full h-6 mb-6 overflow-hidden border border-gray-700">
+                        <div 
+                            className="bg-gradient-to-r from-cyber-pink to-cyber-cyan h-full transition-all duration-300 ease-out flex items-center justify-center" 
+                            style={{ width: `${progress}%` }}
+                        >
+                            {progress > 5 && <span className="text-[10px] font-bold text-white drop-shadow-md">{progress}%</span>}
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* Logs */}
                 <div className="bg-black/80 p-4 rounded-lg h-80 overflow-y-auto font-mono text-xs text-green-400 border border-gray-700 custom-scrollbar shadow-inner">
