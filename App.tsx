@@ -143,7 +143,7 @@ const App: React.FC = () => {
   }, [selectedCategoryId, allImageIds, imageCategoryMap]);
 
   // 3. Fetch Full Image Data (Chunked)
-  const loadImages = useCallback(async (pageToLoad: number, currentFilteredIds: number[]) => {
+  const loadImages = useCallback(async (pageToLoad: number, currentFilteredIds: number[], checkActive?: () => boolean) => {
       if (currentFilteredIds.length === 0) return;
 
       const startIndex = (pageToLoad - 1) * ITEMS_PER_PAGE;
@@ -167,6 +167,8 @@ const App: React.FC = () => {
               .order('created_at', { ascending: false }); // Maintain order
 
           if (error) throw error;
+          
+          if (checkActive && !checkActive()) return;
 
           const categoryLookup = new Map(categories.map(c => [c.id, c]));
 
@@ -186,26 +188,41 @@ const App: React.FC = () => {
           setHasMore(endIndex < currentFilteredIds.length);
 
       } catch (err) {
+          if (checkActive && !checkActive()) return;
           console.error("Error loading image chunk:", err);
           showToast("Không thể tải thêm ảnh.", "error");
       } finally {
-          setIsLoadingMore(false);
-          // Initial loading state for the whole app is done in fetchInitialData, 
-          // but we ensure it's off here just in case.
-          if (pageToLoad === 1) setIsLoading(false);
+          if (!checkActive || checkActive()) {
+              setIsLoadingMore(false);
+              // Initial loading state for the whole app is done in fetchInitialData, 
+              // but we ensure it's off here just in case.
+              if (pageToLoad === 1) setIsLoading(false);
+          }
       }
   }, [categories, imageCategoryMap, showToast]);
 
   // Trigger load when filtered IDs or Page changes
   useEffect(() => {
-      // Only load if we have filtered IDs (initial fetch done)
-      if (filteredIds.length > 0 || (allImageIds.length > 0 && filteredIds.length === 0 && selectedCategoryId !== 'all')) {
-          loadImages(page, filteredIds);
-      } else if (allImageIds.length > 0 && filteredIds.length === 0 && selectedCategoryId === 'all') {
-          // Case where there are simply no images in DB
-           setImages([]);
-           setHasMore(false);
-      }
+      let isActive = true;
+      
+      const doLoad = async () => {
+          // Only load if we have filtered IDs (initial fetch done)
+          if (filteredIds.length > 0 || (allImageIds.length > 0 && filteredIds.length === 0 && selectedCategoryId !== 'all')) {
+              await loadImages(page, filteredIds, () => isActive);
+          } else if (allImageIds.length > 0 && filteredIds.length === 0 && selectedCategoryId === 'all') {
+              // Case where there are simply no images in DB
+               if (isActive) {
+                   setImages([]);
+                   setHasMore(false);
+               }
+          }
+      };
+      
+      doLoad();
+      
+      return () => {
+          isActive = false;
+      };
   }, [page, filteredIds, loadImages, allImageIds.length, selectedCategoryId]);
 
   const handleLoadMore = () => {
