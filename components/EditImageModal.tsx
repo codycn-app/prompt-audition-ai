@@ -1,97 +1,156 @@
-
-import React, { useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { User } from '../types';
+import React, { useState, useRef, useEffect } from 'react';
+import ReactCrop, { centerCrop, makeAspectCrop, type Crop, type PixelCrop } from 'react-image-crop';
+import { ImagePrompt, Category } from '../types';
 import { CloseIcon } from './icons/CloseIcon';
-import { UserCircleIcon } from './icons/UserCircleIcon';
 import { getSupabaseClient } from '../supabaseClient';
-import { useToast } from '../contexts/ToastContext';
-import { uploadFile } from '../lib/storage';
+import { SpinnerIcon } from './icons/SpinnerIcon';
+import { useAuth } from '../contexts/AuthContext';
 
-interface EditUserModalProps {
-  user: User;
+interface EditImageModalProps {
+  image: ImagePrompt;
+  categories: Category[];
   onClose: () => void;
+  onUpdateImage: () => void;
 }
 
-const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose }) => {
-  const { updateUserByAdmin, currentUser } = useAuth();
-  const { showToast } = useToast();
-  const [username, setUsername] = useState(user.username);
-  const [role, setRole] = useState(user.role);
-  const [customTitle, setCustomTitle] = useState(user.customTitle || '');
-  const [customTitleColor, setCustomTitleColor] = useState(user.customTitleColor || '#E0E0E0');
-  const [newPassword, setNewPassword] = useState('');
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(user.avatarUrl || null);
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onClose, onUpdateImage }) => {
+  const { currentUser } = useAuth();
+  const [title, setTitle] = useState(image.title);
+  const [prompt, setPrompt] = useState(image.prompt);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>(image.categories?.map(c => c.id) || []);
   const [error, setError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 2 * 1024 * 1024) { // 2MB limit
-        setError('Kích thước file phải nhỏ hơn 2MB.');
-        return;
+  // State for image cropper
+  const imgRef = useRef<HTMLImageElement>(null);
+  const [crop, setCrop] = useState<Crop>();
+  const [completedCrop, setCompletedCrop] = useState<PixelCrop | null>(image.thumbnail_crop_data || null);
+  const [showCropper, setShowCropper] = useState(false);
+  // FIX: Added state to store original image dimensions, which was missing.
+  const [originalDimensions, setOriginalDimensions] = useState({ width: image.original_width || 0, height: image.original_height || 0 });
+
+
+  useEffect(() => {
+    // Prioritize freshly measured dimensions over potentially null DB values
+    const width = originalDimensions.width || image.original_width || 0;
+    const height = originalDimensions.height || image.original_height || 0;
+    const isWide = width >= height && width > 0;
+
+    if (isWide) {
+      setShowCropper(true);
+      // Initialize crop from saved data if it exists
+      if (image.thumbnail_crop_data && width && height) {
+        const savedCrop = image.thumbnail_crop_data;
+        setCrop({
+          unit: '%',
+          x: (savedCrop.x / width) * 100,
+          y: (savedCrop.y / height) * 100,
+          width: (savedCrop.width / width) * 100,
+          height: (savedCrop.height / height) * 100,
+        });
       }
-      setAvatarFile(file);
-      setAvatarPreview(URL.createObjectURL(file));
-      setError('');
+    } else {
+      setShowCropper(false);
     }
+  }, [image, originalDimensions]);
+
+  function onImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
+    const { width, height } = e.currentTarget;
+    // CRITICAL FIX: Always capture and store the image's real dimensions.
+    // This backfills data for old images that don't have these values in the DB.
+    setOriginalDimensions({ width, height });
+
+    // If the image is wide but has no pre-existing crop data, create a default centered one.
+    if (width >= height && !image.thumbnail_crop_data) {
+        setShowCropper(true);
+        const newCrop = centerCrop(
+            makeAspectCrop({ unit: '%', width: 90, }, 3/4, width, height),
+            width, height
+        );
+        setCrop(newCrop);
+    }
+  }
+
+
+  const handleCategoryChange = (categoryId: number) => {
+    setSelectedCategoryIds(prev =>
+      prev.includes(categoryId)
+        ? prev.filter(id => id !== categoryId)
+        : [...prev, categoryId]
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    try {
-      let avatarUrlToSave = user.avatarUrl;
-      const supabase = getSupabaseClient();
-
-      if (avatarFile) {
-        const fileExt = avatarFile.name.split('.').pop();
-        // Definitive fix: The path must be user-specific to pass RLS policies.
-        const filePath = `${user.id}/avatar.${fileExt}`;
-        
-        // Use the centralized upload function
-        avatarUrlToSave = await uploadFile(avatarFile, 'avatars', filePath);
-      }
-
-      // Bug fix: Explicitly handle sending null when custom title is empty.
-      const trimmedTitle = customTitle.trim();
-      const updatePayload: Partial<Pick<User, 'username' | 'role' | 'customTitle' | 'customTitleColor' | 'avatarUrl'>> = {
-          username,
-          role,
-          avatarUrl: avatarUrlToSave,
-          customTitle: trimmedTitle ? trimmedTitle : null,
-          customTitleColor: trimmedTitle ? customTitleColor : null,
-      };
-      
-      await updateUserByAdmin(user.id, updatePayload);
-      showToast(`Đã cập nhật người dùng ${username}!`, 'success');
-      onClose();
-    } catch (err: any) {
-      setError(err.message);
+    if (!currentUser) {
+        setError('Phiên đăng nhập đã hết hạn.');
+        return;
     }
-  };
-  
-  const handleResetTitle = () => {
-    setCustomTitle('');
-    setCustomTitleColor('#E0E0E0');
+    if (!title || !prompt || selectedCategoryIds.length === 0) {
+      setError('Vui lòng điền tiêu đề, prompt và chọn ít nhất một chuyên mục.');
+      return;
+    }
+
+    setIsSaving(true);
+    setError('');
+
+    const supabase = getSupabaseClient();
+    try {
+        // CRITICAL FIX: Include original_width and original_height in the update payload.
+        const { error: updateError } = await supabase
+            .from('images')
+            .update({ 
+                title, 
+                prompt,
+                thumbnail_crop_data: showCropper ? completedCrop : null,
+                original_width: originalDimensions.width,
+                original_height: originalDimensions.height,
+            })
+            .eq('id', image.id);
+
+        if (updateError) throw updateError;
+
+        const { error: deleteError } = await supabase
+            .from('image_categories')
+            .delete()
+            .eq('image_id', image.id);
+        
+        if (deleteError) throw deleteError;
+
+        const newCategoryLinks = selectedCategoryIds.map(catId => ({
+            image_id: image.id,
+            category_id: catId
+        }));
+        
+        const { error: insertError } = await supabase
+            .from('image_categories')
+            .insert(newCategoryLinks);
+            
+        if (insertError) throw insertError;
+
+        onUpdateImage();
+    } catch (err: any) {
+      console.error("Error updating image:", err);
+      setError(`Lỗi từ server: ${err.message}` || 'Đã có lỗi xảy ra. Vui lòng thử lại.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const formInputStyle = "w-full p-2.5 bg-cyber-surface border border-cyber-pink/20 placeholder-cyber-on-surface-secondary text-cyber-on-surface rounded-lg focus:ring-cyber-pink focus:border-cyber-pink transition";
-  const isEditingSelf = currentUser?.id === user.id;
 
   return (
     <div 
-      className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-lg animate-fade-in-scale"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-lg animate-fade-in-scale"
       onClick={onClose}
     >
       <div 
-        className="relative w-full max-w-md max-h-full overflow-hidden rounded-xl shadow-2xl bg-cyber-surface/80 backdrop-blur-2xl shadow-cyber-glow-lg"
+        className="relative w-full max-w-lg max-h-full overflow-hidden rounded-xl shadow-2xl bg-cyber-surface/80 backdrop-blur-2xl shadow-cyber-glow-lg"
         onClick={(e) => e.stopPropagation()}
         style={{border: '1px solid transparent', background: 'linear-gradient(#1A1A1A, #1A1A1A) padding-box, linear-gradient(120deg, #FF00E6, #00FFFF) border-box'}}
       >
         <div className="flex items-center justify-between p-4 border-b border-cyber-pink/20">
-          <h2 className="text-xl font-semibold">Chỉnh sửa Người dùng</h2>
+          <h2 className="text-xl font-semibold">Chỉnh sửa Ảnh</h2>
           <button 
             onClick={onClose}
             className="p-2 text-gray-400 transition-colors rounded-full hover:bg-cyber-surface active:scale-95"
@@ -102,66 +161,70 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose }) => {
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto max-h-[80vh] custom-scrollbar">
           <div>
-            <label className="block mb-2 text-sm font-medium text-cyber-on-surface">Ảnh đại diện</label>
-            <div className="flex items-center gap-4">
-                {avatarPreview ? (
-                    <img src={avatarPreview} alt="Avatar Preview" className="object-cover w-16 h-16 rounded-full" />
-                ) : (
-                    <span className="flex items-center justify-center w-16 h-16 rounded-full bg-cyber-surface">
-                        <UserCircleIcon className="w-14 h-14 text-cyber-on-surface-secondary"/>
-                    </span>
+            <div className="p-2 rounded-lg bg-cyber-black/20">
+                {showCropper && <p className="mb-2 text-sm text-center text-cyber-on-surface-secondary">Chỉnh lại vùng hiển thị cho thumbnail</p>}
+                <ReactCrop
+                    crop={crop}
+                    onChange={(_, percentCrop) => setCrop(percentCrop)}
+                    onComplete={(c) => setCompletedCrop(c)}
+                    aspect={3/4}
+                    className={!showCropper ? 'hidden' : ''}
+                >
+                    <img ref={imgRef} alt="Crop me" src={image.image_url} onLoad={onImageLoad} className="max-h-[50vh] object-contain"/>
+                </ReactCrop>
+                {!showCropper && (
+                     <img ref={imgRef} alt="Image Preview" src={image.image_url} onLoad={onImageLoad} className="w-full max-h-[50vh] object-contain rounded-md"/>
                 )}
-                <label htmlFor="avatar-admin-upload" className="px-4 py-2 text-sm font-medium transition-colors rounded-lg cursor-pointer text-cyber-on-surface bg-cyber-surface/50 hover:bg-cyber-surface active:scale-95">
-                    Thay đổi
+            </div>
+          </div>
+          <div>
+            <label htmlFor="title-edit" className="block mb-2 text-sm font-medium text-cyber-on-surface">Tiêu đề</label>
+            <input id="title-edit" type="text" value={title} onChange={(e) => setTitle(e.target.value)} className={formInputStyle} required />
+          </div>
+          <div>
+            <label className="block mb-2 text-sm font-medium text-cyber-on-surface">Chuyên mục</label>
+             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-3 rounded-lg bg-cyber-black/20 max-h-32 overflow-y-auto custom-scrollbar">
+              {categories.map(cat => (
+                <label key={cat.id} className="flex items-center space-x-2 cursor-pointer p-1.5 rounded-md hover:bg-cyber-surface/50">
+                  <input
+                    type="checkbox"
+                    checked={selectedCategoryIds.includes(cat.id)}
+                    onChange={() => handleCategoryChange(cat.id)}
+                    className="w-4 h-4 rounded text-cyber-pink bg-cyber-surface border-cyber-pink/50 focus:ring-cyber-pink"
+                  />
+                  <span className="text-sm text-cyber-on-surface">{cat.name}</span>
                 </label>
-                <input id="avatar-admin-upload" type="file" className="hidden" accept="image/png, image/jpeg, image/webp" onChange={handleAvatarChange} />
+              ))}
             </div>
           </div>
           <div>
-            <label htmlFor="username-edit" className="block mb-2 text-sm font-medium text-cyber-on-surface">Tên tài khoản</label>
-            <input id="username-edit" type="text" value={username} onChange={(e) => setUsername(e.target.value)} className={formInputStyle} required/>
+            <label htmlFor="prompt-edit" className="block mb-2 text-sm font-medium text-cyber-on-surface">Câu Lệnh (Prompt)</label>
+            <textarea id="prompt-edit" rows={4} value={prompt} onChange={(e) => setPrompt(e.target.value)} className={formInputStyle} placeholder="Một thành phố tương lai với những tòa nhà chọc trời..."></textarea>
           </div>
-          <div>
-            <label htmlFor="password-edit" className="block mb-2 text-sm font-medium text-cyber-on-surface">Mật khẩu mới</label>
-            <input id="password-edit" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className={formInputStyle} placeholder="Để trống để giữ nguyên"/>
-          </div>
-          <div>
-            <label htmlFor="role-select" className="block mb-2 text-sm font-medium text-cyber-on-surface">Vai trò</label>
-            <select id="role-select" value={role} onChange={(e) => setRole(e.target.value as 'admin' | 'user')} className={formInputStyle} disabled={isEditingSelf}>
-              <option value="user">User</option>
-              <option value="admin">Admin</option>
-            </select>
-            {isEditingSelf && <p className="mt-1 text-xs text-cyber-on-surface-secondary">Không thể thay đổi vai trò của chính mình.</p>}
-          </div>
-          <hr className="border-cyber-pink/10"/>
-          <div>
-            <label htmlFor="custom-title" className="block mb-2 text-sm font-medium text-cyber-on-surface">Biệt danh tùy chỉnh</label>
-            <input id="custom-title" type="text" value={customTitle} onChange={(e) => setCustomTitle(e.target.value)} className={formInputStyle} placeholder="Chưa có bạn nhảy!"/>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex-grow">
-                <label htmlFor="custom-color" className="block mb-2 text-sm font-medium text-cyber-on-surface">Màu sắc biệt danh</label>
-                <input id="custom-color" type="text" value={customTitleColor} onChange={(e) => setCustomTitleColor(e.target.value)} className={formInputStyle} placeholder="#E0E0E0" />
-            </div>
-            <div className="self-end">
-                <input type="color" value={customTitleColor} onChange={(e) => setCustomTitleColor(e.target.value)} className="w-12 h-10 p-1 bg-cyber-surface border rounded-lg cursor-pointer border-cyber-pink/20" />
-            </div>
-          </div>
-          
+
           {error && <p className="text-sm text-red-400">{error}</p>}
 
-          <div className="flex justify-between pt-2">
-            <button type="button" onClick={handleResetTitle} className="px-5 py-2.5 text-sm font-medium text-cyber-on-surface bg-cyber-surface/50 rounded-lg hover:bg-cyber-surface transition active:scale-95">
-              Reset Biệt danh
+          <div className="flex justify-end pt-2 space-x-3">
+            <button type="button" onClick={onClose} className="px-5 py-2.5 text-sm font-medium text-cyber-on-surface bg-cyber-surface/50 rounded-lg hover:bg-cyber-surface transition active:scale-95">Hủy</button>
+            <button 
+              type="submit" 
+              className="flex items-center justify-center w-36 px-5 py-2.5 text-sm font-medium text-white transition-all duration-300 rounded-lg shadow-lg bg-gradient-to-r from-cyber-pink to-cyber-cyan hover:shadow-cyber-glow active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed disabled:shadow-none"
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <>
+                  <SpinnerIcon className="w-5 h-5 mr-2 animate-spin" />
+                  <span>Đang lưu...</span>
+                </>
+              ) : (
+                <span>Lưu thay đổi</span>
+              )}
             </button>
-            <div className="flex space-x-3">
-                <button type="button" onClick={onClose} className="px-5 py-2.5 text-sm font-medium text-cyber-on-surface bg-cyber-surface/50 rounded-lg hover:bg-cyber-surface transition active:scale-95">Hủy</button>
-                <button type="submit" className="px-5 py-2.5 text-sm font-medium text-white transition-all duration-300 rounded-lg shadow-lg bg-gradient-to-r from-cyber-pink to-cyber-cyan hover:shadow-cyber-glow active:scale-95">Lưu</button>
-            </div>
           </div>
         </form>
       </div>
     </div>
   );
 };
-export default EditUserModal;
+
+export default EditImageModal;
