@@ -53,12 +53,20 @@ const Header: React.FC<HeaderProps> = ({ onCategorySelect, categories, selectedC
               </button>
             ))}
             {currentUser?.role === 'admin' && (
-              <button
-                onClick={() => onCategorySelect('uncategorized')}
-                className={`flex-shrink-0 px-4 py-2 text-sm font-semibold rounded-md transition-all duration-300 outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 focus:ring-offset-cyber-black ${selectedCategoryId === 'uncategorized' ? 'bg-amber-500 text-black shadow-lg' : 'bg-transparent text-amber-300 hover:bg-amber-500/10'}`}
-              >
-                Chưa có chuyên mục
-              </button>
+              <>
+                <button
+                  onClick={() => onCategorySelect('uncategorized')}
+                  className={`flex-shrink-0 px-4 py-2 text-sm font-semibold rounded-md transition-all duration-300 outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 focus:ring-offset-cyber-black ${selectedCategoryId === 'uncategorized' ? 'bg-amber-500 text-black shadow-lg' : 'bg-transparent text-amber-300 hover:bg-amber-500/10'}`}
+                >
+                  Chưa có chuyên mục
+                </button>
+                <button
+                  onClick={() => onCategorySelect('broken')}
+                  className={`flex-shrink-0 px-4 py-2 text-sm font-semibold rounded-md transition-all duration-300 outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 focus:ring-offset-cyber-black ${selectedCategoryId === 'broken' ? 'bg-red-500 text-white shadow-lg' : 'bg-transparent text-red-300 hover:bg-red-500/10'}`}
+                >
+                  Ảnh lỗi
+                </button>
+              </>
             )}
         </div>
 
@@ -133,12 +141,20 @@ const Header: React.FC<HeaderProps> = ({ onCategorySelect, categories, selectedC
                 </button>
               ))}
               {currentUser?.role === 'admin' && (
-                <button
-                  onClick={() => onCategorySelect('uncategorized')}
-                  className={`flex-shrink-0 px-4 py-2 text-sm font-semibold rounded-md transition-all duration-300 outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 focus:ring-offset-cyber-black ${selectedCategoryId === 'uncategorized' ? 'bg-amber-500 text-black shadow-lg' : 'bg-transparent text-amber-300 hover:bg-amber-500/10'}`}
-                >
-                  Chưa có chuyên mục
-                </button>
+                <>
+                  <button
+                    onClick={() => onCategorySelect('uncategorized')}
+                    className={`flex-shrink-0 px-4 py-2 text-sm font-semibold rounded-md transition-all duration-300 outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 focus:ring-offset-cyber-black ${selectedCategoryId === 'uncategorized' ? 'bg-amber-500 text-black shadow-lg' : 'bg-transparent text-amber-300 hover:bg-amber-500/10'}`}
+                  >
+                    Chưa có chuyên mục
+                  </button>
+                  <button
+                    onClick={() => onCategorySelect('broken')}
+                    className={`flex-shrink-0 px-4 py-2 text-sm font-semibold rounded-md transition-all duration-300 outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 focus:ring-offset-cyber-black ${selectedCategoryId === 'broken' ? 'bg-red-500 text-white shadow-lg' : 'bg-transparent text-red-300 hover:bg-red-500/10'}`}
+                  >
+                    Ảnh lỗi
+                  </button>
+                </>
               )}
           </div>
         </div>

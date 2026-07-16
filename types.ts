@@ -41,6 +41,6 @@ export interface Rank {
   requiredExp: number;
 }
 
-export type CategoryFilter = number | 'all' | 'uncategorized';
+export type CategoryFilter = number | 'all' | 'uncategorized' | 'broken';
 
 export type Page = 'home' | 'settings' | 'user-management' | 'profile' | 'support' | 'categories';
