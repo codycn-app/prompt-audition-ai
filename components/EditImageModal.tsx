@@ -5,6 +5,7 @@ import { CloseIcon } from './icons/CloseIcon';
 import { getSupabaseClient } from '../supabaseClient';
 import { SpinnerIcon } from './icons/SpinnerIcon';
 import { useAuth } from '../contexts/AuthContext';
+import { deleteFile, uploadFile } from '../lib/storage';
 
 interface EditImageModalProps {
   image: ImagePrompt;
@@ -20,6 +21,8 @@ const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onCl
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>(image.categories?.map(c => c.id) || []);
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [replacementFile, setReplacementFile] = useState<File | null>(null);
+  const [replacementPreview, setReplacementPreview] = useState<string | null>(null);
 
   // State for image cropper
   const imgRef = useRef<HTMLImageElement>(null);
@@ -34,14 +37,14 @@ const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onCl
 
   useEffect(() => {
     // Prioritize freshly measured dimensions over potentially null DB values
-    const width = originalDimensions.width || image.original_width || 0;
-    const height = originalDimensions.height || image.original_height || 0;
+    const width = replacementFile ? originalDimensions.width : (originalDimensions.width || image.original_width || 0);
+    const height = replacementFile ? originalDimensions.height : (originalDimensions.height || image.original_height || 0);
     const isWide = width >= height && width > 0;
 
     if (isWide) {
       setShowCropper(true);
       // Initialize crop from saved data if it exists
-      if (image.thumbnail_crop_data && width && height) {
+      if (!replacementFile && image.thumbnail_crop_data && width && height) {
         const savedCrop = image.thumbnail_crop_data;
         setCrop({
           unit: '%',
@@ -54,7 +57,7 @@ const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onCl
     } else {
       setShowCropper(false);
     }
-  }, [image, originalDimensions]);
+  }, [image, originalDimensions, replacementFile]);
 
   function onImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
     const { width, height } = e.currentTarget;
@@ -63,7 +66,7 @@ const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onCl
     setOriginalDimensions({ width, height });
 
     // If the image is wide but has no pre-existing crop data, create a default centered one.
-    if (width >= height && !image.thumbnail_crop_data) {
+    if (width >= height && (replacementFile || !image.thumbnail_crop_data)) {
         setShowCropper(true);
         const newCrop = centerCrop(
             makeAspectCrop({ unit: '%', width: 90, }, 3/4, width, height),
@@ -72,6 +75,30 @@ const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onCl
         setCrop(newCrop);
     }
   }
+
+  const handleReplacementChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+      setError('Ảnh thay thế phải là PNG, JPG hoặc WEBP.');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Ảnh thay thế phải nhỏ hơn 5MB.');
+      return;
+    }
+
+    if (replacementPreview) URL.revokeObjectURL(replacementPreview);
+    setReplacementFile(file);
+    setReplacementPreview(URL.createObjectURL(file));
+    setOriginalDimensions({ width: 0, height: 0 });
+    setCrop(undefined);
+    setCompletedCrop(null);
+    setShowCropper(false);
+    setError('');
+  };
 
 
   const handleCategoryChange = (categoryId: number) => {
@@ -97,13 +124,24 @@ const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onCl
     setError('');
 
     const supabase = getSupabaseClient();
+    let replacementUploadUrl = '';
+    let didUpdateImage = false;
     try {
+        let imageUrlToSave = image.image_url;
+        if (replacementFile) {
+            const fileExt = replacementFile.name.split('.').pop() || 'jpg';
+            const fileName = `${currentUser.id}/${Date.now()}_replacement.${fileExt}`;
+            replacementUploadUrl = await uploadFile(replacementFile, 'images', fileName);
+            imageUrlToSave = replacementUploadUrl;
+        }
+
         // CRITICAL FIX: Include original_width and original_height in the update payload.
         const { error: updateError } = await supabase
             .from('images')
             .update({ 
                 title, 
                 prompt,
+                image_url: imageUrlToSave,
                 thumbnail_crop_data: showCropper ? completedCrop : null,
                 original_width: originalDimensions.width,
                 original_height: originalDimensions.height,
@@ -111,6 +149,7 @@ const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onCl
             .eq('id', image.id);
 
         if (updateError) throw updateError;
+        didUpdateImage = true;
 
         const { data: currentLinks, error: currentLinksError } = await supabase
             .from('image_categories')
@@ -163,9 +202,24 @@ const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onCl
             throw new Error('Không thể xác nhận chuyên mục đã được lưu. Vui lòng thử lại.');
         }
 
+        if (replacementUploadUrl && image.image_url !== replacementUploadUrl) {
+            try {
+                await deleteFile(image.image_url);
+            } catch (deleteError) {
+                console.warn('Không thể xóa file ảnh cũ sau khi thay thế:', deleteError);
+            }
+        }
+
         onUpdateImage();
     } catch (err: any) {
       console.error("Error updating image:", err);
+      if (replacementUploadUrl && !didUpdateImage) {
+        try {
+          await deleteFile(replacementUploadUrl);
+        } catch (cleanupError) {
+          console.warn('Không thể dọn file ảnh thay thế:', cleanupError);
+        }
+      }
       setError(`Lỗi từ server: ${err.message}` || 'Đã có lỗi xảy ra. Vui lòng thử lại.');
     } finally {
       setIsSaving(false);
@@ -205,11 +259,18 @@ const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onCl
                     aspect={3/4}
                     className={!showCropper ? 'hidden' : ''}
                 >
-                    <img ref={imgRef} alt="Crop me" src={image.image_url} onLoad={onImageLoad} className="max-h-[50vh] object-contain"/>
+                    <img ref={imgRef} alt={image.title} src={replacementPreview || image.image_url} onLoad={onImageLoad} className="max-h-[50vh] object-contain"/>
                 </ReactCrop>
                 {!showCropper && (
-                     <img ref={imgRef} alt="Image Preview" src={image.image_url} onLoad={onImageLoad} className="w-full max-h-[50vh] object-contain rounded-md"/>
+                     <img ref={imgRef} alt={image.title} src={replacementPreview || image.image_url} onLoad={onImageLoad} className="w-full max-h-[50vh] object-contain rounded-md"/>
                 )}
+            </div>
+            <div className="mt-3">
+              <label htmlFor="replacement-image" className="inline-flex cursor-pointer items-center rounded-lg border border-cyber-cyan/40 px-4 py-2 text-sm font-semibold text-cyber-cyan transition hover:bg-cyber-cyan/10">
+                {replacementFile ? 'Chọn ảnh khác' : 'Tải ảnh thay thế'}
+              </label>
+              <input id="replacement-image" type="file" className="hidden" accept="image/png,image/jpeg,image/webp" onChange={handleReplacementChange} />
+              <p className="mt-1 text-xs text-cyber-on-surface-secondary">Dùng khi file ảnh hiện tại bị mất hoặc không tải được. Tối đa 5MB.</p>
             </div>
           </div>
           <div>

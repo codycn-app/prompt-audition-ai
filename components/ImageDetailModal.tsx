@@ -23,6 +23,7 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
     image, images, onClose, onRequestDelete, onRequestEdit, onCopyPrompt, currentUser
 }) => {
   const [copied, setCopied] = useState(false);
+  const [isImageBroken, setIsImageBroken] = useState(false);
   const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
   const { ranks } = useAuth();
   
@@ -59,7 +60,22 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
             <CloseIcon className="w-6 h-6" />
           </button>
           <div className="relative flex-shrink-0 w-full bg-black h-[40vh] md:w-[60%] md:h-auto">
-            <img src={image.image_url} alt={image.prompt} className="object-contain w-full h-full" />
+            {isImageBroken ? (
+              <div className="flex h-full w-full flex-col items-center justify-center gap-3 p-6 text-center">
+                <span className="text-5xl text-cyber-pink/70" aria-hidden="true">!</span>
+                <p className="font-semibold text-cyber-on-surface">Không thể tải file ảnh</p>
+                {canEditOrDelete && (
+                  <button
+                    onClick={() => onRequestEdit(image)}
+                    className="rounded-lg bg-gradient-to-r from-cyber-pink to-cyber-cyan px-4 py-2 text-sm font-semibold text-white"
+                  >
+                    Tải ảnh thay thế
+                  </button>
+                )}
+              </div>
+            ) : (
+              <img src={image.image_url} alt={image.title} className="object-contain w-full h-full" onError={() => setIsImageBroken(true)} />
+            )}
           </div>
           <div className="flex flex-col flex-grow p-4 space-y-4 overflow-y-auto md:p-6 custom-scrollbar">
             {/* Title */}
