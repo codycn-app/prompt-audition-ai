@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ImagePrompt, Category, CategoryFilter } from './types';
 import { useAuth } from './contexts/AuthContext';
 import Header from './components/Header';
@@ -26,6 +26,13 @@ import { deleteFile } from './lib/storage';
 // Constants for pagination
 const ITEMS_PER_PAGE = 24;
 const SUPABASE_PAGE_SIZE = 1000;
+const BROKEN_IMAGE_CHECK_CONCURRENCY = 6;
+
+type LightweightImage = {
+  id: number;
+  created_at: string;
+  image_url: string;
+};
 
 const fetchAllRows = async <T,>(
   createQuery: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: any }>
@@ -50,13 +57,19 @@ const App: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   
   // Pagination & Data Management State
-  const [allImageIds, setAllImageIds] = useState<{id: number, created_at: string}[]>([]); // Lightweight list
+  const [allImageIds, setAllImageIds] = useState<LightweightImage[]>([]); // Lightweight list
   const [filteredIds, setFilteredIds] = useState<number[]>([]); // IDs after category filter
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [imageCategoryMap, setImageCategoryMap] = useState<Map<number, number[]>>(new Map());
+  const [brokenImageIds, setBrokenImageIds] = useState<Set<number>>(new Set());
+  const [isCheckingBrokenImages, setIsCheckingBrokenImages] = useState(false);
+  const [brokenScanCompleted, setBrokenScanCompleted] = useState(false);
+  const [brokenScanProgress, setBrokenScanProgress] = useState({ checked: 0, total: 0 });
+  const brokenScanVersion = useRef(0);
+  const brokenScanRunning = useRef(false);
 
   const { currentUser, addExp, isAuthLoading } = useAuth();
   const { showToast } = useToast();
@@ -124,11 +137,11 @@ const App: React.FC = () => {
       });
       setImageCategoryMap(map);
 
-      // C. Fetch ONLY IDs and timestamps of images (Super Lightweight - fixes Egress)
-      const imageIds = await fetchAllRows<{ id: number; created_at: string }>(
+      // C. Fetch lightweight image data. The URL is needed by the admin broken-image checker.
+      const imageIds = await fetchAllRows<LightweightImage>(
         (from, to) => supabase
           .from('images')
-          .select('id, created_at')
+          .select('id, created_at, image_url')
           .order('created_at', { ascending: false })
           .order('id', { ascending: false })
           .range(from, to)
@@ -151,11 +164,103 @@ const App: React.FC = () => {
     fetchInitialData();
   }, [fetchInitialData, isAuthLoading]);
 
+  const checkImageUrl = useCallback(async (url: string): Promise<boolean> => {
+    if (!url || !/^https?:\/\//i.test(url)) return false;
+
+    const probeImage = () => new Promise<boolean>((resolve) => {
+      const probe = new Image();
+      const timeout = window.setTimeout(() => {
+        probe.onload = null;
+        probe.onerror = null;
+        probe.src = '';
+        resolve(false);
+      }, 12000);
+
+      probe.onload = () => {
+        window.clearTimeout(timeout);
+        resolve(probe.naturalWidth > 0 && probe.naturalHeight > 0);
+      };
+      probe.onerror = () => {
+        window.clearTimeout(timeout);
+        resolve(false);
+      };
+      probe.src = url;
+    });
+
+    try {
+      const response = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+      if (response.status === 405 || response.status === 501) return probeImage();
+      return response.ok;
+    } catch {
+      // Some storage providers display images normally but reject cross-origin HEAD.
+      return probeImage();
+    }
+  }, []);
+
+  const scanBrokenImages = useCallback(async () => {
+    if (currentUser?.role !== 'admin' || brokenScanRunning.current) return;
+
+    brokenScanRunning.current = true;
+    const scanVersion = ++brokenScanVersion.current;
+    const items = allImageIds;
+    const brokenIds: number[] = [];
+    let nextIndex = 0;
+    let checked = 0;
+
+    setIsCheckingBrokenImages(true);
+    setBrokenScanProgress({ checked: 0, total: items.length });
+
+    const worker = async () => {
+      while (nextIndex < items.length && brokenScanVersion.current === scanVersion) {
+        const item = items[nextIndex++];
+        const isAvailable = await checkImageUrl(item.image_url);
+        if (!isAvailable) brokenIds.push(item.id);
+        checked += 1;
+
+        if (checked % 10 === 0 || checked === items.length) {
+          setBrokenScanProgress({ checked, total: items.length });
+        }
+      }
+    };
+
+    try {
+      const workerCount = Math.min(BROKEN_IMAGE_CHECK_CONCURRENCY, Math.max(1, items.length));
+      await Promise.all(Array.from({ length: workerCount }, worker));
+
+      if (brokenScanVersion.current === scanVersion) {
+        setBrokenImageIds(new Set(brokenIds));
+        setBrokenScanCompleted(true);
+        showToast(`Đã tìm thấy ${brokenIds.length} ảnh bị lỗi hiển thị.`, brokenIds.length ? 'error' : 'success');
+      }
+    } finally {
+      if (brokenScanVersion.current === scanVersion) {
+        brokenScanRunning.current = false;
+        setIsCheckingBrokenImages(false);
+      }
+    }
+  }, [allImageIds, checkImageUrl, currentUser?.role, showToast]);
+
+  useEffect(() => {
+    if (
+      selectedCategoryId === 'broken' &&
+      currentUser?.role === 'admin' &&
+      !isLoading &&
+      !brokenScanCompleted &&
+      !isCheckingBrokenImages
+    ) {
+      scanBrokenImages();
+    }
+  }, [selectedCategoryId, currentUser?.role, isLoading, brokenScanCompleted, isCheckingBrokenImages, scanBrokenImages]);
+
   // 2. Filtering Logic (Client-side on IDs)
   useEffect(() => {
     let ids = allImageIds.map(item => item.id);
     
-    if (selectedCategoryId === 'uncategorized') {
+    if (selectedCategoryId === 'broken') {
+        ids = currentUser?.role === 'admin'
+          ? ids.filter(id => brokenImageIds.has(id))
+          : [];
+    } else if (selectedCategoryId === 'uncategorized') {
         ids = currentUser?.role === 'admin'
           ? ids.filter(id => (imageCategoryMap.get(id)?.length || 0) === 0)
           : [];
@@ -170,7 +275,7 @@ const App: React.FC = () => {
     setPage(1); // Reset page on filter change
     setImages([]); // Clear current images
     setHasMore(ids.length > 0);
-  }, [selectedCategoryId, allImageIds, imageCategoryMap, currentUser?.role]);
+  }, [selectedCategoryId, allImageIds, imageCategoryMap, brokenImageIds, currentUser?.role]);
 
   // 3. Fetch Full Image Data (Chunked)
   const loadImages = useCallback(async (pageToLoad: number, currentFilteredIds: number[], checkActive?: () => boolean) => {
@@ -318,12 +423,20 @@ const App: React.FC = () => {
     fetchInitialData();
   }, [fetchInitialData, showToast, addExp]);
   
-  const handleUpdateImage = useCallback(async () => {
+  const handleUpdateImage = useCallback(async (replacedImage: boolean) => {
+    const updatedImageId = imageToEdit?.id;
     setImageToEdit(null);
+    if (replacedImage && updatedImageId) {
+      setBrokenImageIds(prev => {
+        const next = new Set(prev);
+        next.delete(updatedImageId);
+        return next;
+      });
+    }
     showToast('Đã cập nhật ảnh thành công!', 'success');
     // Refresh the relationship map before rendering the edited image.
     await fetchInitialData();
-  }, [fetchInitialData, showToast]);
+  }, [fetchInitialData, imageToEdit?.id, showToast]);
 
   const handleRequestDelete = useCallback((image: ImagePrompt) => {
     if (!currentUser || (image.user_id !== currentUser.id && currentUser.role !== 'admin')) {
@@ -353,6 +466,11 @@ const App: React.FC = () => {
         // Update local state by removing ID and Image
         setAllImageIds(prev => prev.filter(i => i.id !== imageToDelete.id));
         setImages(prev => prev.filter(image => image.id !== imageToDelete.id));
+        setBrokenImageIds(prev => {
+          const next = new Set(prev);
+          next.delete(imageToDelete.id);
+          return next;
+        });
     }
     setImageToDelete(null);
   }, [imageToDelete, selectedImage, showToast]);
@@ -361,6 +479,12 @@ const App: React.FC = () => {
     setSelectedCategoryId(id);
     setCurrentPage('home');
   }
+
+  const handleRescanBrokenImages = () => {
+    if (isCheckingBrokenImages) return;
+    setBrokenImageIds(new Set());
+    setBrokenScanCompleted(false);
+  };
 
   useEffect(() => {
     if (window.location.pathname === '/migration') {
@@ -390,10 +514,50 @@ const App: React.FC = () => {
               <ImageGridSkeleton />
             ) : (
               <>
-                <ImageGrid 
-                  images={images} 
-                  onImageClick={handleSelectImage}
-                />
+                {selectedCategoryId === 'broken' && currentUser?.role === 'admin' && (
+                  <div className="mb-6 flex flex-col gap-3 rounded-xl border border-red-500/30 bg-red-950/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <div className="font-semibold text-red-200">
+                        {isCheckingBrokenImages
+                          ? `Đang kiểm tra ảnh ${brokenScanProgress.checked}/${brokenScanProgress.total}`
+                          : `Có ${brokenImageIds.size} ảnh bị lỗi hiển thị`}
+                      </div>
+                      <div className="mt-1 text-sm text-cyber-on-surface-secondary">
+                        Thay ảnh mới thành công sẽ tự động gỡ ảnh đó khỏi danh sách này.
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleRescanBrokenImages}
+                      disabled={isCheckingBrokenImages}
+                      className="shrink-0 rounded-lg border border-red-400/50 px-4 py-2 text-sm font-semibold text-red-200 transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {isCheckingBrokenImages ? 'Đang kiểm tra...' : 'Kiểm tra lại'}
+                    </button>
+                  </div>
+                )}
+
+                {selectedCategoryId === 'broken' && isCheckingBrokenImages ? (
+                  <div className="flex min-h-64 flex-col items-center justify-center gap-4 text-center">
+                    <div className="h-10 w-10 animate-spin rounded-full border-4 border-red-500/30 border-t-red-400" />
+                    <div className="w-full max-w-md">
+                      <div className="mb-2 text-sm text-cyber-on-surface-secondary">
+                        Đã kiểm tra {brokenScanProgress.checked} / {brokenScanProgress.total} ảnh
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-white/10">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-red-500 to-cyber-pink transition-all"
+                          style={{ width: `${brokenScanProgress.total ? (brokenScanProgress.checked / brokenScanProgress.total) * 100 : 0}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <ImageGrid
+                    images={images}
+                    onImageClick={handleSelectImage}
+                  />
+                )}
                 
                 {/* Load More Button */}
                 {hasMore && (

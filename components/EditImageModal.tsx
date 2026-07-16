@@ -11,7 +11,7 @@ interface EditImageModalProps {
   image: ImagePrompt;
   categories: Category[];
   onClose: () => void;
-  onUpdateImage: () => void;
+  onUpdateImage: (replacedImage: boolean) => void;
 }
 
 const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onClose, onUpdateImage }) => {
@@ -210,7 +210,7 @@ const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onCl
             }
         }
 
-        onUpdateImage();
+        onUpdateImage(Boolean(replacementUploadUrl));
     } catch (err: any) {
       console.error("Error updating image:", err);
       if (replacementUploadUrl && !didUpdateImage) {
