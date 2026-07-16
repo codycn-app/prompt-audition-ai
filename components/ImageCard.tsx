@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ImagePrompt } from '../types';
 
 interface ImageCardProps {
@@ -7,6 +7,7 @@ interface ImageCardProps {
 }
 
 const ImageCard: React.FC<ImageCardProps> = ({ image, onClick }) => {
+  const [isImageBroken, setIsImageBroken] = useState(false);
 
   // Calculate object-position based on crop data.
   // This ensures the user's selected focal point is centered in the thumbnail.
@@ -32,13 +33,22 @@ const ImageCard: React.FC<ImageCardProps> = ({ image, onClick }) => {
     >
       {/* Wrapper to constrain overlay to image dimensions and clip the scaling image */}
       <div className="relative w-full h-full overflow-hidden rounded-[10px]">
-        <img
-          src={image.image_url}
-          alt={image.prompt.substring(0, 30)}
-          className="block object-cover w-full h-full transition-transform duration-500 group-hover:scale-105"
-          style={{ objectPosition: getObjectPosition() }}
-          loading="lazy"
-        />
+        {isImageBroken ? (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-cyber-surface/70 p-4 text-center">
+            <span className="text-3xl text-cyber-pink/70" aria-hidden="true">!</span>
+            <span className="text-sm font-semibold text-cyber-on-surface">Ảnh không tải được</span>
+            <span className="line-clamp-2 text-xs text-cyber-on-surface-secondary">{image.title}</span>
+          </div>
+        ) : (
+          <img
+            src={image.image_url}
+            alt={image.title}
+            className="block object-cover w-full h-full transition-transform duration-500 group-hover:scale-105"
+            style={{ objectPosition: getObjectPosition() }}
+            loading="lazy"
+            onError={() => setIsImageBroken(true)}
+          />
+        )}
         
       </div>
     </div>

@@ -110,11 +110,19 @@ export const migrateBlobToR2 = async (blob: Blob, folder: string, fileName: stri
         contentType: blob.type
     });
 
-    await fetch(data.signedUrl, {
+    if (!data?.signedUrl) {
+        throw new Error('Không lấy được link upload từ R2.');
+    }
+
+    const uploadResponse = await fetch(data.signedUrl, {
         method: 'PUT',
         body: blob,
         headers: { 'Content-Type': blob.type }
     });
+
+    if (!uploadResponse.ok) {
+        throw new Error(`Upload R2 thất bại (${uploadResponse.status}).`);
+    }
 
     return `${R2_PUBLIC_DOMAIN}/${fullPath}`;
 }

@@ -100,6 +100,7 @@ const App: React.FC = () => {
         .order('position', { ascending: true });
       if (categoriesError) throw categoriesError;
       setCategories(categoriesData || []);
+      const validCategoryIds = new Set((categoriesData || []).map(category => category.id));
 
       // B. Fetch Image-Category Links (Lightweight)
       const imageCategoriesData = await fetchAllRows<{ image_id: number; category_id: number }>(
@@ -113,6 +114,9 @@ const App: React.FC = () => {
       
       const map = new Map<number, number[]>();
       imageCategoriesData.forEach(link => {
+        // Ignore stale relationships that point to a category which has been deleted.
+        // Those images must be treated as uncategorized so an admin can repair them.
+        if (!validCategoryIds.has(link.category_id)) return;
         if (!map.has(link.image_id)) {
             map.set(link.image_id, []);
         }
