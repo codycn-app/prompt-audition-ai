@@ -24,7 +24,9 @@ const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onCl
   // State for image cropper
   const imgRef = useRef<HTMLImageElement>(null);
   const [crop, setCrop] = useState<Crop>();
-  const [completedCrop, setCompletedCrop] = useState<PixelCrop | null>(image.thumbnail_crop_data || null);
+  const [completedCrop, setCompletedCrop] = useState<PixelCrop | null>(
+    image.thumbnail_crop_data ? { ...image.thumbnail_crop_data, unit: 'px' } : null
+  );
   const [showCropper, setShowCropper] = useState(false);
   // FIX: Added state to store original image dimensions, which was missing.
   const [originalDimensions, setOriginalDimensions] = useState({ width: image.original_width || 0, height: image.original_height || 0 });
@@ -110,23 +112,56 @@ const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onCl
 
         if (updateError) throw updateError;
 
-        const { error: deleteError } = await supabase
+        const { data: currentLinks, error: currentLinksError } = await supabase
             .from('image_categories')
-            .delete()
+            .select('category_id')
             .eq('image_id', image.id);
-        
-        if (deleteError) throw deleteError;
 
-        const newCategoryLinks = selectedCategoryIds.map(catId => ({
+        if (currentLinksError) throw currentLinksError;
+
+        const currentCategoryIds = new Set((currentLinks || []).map(link => link.category_id));
+        const categoriesToAdd = selectedCategoryIds.filter(catId => !currentCategoryIds.has(catId));
+        const categoriesToRemove = [...currentCategoryIds].filter(catId => !selectedCategoryIds.includes(catId));
+
+        // Add new links before removing old ones so a failed request never leaves
+        // the image without any category.
+        const newCategoryLinks = categoriesToAdd.map(catId => ({
             image_id: image.id,
             category_id: catId
         }));
-        
-        const { error: insertError } = await supabase
+
+        if (newCategoryLinks.length > 0) {
+            const { error: insertError } = await supabase
+                .from('image_categories')
+                .insert(newCategoryLinks);
+
+            if (insertError) throw insertError;
+        }
+
+        if (categoriesToRemove.length > 0) {
+            const { error: deleteError } = await supabase
+                .from('image_categories')
+                .delete()
+                .eq('image_id', image.id)
+                .in('category_id', categoriesToRemove);
+
+            if (deleteError) throw deleteError;
+        }
+
+        const { data: savedLinks, error: verifyError } = await supabase
             .from('image_categories')
-            .insert(newCategoryLinks);
-            
-        if (insertError) throw insertError;
+            .select('category_id')
+            .eq('image_id', image.id);
+
+        if (verifyError) throw verifyError;
+
+        const savedCategoryIds = new Set((savedLinks || []).map(link => link.category_id));
+        const categoriesMatch = savedCategoryIds.size === selectedCategoryIds.length
+            && selectedCategoryIds.every(catId => savedCategoryIds.has(catId));
+
+        if (!categoriesMatch) {
+            throw new Error('Không thể xác nhận chuyên mục đã được lưu. Vui lòng thử lại.');
+        }
 
         onUpdateImage();
     } catch (err: any) {

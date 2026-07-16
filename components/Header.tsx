@@ -2,14 +2,13 @@ import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { PlusIcon } from './icons/PlusIcon';
 import UserMenu from './UserMenu';
-import { ImagePrompt, Category, Page } from '../types';
-import { CrownIcon } from './icons/CrownIcon';
+import { ImagePrompt, Category, Page, CategoryFilter } from '../types';
 import { HeartIcon } from './icons/HeartIcon';
 
 interface HeaderProps {
-  onCategorySelect: (id: number | 'all') => void;
+  onCategorySelect: (id: CategoryFilter) => void;
   categories: Category[];
-  selectedCategoryId: number | 'all';
+  selectedCategoryId: CategoryFilter;
   onAddNew: () => void;
   onLogin: () => void;
   onSignup: () => void;
@@ -53,6 +52,14 @@ const Header: React.FC<HeaderProps> = ({ onCategorySelect, categories, selectedC
                 {cat.name}
               </button>
             ))}
+            {currentUser?.role === 'admin' && (
+              <button
+                onClick={() => onCategorySelect('uncategorized')}
+                className={`flex-shrink-0 px-4 py-2 text-sm font-semibold rounded-md transition-all duration-300 outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 focus:ring-offset-cyber-black ${selectedCategoryId === 'uncategorized' ? 'bg-amber-500 text-black shadow-lg' : 'bg-transparent text-amber-300 hover:bg-amber-500/10'}`}
+              >
+                Chưa có chuyên mục
+              </button>
+            )}
         </div>
 
         {/* Right: Actions */}
@@ -65,15 +72,6 @@ const Header: React.FC<HeaderProps> = ({ onCategorySelect, categories, selectedC
               <HeartIcon className="w-5 h-5" />
               <span className="text-sm font-semibold">Ủng hộ tôi</span>
           </button>
-          <button
-              onClick={() => setCurrentPage('leaderboard')}
-              className="flex items-center gap-2 px-4 py-2.5 transition-colors duration-300 border rounded-lg bg-cyber-surface border-rank-master/30 hover:border-rank-master/80 hover:bg-rank-master/10 focus:outline-none focus:ring-2 focus:ring-rank-master active:scale-95 text-rank-master"
-              aria-label="Bảng xếp hạng"
-          >
-              <CrownIcon className="w-5 h-5" />
-              <span className="text-sm font-semibold">BXH</span>
-          </button>
-          
           {currentUser ? (
             <>
               <button
@@ -134,6 +132,14 @@ const Header: React.FC<HeaderProps> = ({ onCategorySelect, categories, selectedC
                   {cat.name}
                 </button>
               ))}
+              {currentUser?.role === 'admin' && (
+                <button
+                  onClick={() => onCategorySelect('uncategorized')}
+                  className={`flex-shrink-0 px-4 py-2 text-sm font-semibold rounded-md transition-all duration-300 outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 focus:ring-offset-cyber-black ${selectedCategoryId === 'uncategorized' ? 'bg-amber-500 text-black shadow-lg' : 'bg-transparent text-amber-300 hover:bg-amber-500/10'}`}
+                >
+                  Chưa có chuyên mục
+                </button>
+              )}
           </div>
         </div>
       </div>

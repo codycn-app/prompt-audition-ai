@@ -5,8 +5,6 @@ import { getRankInfo } from '../lib/ranking';
 import { GearIcon } from '../components/icons/GearIcon';
 import { UserGroupIcon } from '../components/icons/UserGroupIcon';
 import { LogoutIcon } from '../components/icons/LogoutIcon';
-import { HeartIcon } from '../components/icons/HeartIcon';
-import { TagIcon } from '../components/icons/TagIcon';
 import { useToast } from '../contexts/ToastContext';
 import ExpBar from '../components/ExpBar'; // Import the new component
 
@@ -33,7 +31,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ images, setCurrentPage }) => 
   const rankInfo = getRankInfo(currentUser, images, ranks);
 
   const menuItems: { label: string; icon: React.ReactNode; page: Page; requiredRole: Array<'user' | 'admin'> }[] = [
-    { label: 'Ảnh đã thích', icon: <HeartIcon className="w-5 h-5"/>, page: 'liked-images', requiredRole: ['user', 'admin'] },
     { label: 'Cài đặt Tài khoản', icon: <GearIcon className="w-5 h-5"/>, page: 'settings', requiredRole: ['user', 'admin'] },
     { label: 'Quản lý Người dùng', icon: <UserGroupIcon className="w-5 h-5"/>, page: 'user-management', requiredRole: ['admin'] },
   ];
@@ -73,8 +70,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ images, setCurrentPage }) => 
             <h2 className="text-lg font-bold text-cyber-on-surface mb-3 font-oxanium">Làm sao để tăng EXP?</h2>
             <ul className="space-y-2 text-sm list-disc list-inside text-cyber-on-surface-secondary">
                 <li><span className="font-semibold text-cyber-cyan">+50 EXP</span> cho mỗi ảnh bạn đăng tải.</li>
-                <li><span className="font-semibold text-cyber-cyan">+10 EXP</span> cho mỗi bình luận của bạn.</li>
-                <li><span className="font-semibold text-cyber-cyan">+5 EXP</span> cho mỗi lượt thích ảnh.</li>
                 <li><span className="font-semibold text-cyber-cyan">+20 EXP</span> mỗi khi bạn cập nhật thông tin cá nhân (tên, ảnh đại diện).</li>
                 <li><span className="font-semibold text-cyber-cyan">+1 EXP</span> cho mỗi phút bạn hoạt động trên trang.</li>
             </ul>

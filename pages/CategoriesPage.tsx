@@ -1,16 +1,15 @@
 import React, { useState, useMemo } from 'react';
-import { ImagePrompt, User, Category } from '../types';
+import { ImagePrompt, Category } from '../types';
 import ImageGrid from '../components/ImageGrid';
 import { TagIcon } from '../components/icons/TagIcon';
 
 interface CategoriesPageProps {
   categories: Category[];
   images: ImagePrompt[];
-  currentUser: User | null;
   onImageClick: (image: ImagePrompt) => void;
 }
 
-const CategoriesPage: React.FC<CategoriesPageProps> = ({ categories, images, currentUser, onImageClick }) => {
+const CategoriesPage: React.FC<CategoriesPageProps> = ({ categories, images, onImageClick }) => {
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
 
   const imagesForSelectedCategory = selectedCategory
@@ -49,7 +48,6 @@ const CategoriesPage: React.FC<CategoriesPageProps> = ({ categories, images, cur
             <ImageGrid 
                 images={imagesForSelectedCategory} 
                 onImageClick={onImageClick}
-                currentUser={currentUser}
             />
          </div>
       </div>

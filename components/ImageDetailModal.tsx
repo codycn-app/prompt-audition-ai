@@ -1,16 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { ImagePrompt, User, Comment, Category } from '../types';
+import React, { useState } from 'react';
+import { ImagePrompt, User, Category } from '../types';
 import { CloseIcon } from './icons/CloseIcon';
 import { CopyIcon } from './icons/CopyIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import { CheckIcon } from './icons/CheckIcon';
 import { PencilIcon } from './icons/PencilIcon';
-import { HeartIcon } from './icons/HeartIcon';
 import { useAuth } from '../contexts/AuthContext';
 import { getRankInfo } from '../lib/ranking';
-import { ShareIcon } from './icons/ShareIcon';
-import { getSupabaseClient } from '../supabaseClient';
-import { useToast } from '../contexts/ToastContext';
 import { InformationCircleIcon } from './icons/InformationCircleIcon';
 
 interface ImageDetailModalProps {
@@ -20,89 +16,15 @@ interface ImageDetailModalProps {
   onRequestDelete: () => void;
   onRequestEdit: (image: ImagePrompt) => void;
   onCopyPrompt: (prompt: string) => Promise<void>;
-  onToggleLike: (id: number) => void;
   currentUser: User | null;
-  onCommentAdded: (imageId: number) => void;
-}
-
-const AuthorAvatar: React.FC<{ author: User | undefined | null }> = ({ author }) => {
-    if (author?.avatarUrl) {
-        return <img src={author.avatarUrl} alt={author.username} className="w-8 h-8 rounded-full object-cover" />;
-    }
-    return (
-        <span className="flex items-center justify-center w-8 h-8 text-sm font-bold rounded-full bg-gradient-to-br from-cyber-pink to-cyber-cyan text-cyber-black">
-            {author?.username.charAt(0).toUpperCase() ?? '?'}
-        </span>
-    );
-};
-
-const CommentSection: React.FC<{ comment: Comment; images: ImagePrompt[] }> = ({ comment, images }) => {
-    const { getUserById, ranks } = useAuth();
-    // Use joined profile data if available, otherwise fall back to getUserById
-    const author = comment.profiles 
-        ? { ...comment.profiles, id: comment.user_id, email: '', created_at: '', exp: 0 } as User
-        : getUserById(comment.user_id);
-
-    const authorRankInfo = getRankInfo(author, images, ranks);
-    const { finalColor: rankColor, name: rankName, icon: rankIcon } = authorRankInfo;
-    
-    return (
-        <div className="flex items-start gap-3 py-3">
-            <AuthorAvatar author={author as User} />
-            <div className="flex-1">
-                <div className="flex items-center gap-2">
-                    {rankIcon && <img src={rankIcon} alt={rankName} className="w-4 h-4" />}
-                    <span className="text-sm font-semibold" style={{ color: rankColor }}>{author?.username ?? 'Người dùng ẩn'}</span>
-                    <span className="text-xs text-cyber-on-surface-secondary">{new Date(comment.created_at).toLocaleDateString('vi-VN')}</span>
-                </div>
-                <p className="mt-1 text-sm text-cyber-on-surface-secondary">{comment.text}</p>
-            </div>
-        </div>
-    )
 }
 
 const ImageDetailModal: React.FC<ImageDetailModalProps> = ({ 
-    image, images, onClose, onRequestDelete, onRequestEdit, onCopyPrompt, onToggleLike, currentUser, onCommentAdded
+    image, images, onClose, onRequestDelete, onRequestEdit, onCopyPrompt, currentUser
 }) => {
   const [copied, setCopied] = useState(false);
-  const [commentText, setCommentText] = useState('');
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [isCommentsLoading, setIsCommentsLoading] = useState(true);
   const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
-  const { showToast } = useToast();
-
-  const { ranks, addExp } = useAuth();
-
-  useEffect(() => {
-    const supabase = getSupabaseClient();
-    const fetchComments = async () => {
-        if (!image.id) return;
-        setIsCommentsLoading(true);
-        try {
-            const { data, error } = await supabase
-                .from('comments')
-                .select('*, profiles(*)')
-                .eq('image_id', image.id)
-                .order('created_at', { ascending: true });
-
-            if (error) {
-                console.error("Error fetching comments:", error);
-                showToast("Không thể tải bình luận.", 'error');
-                setComments([]);
-            } else {
-                setComments(data as any[]);
-            }
-        } catch (e) {
-            console.error("An unexpected error occurred while fetching comments:", e);
-            showToast("Lỗi không mong muốn khi tải bình luận.", 'error');
-            setComments([]);
-        } finally {
-            setIsCommentsLoading(false);
-        }
-    };
-
-    fetchComments();
-  }, [image.id, showToast]);
+  const { ranks } = useAuth();
   
   const isOwner = currentUser && currentUser.id === image.user_id;
   const isAdmin = currentUser?.role === 'admin';
@@ -118,46 +40,6 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
   
-  const handleCommentSubmit = async (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!commentText.trim() || !currentUser) {
-          if(!currentUser) showToast("Bạn phải đăng nhập để bình luận.", 'info');
-          return;
-      }
-      
-      const newComment = {
-          text: commentText.trim(),
-          image_id: image.id,
-          user_id: currentUser.id,
-      };
-
-      const supabase = getSupabaseClient();
-      const { data, error } = await supabase.from('comments').insert(newComment).select().single();
-
-      if (error) {
-          showToast("Lỗi: Không thể gửi bình luận.", 'error');
-          console.error(error);
-      } else {
-          const newCommentWithProfile: Comment = {
-              ...(data as Comment),
-              profiles: {
-                  username: currentUser.username,
-                  avatarUrl: currentUser.avatarUrl || null,
-                  role: currentUser.role,
-                  customTitle: currentUser.customTitle,
-                  customTitleColor: currentUser.customTitleColor,
-              }
-          }
-          setComments(prev => [...prev, newCommentWithProfile]);
-          setCommentText('');
-          showToast('Đã gửi bình luận! (+10 EXP)', 'success');
-          addExp(10); // Add EXP for commenting
-          onCommentAdded(image.id); 
-      }
-  };
-  
-  const hasLiked = currentUser && image.likes.includes(currentUser.id);
-
   return (
     <>
       <div 
@@ -251,47 +133,10 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
             
             <div className="flex-grow"></div>
             
-             {/* Comments */}
-            <div className="pt-4 border-t border-cyber-pink/20">
-                <h3 className="text-sm font-semibold tracking-wider uppercase text-cyber-on-surface-secondary">Bình luận ({image.comments_count})</h3>
-                <div className="mt-2 space-y-2 pr-2 overflow-y-auto max-h-40 custom-scrollbar divide-y divide-cyber-pink/10">
-                    {isCommentsLoading ? <p className="text-sm italic text-cyber-on-surface-secondary/70">Đang tải bình luận...</p> :
-                     comments.length > 0 ? comments.map(c => <CommentSection key={c.id} comment={c} images={images} />) : <p className="py-2 italic text-sm text-cyber-on-surface-secondary/70">Chưa có bình luận nào.</p>}
-                </div>
-                {currentUser && (
-                    <form onSubmit={handleCommentSubmit} className="flex gap-2 mt-4">
-                        <input 
-                            type="text" 
-                            value={commentText}
-                            onChange={(e) => setCommentText(e.target.value)}
-                            placeholder="Viết bình luận..."
-                            className="flex-grow p-2.5 bg-cyber-surface border border-cyber-pink/20 placeholder-cyber-on-surface-secondary text-cyber-on-surface rounded-lg focus:ring-cyber-pink focus:border-cyber-pink transition"
-                        />
-                        <button type="submit" className="px-5 py-2.5 text-sm font-medium text-white transition-all duration-300 rounded-lg shadow-lg bg-gradient-to-r from-cyber-pink to-cyber-cyan hover:shadow-cyber-glow active:scale-95">Gửi</button>
-                    </form>
-                )}
-            </div>
-
             <div className="text-sm text-cyber-on-surface-secondary">
               <p><span className="font-semibold">Tạo lúc:</span> {new Date(image.created_at).toLocaleString('vi-VN')}</p>
             </div>
             <div className="flex flex-col gap-3">
-              {/* Main Action Button */}
-              <div className="flex">
-                  <button 
-                      onClick={() => onToggleLike(image.id)} 
-                      className={`flex items-center justify-center w-full gap-2 py-2.5 px-4 font-medium transition-all duration-300 border-2 rounded-lg active:scale-95
-                      ${hasLiked 
-                          ? 'bg-gradient-to-r from-cyber-pink to-cyber-cyan text-white border-transparent shadow-cyber-glow' 
-                          : 'text-cyber-pink border-cyber-pink bg-transparent hover:bg-cyber-pink/20'
-                      }`} 
-                      aria-label="Thích ảnh"
-                  >
-                      <HeartIcon className="w-5 h-5" fill={hasLiked ? 'currentColor' : 'none'} />
-                      <span>{hasLiked ? 'Đã thích' : 'Thích'} ({image.likes.length})</span>
-                  </button>
-              </div>
-
               {/* Admin/Owner Buttons */}
               {canEditOrDelete && (
                   <div className="flex items-center justify-end gap-3 pt-2 border-t border-cyber-pink/10">
