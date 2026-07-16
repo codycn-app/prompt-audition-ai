@@ -1,14 +1,13 @@
 import React from 'react';
-import { ImagePrompt, User } from '../types';
+import { ImagePrompt } from '../types';
 import ImageCard from './ImageCard';
 
 interface ImageGridProps {
   images: ImagePrompt[];
   onImageClick: (image: ImagePrompt) => void;
-  currentUser: User | null;
 }
 
-const ImageGrid: React.FC<ImageGridProps> = ({ images, onImageClick, currentUser }) => {
+const ImageGrid: React.FC<ImageGridProps> = ({ images, onImageClick }) => {
   if (images.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-64 text-center">
@@ -27,7 +26,6 @@ const ImageGrid: React.FC<ImageGridProps> = ({ images, onImageClick, currentUser
           key={image.id} 
           image={image} 
           onClick={() => onImageClick(image)}
-          currentUser={currentUser}
         />
       ))}
     </div>

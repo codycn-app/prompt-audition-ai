@@ -21,8 +21,8 @@ export interface User {
   username: string;
   role: 'admin' | 'user';
   password?: string;
-  customTitle?: string;
-  customTitleColor?: string;
+  customTitle?: string | null;
+  customTitleColor?: string | null;
   avatarUrl?: string; 
   created_at: string; 
   exp: number;
@@ -34,21 +34,6 @@ export interface Category {
   position?: number;
 }
 
-export interface Comment {
-    id: number;
-    user_id: string; // Changed from number to string for Supabase UUID
-    text: string;
-    created_at: string;
-    image_id: number; // Added for relation to image
-    profiles?: { 
-        username: string; 
-        avatarUrl: string | null; 
-        role: 'admin' | 'user';
-        customTitle?: string;
-        customTitleColor?: string;
-    };
-}
-
 export interface Rank {
   name: string;
   icon: string; 
@@ -56,4 +41,6 @@ export interface Rank {
   requiredExp: number;
 }
 
-export type Page = 'home' | 'settings' | 'user-management' | 'liked-images' | 'leaderboard' | 'profile' | 'support' | 'categories';
+export type CategoryFilter = number | 'all' | 'uncategorized';
+
+export type Page = 'home' | 'settings' | 'user-management' | 'profile' | 'support' | 'categories';

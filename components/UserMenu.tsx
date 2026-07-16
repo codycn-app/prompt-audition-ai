@@ -5,8 +5,6 @@ import { UserGroupIcon } from './icons/UserGroupIcon';
 import { GearIcon } from './icons/GearIcon';
 import { ImagePrompt, Page } from '../types';
 import { getRankInfo } from '../lib/ranking';
-import { HeartIcon } from './icons/HeartIcon';
-import { TagIcon } from './icons/TagIcon';
 import { useToast } from '../contexts/ToastContext';
 
 interface UserMenuProps {
@@ -74,13 +72,6 @@ const UserMenu: React.FC<UserMenuProps> = ({ images, setCurrentPage }) => {
                   {currentUser.email}
                 </p>
               </div>
-              <button
-                onClick={() => { setCurrentPage('liked-images'); setIsMenuOpen(false); }}
-                className="flex items-center w-full px-4 py-2 text-sm text-left transition-colors text-cyber-on-surface hover:bg-cyber-pink/10"
-              >
-                <HeartIcon className="w-5 h-5 mr-3" />
-                Ảnh đã thích
-              </button>
               <button
                 onClick={() => { setCurrentPage('settings'); setIsMenuOpen(false); }}
                 className="flex items-center w-full px-4 py-2 text-sm text-left transition-colors text-cyber-on-surface hover:bg-cyber-pink/10"

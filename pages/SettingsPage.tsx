@@ -164,8 +164,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ categories, onUpdateCategor
                             <h3 className="font-semibold text-cyber-on-surface mb-2">Làm sao để tăng EXP?</h3>
                             <ul className="space-y-1.5 text-sm list-disc list-inside text-cyber-on-surface-secondary">
                                 <li><span className="font-semibold text-cyber-cyan">+50 EXP</span> cho mỗi ảnh bạn đăng tải.</li>
-                                <li><span className="font-semibold text-cyber-cyan">+10 EXP</span> cho mỗi bình luận của bạn.</li>
-                                <li><span className="font-semibold text-cyber-cyan">+5 EXP</span> cho mỗi lượt thích ảnh.</li>
                                 <li><span className="font-semibold text-cyber-cyan">+20 EXP</span> khi cập nhật thông tin cá nhân.</li>
                                 <li><span className="font-semibold text-cyber-cyan">+1 EXP</span> cho mỗi phút hoạt động.</li>
                             </ul>

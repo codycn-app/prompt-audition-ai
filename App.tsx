@@ -1,6 +1,6 @@
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { ImagePrompt, Comment, User, Category, Page } from './types';
+import React, { useState, useEffect, useCallback } from 'react';
+import { ImagePrompt, Category, CategoryFilter } from './types';
 import { useAuth } from './contexts/AuthContext';
 import Header from './components/Header';
 import ImageGrid from './components/ImageGrid';
@@ -13,8 +13,6 @@ import LoginModal from './components/LoginModal';
 import SignupModal from './components/SignupModal';
 import SettingsPage from './pages/SettingsPage';
 import UserManagementPage from './pages/UserManagementPage';
-import LikedImagesPage from './pages/LikedImagesPage';
-import LeaderboardPage from './pages/LeaderboardPage';
 import ImageGridSkeleton from './components/ImageGridSkeleton';
 import BottomNavBar from './components/BottomNavBar';
 import ProfilePage from './pages/ProfilePage';
@@ -27,6 +25,24 @@ import { deleteFile } from './lib/storage';
 
 // Constants for pagination
 const ITEMS_PER_PAGE = 24;
+const SUPABASE_PAGE_SIZE = 1000;
+
+const fetchAllRows = async <T,>(
+  createQuery: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: any }>
+): Promise<T[]> => {
+  const rows: T[] = [];
+
+  for (let from = 0; ; from += SUPABASE_PAGE_SIZE) {
+    const { data, error } = await createQuery(from, from + SUPABASE_PAGE_SIZE - 1);
+    if (error) throw error;
+
+    const pageRows = data || [];
+    rows.push(...pageRows);
+    if (pageRows.length < SUPABASE_PAGE_SIZE) break;
+  }
+
+  return rows;
+};
 
 const App: React.FC = () => {
   // Main data state
@@ -42,7 +58,7 @@ const App: React.FC = () => {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [imageCategoryMap, setImageCategoryMap] = useState<Map<number, number[]>>(new Map());
 
-  const { currentUser, users, addExp, isAuthLoading } = useAuth();
+  const { currentUser, addExp, isAuthLoading } = useAuth();
   const { showToast } = useToast();
   
   const [selectedImage, setSelectedImage] = useState<ImagePrompt | null>(null);
@@ -50,7 +66,7 @@ const App: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isSignupModalOpen, setIsSignupModalOpen] = useState(false);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<number | 'all'>('all');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<CategoryFilter>('all');
   
   const [imageToDelete, setImageToDelete] = useState<ImagePrompt | null>(null);
   
@@ -86,13 +102,17 @@ const App: React.FC = () => {
       setCategories(categoriesData || []);
 
       // B. Fetch Image-Category Links (Lightweight)
-      const { data: imageCategoriesData, error: imageCategoriesError } = await supabase
-        .from('image_categories')
-        .select('image_id, category_id');
-      if (imageCategoriesError) throw imageCategoriesError;
+      const imageCategoriesData = await fetchAllRows<{ image_id: number; category_id: number }>(
+        (from, to) => supabase
+          .from('image_categories')
+          .select('image_id, category_id')
+          .order('image_id', { ascending: true })
+          .order('category_id', { ascending: true })
+          .range(from, to)
+      );
       
       const map = new Map<number, number[]>();
-      (imageCategoriesData || []).forEach(link => {
+      imageCategoriesData.forEach(link => {
         if (!map.has(link.image_id)) {
             map.set(link.image_id, []);
         }
@@ -101,14 +121,16 @@ const App: React.FC = () => {
       setImageCategoryMap(map);
 
       // C. Fetch ONLY IDs and timestamps of images (Super Lightweight - fixes Egress)
-      const { data: imageIds, error: imagesError } = await supabase
-        .from('images')
-        .select('id, created_at')
-        .order('created_at', { ascending: false });
-      
-      if (imagesError) throw imagesError;
+      const imageIds = await fetchAllRows<{ id: number; created_at: string }>(
+        (from, to) => supabase
+          .from('images')
+          .select('id, created_at')
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: false })
+          .range(from, to)
+      );
 
-      setAllImageIds(imageIds || []);
+      setAllImageIds(imageIds);
 
     } catch (error: any) {
       console.error('CRITICAL: Failed to fetch initial data:', error);
@@ -129,7 +151,11 @@ const App: React.FC = () => {
   useEffect(() => {
     let ids = allImageIds.map(item => item.id);
     
-    if (selectedCategoryId !== 'all') {
+    if (selectedCategoryId === 'uncategorized') {
+        ids = currentUser?.role === 'admin'
+          ? ids.filter(id => (imageCategoryMap.get(id)?.length || 0) === 0)
+          : [];
+    } else if (selectedCategoryId !== 'all') {
         ids = ids.filter(id => {
             const catIds = imageCategoryMap.get(id);
             return catIds && catIds.includes(selectedCategoryId);
@@ -140,7 +166,7 @@ const App: React.FC = () => {
     setPage(1); // Reset page on filter change
     setImages([]); // Clear current images
     setHasMore(ids.length > 0);
-  }, [selectedCategoryId, allImageIds, imageCategoryMap]);
+  }, [selectedCategoryId, allImageIds, imageCategoryMap, currentUser?.role]);
 
   // 3. Fetch Full Image Data (Chunked)
   const loadImages = useCallback(async (pageToLoad: number, currentFilteredIds: number[], checkActive?: () => boolean) => {
@@ -179,7 +205,6 @@ const App: React.FC = () => {
                 ...(img as any),
                 profiles: null,
                 categories: imgCategories,
-                comments_count: img.comments_count || 0,
             };
           });
 
@@ -230,10 +255,6 @@ const App: React.FC = () => {
   };
 
   // --- Handlers ---
-
-  const findImageById = useCallback((id: number) => {
-    return images.find(img => img.id === id);
-  }, [images]);
 
   const handleCopyPrompt = useCallback(async (prompt: string) => {
     if (navigator.clipboard && window.isSecureContext) {
@@ -296,9 +317,9 @@ const App: React.FC = () => {
   const handleUpdateImage = useCallback(async () => {
     setImageToEdit(null);
     showToast('Đã cập nhật ảnh thành công!', 'success');
-    // Reload current page of images to reflect changes
-    loadImages(page, filteredIds);
-  }, [loadImages, page, filteredIds, showToast]);
+    // Refresh the relationship map before rendering the edited image.
+    await fetchInitialData();
+  }, [fetchInitialData, showToast]);
 
   const handleRequestDelete = useCallback((image: ImagePrompt) => {
     if (!currentUser || (image.user_id !== currentUser.id && currentUser.role !== 'admin')) {
@@ -332,47 +353,7 @@ const App: React.FC = () => {
     setImageToDelete(null);
   }, [imageToDelete, selectedImage, showToast]);
   
-  const handleToggleLike = useCallback(async (imageId: number) => {
-      if (!currentUser) {
-          showToast('Bạn phải đăng nhập để thích ảnh!', 'info');
-          return;
-      }
-
-      const image = findImageById(imageId);
-      if (!image) return;
-      const supabase = getSupabaseClient();
-
-      const hasLiked = image.likes.includes(currentUser.id);
-      const newLikes = hasLiked
-          ? image.likes.filter(id => id !== currentUser.id)
-          : [...image.likes, currentUser.id];
-
-      const { error } = await supabase.from('images').update({ likes: newLikes }).eq('id', imageId);
-
-      if (!error) {
-          setImages(prev => prev.map(img => img.id === imageId ? { ...img, likes: newLikes } : img));
-          if (selectedImage && selectedImage.id === imageId) {
-            setSelectedImage(prev => prev ? { ...prev, likes: newLikes } : null);
-          }
-          if (!hasLiked && addExp) {
-             showToast('Đã thích ảnh! (+5 EXP)', 'success');
-             addExp(5);
-          }
-      }
-  }, [currentUser, findImageById, selectedImage, showToast, addExp]);
-  
-  const handleCommentAdded = useCallback((imageId: number) => {
-    const updateCount = (prev: ImagePrompt | null) => {
-        if (!prev) return null;
-        const currentCount = selectedImage?.id === imageId ? (selectedImage.comments_count || 0) : (prev.comments_count || 0);
-        return { ...prev, comments_count: currentCount + 1 };
-    };
-
-    setImages(prev => prev.map(img => img.id === imageId ? updateCount(img) as ImagePrompt : img));
-    if (selectedImage && selectedImage.id === imageId) setSelectedImage(updateCount);
-  }, [selectedImage]);
-
-  const handleSetCategory = (id: number | 'all') => {
+  const handleSetCategory = (id: CategoryFilter) => {
     setSelectedCategoryId(id);
     setCurrentPage('home');
   }
@@ -391,16 +372,12 @@ const App: React.FC = () => {
         return currentUser ? <SettingsPage categories={categories} onUpdateCategories={fetchInitialData} setCurrentPage={setCurrentPage as any} /> : null;
       case 'user-management':
         return currentUser?.role === 'admin' ? <UserManagementPage images={images} /> : null;
-      case 'liked-images':
-        return currentUser ? <LikedImagesPage images={images} currentUser={currentUser} onImageClick={handleSelectImage} /> : null;
-      case 'leaderboard':
-        return <LeaderboardPage images={images} currentUser={currentUser} />;
       case 'profile':
         return currentUser ? <ProfilePage images={images} setCurrentPage={setCurrentPage as any}/> : null;
       case 'support':
         return <SupportPage />;
       case 'categories':
-        return <CategoriesPage categories={categories} images={images} onImageClick={handleSelectImage} currentUser={currentUser} />;
+        return <CategoriesPage categories={categories} images={images} onImageClick={handleSelectImage} />;
       case 'home':
       default:
         return (
@@ -412,7 +389,6 @@ const App: React.FC = () => {
                 <ImageGrid 
                   images={images} 
                   onImageClick={handleSelectImage}
-                  currentUser={currentUser}
                 />
                 
                 {/* Load More Button */}
@@ -476,9 +452,7 @@ const App: React.FC = () => {
             setImageToEdit(image);
           }}
           onCopyPrompt={handleCopyPrompt}
-          onToggleLike={handleToggleLike}
           currentUser={currentUser}
-          onCommentAdded={handleCommentAdded}
         />
       )}
       

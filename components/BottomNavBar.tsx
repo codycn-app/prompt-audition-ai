@@ -1,7 +1,6 @@
 import React from 'react';
 import { Page } from '../types';
 import { HomeIcon } from './icons/HomeIcon';
-import { CrownIcon } from './icons/CrownIcon';
 import { PlusIcon } from './icons/PlusIcon';
 import { UserCircleIcon } from './icons/UserCircleIcon';
 import { useAuth } from '../contexts/AuthContext';
@@ -45,9 +44,8 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ currentPage, setCurrentPage
   
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 h-16 border-t md:hidden bg-cyber-black/80 backdrop-blur-xl border-cyber-pink/20">
-      <div className="grid h-full grid-cols-5">
+      <div className="grid h-full grid-cols-4">
         <NavButton page="home" label="Trang chủ" icon={<HomeIcon className="w-6 h-6" />} />
-        <NavButton page="leaderboard" label="BXH" icon={<CrownIcon className="w-6 h-6" />} />
         
         <div className="flex items-center justify-center">
            <button 

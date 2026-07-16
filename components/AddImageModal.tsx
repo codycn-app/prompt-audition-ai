@@ -178,6 +178,20 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, cate
 
         if (categoryInsertError) throw categoryInsertError;
 
+        // Do not report success until every selected relationship is readable.
+        const { data: savedCategoryLinks, error: categoryVerifyError } = await supabase
+            .from('image_categories')
+            .select('category_id')
+            .eq('image_id', newImageId);
+
+        if (categoryVerifyError) throw categoryVerifyError;
+
+        const savedCategoryIds = new Set((savedCategoryLinks || []).map(link => link.category_id));
+        const allCategoriesSaved = selectedCategoryIds.every(categoryId => savedCategoryIds.has(categoryId));
+        if (!allCategoriesSaved) {
+            throw new Error('Không thể xác nhận chuyên mục đã được lưu. Vui lòng thử lại.');
+        }
+
         onAddImage();
 
     } catch (err: any) {
