@@ -409,7 +409,14 @@ const App: React.FC = () => {
     }
 
     const newViews = (image.views || 0) + 1;
-    await supabase.from('images').update({ views: newViews }).eq('id', image.id);
+    // Increment through a narrowly scoped RPC. Anonymous visitors must never
+    // receive broad UPDATE access to the images table merely to count views.
+    const { error: viewError } = await supabase.rpc('increment_image_views', {
+      p_image_id: image.id,
+    });
+    if (viewError) {
+      console.warn('Unable to record image view:', viewError.message);
+    }
     
     setImages(prev => prev.map(img => img.id === image.id ? { ...img, views: newViews } : img));
     setSelectedImage(prev => prev ? { ...prev, views: newViews } : null);
