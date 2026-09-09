@@ -20,13 +20,14 @@ export const handler = async (event: any) => {
   }
 
   try {
-    const { action, key, bucket, contentType } = JSON.parse(event.body);
+    const { action, key, bucket, contentType, cacheControl } = JSON.parse(event.body);
 
     if (action === 'upload') {
       const command = new PutObjectCommand({
         Bucket: bucket,
         Key: key,
         ContentType: contentType,
+        CacheControl: cacheControl || 'public, max-age=31536000, immutable',
       });
       // Tạo URL có hiệu lực trong 1 giờ
       const signedUrl = await getSignedUrl(S3, command, { expiresIn: 3600 });
