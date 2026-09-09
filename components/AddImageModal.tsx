@@ -8,7 +8,7 @@ import { getSupabaseClient } from '../supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
 import { Category } from '../types';
 import { useToast } from '../contexts/ToastContext';
-import { uploadFile, deleteFile } from '../lib/storage';
+import { uploadImageWithThumbnail, deleteFile } from '../lib/storage';
 
 interface AddImageModalProps {
   onClose: () => void;
@@ -136,6 +136,7 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, cate
     
     const supabase = getSupabaseClient();
     let uploadedImageUrl = '';
+    let uploadedThumbnailUrl = '';
     let newImageId: number | null = null;
 
     try {
@@ -144,7 +145,9 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, cate
         const fileName = `${currentUser.id}/${Date.now()}.${fileExt}`;
         
         // Use the centralized storage handler
-        uploadedImageUrl = await uploadFile(imageFile, 'images', fileName);
+        const uploaded = await uploadImageWithThumbnail(imageFile, 'images', fileName, showCropper ? completedCrop : null);
+        uploadedImageUrl = uploaded.imageUrl;
+        uploadedThumbnailUrl = uploaded.thumbnailUrl;
         
         const { data: newImage, error: imageInsertError } = await supabase
             .from('images')
@@ -152,6 +155,7 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, cate
                 title: title,
                 prompt: prompt,
                 image_url: uploadedImageUrl,
+                thumbnail_url: uploadedThumbnailUrl,
                 user_id: currentUser.id,
                 likes: [],
                 views: 0,
@@ -204,6 +208,7 @@ const AddImageModal: React.FC<AddImageModalProps> = ({ onClose, onAddImage, cate
         if (uploadedImageUrl) {
             await deleteFile(uploadedImageUrl);
         }
+        if (uploadedThumbnailUrl) await deleteFile(uploadedThumbnailUrl);
         
         if (newImageId) {
             await supabase.from('image_categories').delete().eq('image_id', newImageId);

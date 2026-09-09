@@ -5,7 +5,7 @@ import { CloseIcon } from './icons/CloseIcon';
 import { getSupabaseClient } from '../supabaseClient';
 import { SpinnerIcon } from './icons/SpinnerIcon';
 import { useAuth } from '../contexts/AuthContext';
-import { deleteFile, uploadFile } from '../lib/storage';
+import { deleteFile, uploadImageWithThumbnail } from '../lib/storage';
 
 interface EditImageModalProps {
   image: ImagePrompt;
@@ -125,14 +125,19 @@ const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onCl
 
     const supabase = getSupabaseClient();
     let replacementUploadUrl = '';
+    let replacementThumbnailUrl = '';
     let didUpdateImage = false;
     try {
         let imageUrlToSave = image.image_url;
+        let thumbnailUrlToSave = image.thumbnail_url || null;
         if (replacementFile) {
             const fileExt = replacementFile.name.split('.').pop() || 'jpg';
             const fileName = `${currentUser.id}/${Date.now()}_replacement.${fileExt}`;
-            replacementUploadUrl = await uploadFile(replacementFile, 'images', fileName);
-            imageUrlToSave = replacementUploadUrl;
+            const uploaded = await uploadImageWithThumbnail(replacementFile, 'images', fileName, showCropper ? completedCrop : null);
+            replacementUploadUrl = uploaded.imageUrl;
+            replacementThumbnailUrl = uploaded.thumbnailUrl;
+            imageUrlToSave = uploaded.imageUrl;
+            thumbnailUrlToSave = uploaded.thumbnailUrl;
         }
 
         // CRITICAL FIX: Include original_width and original_height in the update payload.
@@ -142,6 +147,7 @@ const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onCl
                 title, 
                 prompt,
                 image_url: imageUrlToSave,
+                thumbnail_url: thumbnailUrlToSave,
                 thumbnail_crop_data: showCropper ? completedCrop : null,
                 original_width: originalDimensions.width,
                 original_height: originalDimensions.height,
@@ -205,6 +211,7 @@ const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onCl
         if (replacementUploadUrl && image.image_url !== replacementUploadUrl) {
             try {
                 await deleteFile(image.image_url);
+                if (image.thumbnail_url) await deleteFile(image.thumbnail_url);
             } catch (deleteError) {
                 console.warn('Không thể xóa file ảnh cũ sau khi thay thế:', deleteError);
             }
@@ -216,6 +223,7 @@ const EditImageModal: React.FC<EditImageModalProps> = ({ image, categories, onCl
       if (replacementUploadUrl && !didUpdateImage) {
         try {
           await deleteFile(replacementUploadUrl);
+          if (replacementThumbnailUrl) await deleteFile(replacementThumbnailUrl);
         } catch (cleanupError) {
           console.warn('Không thể dọn file ảnh thay thế:', cleanupError);
         }

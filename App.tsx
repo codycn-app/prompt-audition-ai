@@ -460,6 +460,9 @@ const App: React.FC = () => {
     if (imageToDelete.image_url) {
         await deleteFile(imageToDelete.image_url);
     }
+    if (imageToDelete.thumbnail_url) {
+        await deleteFile(imageToDelete.thumbnail_url);
+    }
     
     const { error } = await supabase.from('images').delete().eq('id', imageToDelete.id);
 

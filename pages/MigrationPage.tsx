@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { getSupabaseClient } from '../supabaseClient';
-import { migrateBlobToR2 } from '../lib/storage';
+import { migrateBlobToR2, createThumbnailWebP } from '../lib/storage';
 import { useAuth } from '../contexts/AuthContext';
 import { ImagePrompt } from '../types';
 import { InformationCircleIcon } from '../components/icons/InformationCircleIcon';
@@ -102,7 +102,7 @@ END $$;`;
             const currentPercent = Math.round(((i + 1) / images.length) * 100);
             if (currentPercent > progress) setProgress(currentPercent);
 
-            if (img.image_url && (img.image_url.includes('r2.dev') || img.image_url.includes('pub-'))) {
+            if (img.thumbnail_url) {
                 skipCount++;
                 if (i < 5) addLog(`⏩ Bỏ qua (đã ở R2): ${img.title}`);
                 continue;
@@ -137,7 +137,10 @@ END $$;`;
                 addLog(`⬆️ Đang upload lên R2...`);
                 
                 try {
-                    const newUrl = await migrateBlobToR2(blob, 'images', fileName);
+                    const isOnR2 = img.image_url && (img.image_url.includes('r2.dev') || img.image_url.includes('pub-'));
+                    const newUrl = isOnR2 ? img.image_url : await migrateBlobToR2(blob, 'images', fileName);
+                    const thumbnailBlob = await createThumbnailWebP(blob);
+                    const thumbnailUrl = await migrateBlobToR2(thumbnailBlob, 'images', `${img.user_id}/${Date.now()}_thumbnail.webp`);
 
                     // 4. Cập nhật Database
                     addLog(`💾 Cập nhật DB...`);
@@ -145,7 +148,7 @@ END $$;`;
                     // CRITICAL FIX: Use select() to verify if the row was actually updated.
                     const { data: updatedRows, error } = await supabase
                         .from('images')
-                        .update({ image_url: newUrl })
+                        .update({ image_url: newUrl, thumbnail_url: thumbnailUrl })
                         .eq('id', img.id)
                         .select();
 
@@ -156,7 +159,7 @@ END $$;`;
                         throw new Error('Lỗi Quyền (RLS): Không thể cập nhật DB. Xem hướng dẫn "Lỗi Quyền DB".');
                     }
 
-                    setImages(prev => prev.map(p => p.id === img.id ? { ...p, image_url: newUrl } : p));
+                    setImages(prev => prev.map(p => p.id === img.id ? { ...p, image_url: newUrl, thumbnail_url: thumbnailUrl } : p));
 
                     successCount++;
                     addLog(`✅ Thành công: URL đã thay đổi.`);
