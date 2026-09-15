@@ -11,6 +11,7 @@ import ConfirmationModal from './components/ConfirmationModal';
 import Footer from './components/Footer';
 import LoginModal from './components/LoginModal';
 import SignupModal from './components/SignupModal';
+import WelcomeModal from './components/WelcomeModal';
 import SettingsPage from './pages/SettingsPage';
 import UserManagementPage from './pages/UserManagementPage';
 import ImageGridSkeleton from './components/ImageGridSkeleton';
@@ -27,6 +28,7 @@ import { deleteFile } from './lib/storage';
 const ITEMS_PER_PAGE = 24;
 const SUPABASE_PAGE_SIZE = 1000;
 const BROKEN_IMAGE_CHECK_CONCURRENCY = 6;
+const WELCOME_SESSION_KEY = 'audition-ai-welcome-shown';
 
 type LightweightImage = {
   id: number;
@@ -84,6 +86,22 @@ const App: React.FC = () => {
   const [imageToDelete, setImageToDelete] = useState<ImagePrompt | null>(null);
   
   const [currentPage, setCurrentPage] = useState<string>('home');
+  const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(() => {
+    try {
+      return sessionStorage.getItem(WELCOME_SESSION_KEY) !== 'true';
+    } catch {
+      return true;
+    }
+  });
+
+  const handleCloseWelcomeModal = useCallback(() => {
+    try {
+      sessionStorage.setItem(WELCOME_SESSION_KEY, 'true');
+    } catch {
+      // The modal still closes if browser storage is unavailable.
+    }
+    setIsWelcomeModalOpen(false);
+  }, []);
 
   useEffect(() => {
     if (!localStorage.getItem('theme')) {
@@ -618,6 +636,8 @@ const App: React.FC = () => {
       </main>
       
       <Footer />
+
+      {isWelcomeModalOpen && <WelcomeModal onClose={handleCloseWelcomeModal} />}
       
       {selectedImage && (
         <ImageDetailModal 
