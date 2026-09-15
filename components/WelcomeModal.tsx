@@ -3,6 +3,7 @@ import { CloseIcon } from './icons/CloseIcon';
 import { FacebookIcon } from './icons/FacebookIcon';
 import { SparklesIcon } from './icons/SparklesIcon';
 import { TikTokIcon } from './icons/TikTokIcon';
+import { ArrowUpRightIcon } from './icons/ArrowUpRightIcon';
 
 interface WelcomeModalProps {
   onClose: () => void;
@@ -10,25 +11,25 @@ interface WelcomeModalProps {
 
 const socialLinks = [
   {
-    label: 'Theo dõi Facebook',
-    description: 'Cập nhật cảm hứng và tin mới',
+    label: 'Facebook',
+    description: 'Theo dõi CodyCN',
     href: 'https://www.facebook.com/codycn2804/',
     icon: FacebookIcon,
-    className: 'border-blue-400/35 bg-blue-500/10 text-blue-100 hover:border-blue-300 hover:bg-blue-500/20',
+    className: 'welcome-social-facebook',
   },
   {
-    label: 'Theo dõi TikTok',
-    description: 'Xem ý tưởng và video ngắn',
+    label: 'TikTok',
+    description: '@auditionai.io.vn',
     href: 'https://www.tiktok.com/@auditionai.io.vn',
     icon: TikTokIcon,
-    className: 'border-cyber-pink/35 bg-cyber-pink/10 text-pink-100 hover:border-cyber-pink hover:bg-cyber-pink/20',
+    className: 'welcome-social-tiktok',
   },
   {
-    label: 'Khám phá AUDITION AI',
-    description: 'Mở ứng dụng tạo ảnh AI',
+    label: 'AUDITION AI',
+    description: 'Ứng dụng tạo ảnh AI',
     href: 'https://auditionai.io.vn/',
     icon: SparklesIcon,
-    className: 'border-cyber-cyan/35 bg-cyber-cyan/10 text-cyan-50 hover:border-cyber-cyan hover:bg-cyber-cyan/20',
+    className: 'welcome-social-app',
   },
 ];
 
@@ -57,11 +58,10 @@ const WelcomeModal: React.FC<WelcomeModalProps> = ({ onClose }) => {
       <div className="welcome-stage relative my-auto w-full max-w-2xl py-5 sm:py-8">
         <div className="welcome-orbit welcome-orbit-one" aria-hidden="true" />
         <div className="welcome-orbit welcome-orbit-two" aria-hidden="true" />
-        <div className="welcome-orbit welcome-orbit-three" aria-hidden="true" />
 
         <section className="welcome-panel relative overflow-hidden rounded-2xl border border-white/15 bg-[#161222]/95 shadow-2xl">
-          <div className="welcome-grid absolute inset-0 opacity-40" aria-hidden="true" />
-          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyber-cyan to-transparent" aria-hidden="true" />
+          <div className="welcome-grid absolute inset-0" aria-hidden="true" />
+          <div className="welcome-light-strip absolute inset-x-0 top-0 h-px" aria-hidden="true" />
 
           <button
             ref={closeButtonRef}
@@ -74,40 +74,50 @@ const WelcomeModal: React.FC<WelcomeModalProps> = ({ onClose }) => {
             <CloseIcon className="h-6 w-6" />
           </button>
 
-          <div className="relative px-5 pb-6 pt-9 text-center sm:px-10 sm:pb-9 sm:pt-12">
-            <div className="welcome-crystal relative mx-auto mb-6 grid h-20 w-20 place-items-center sm:h-24 sm:w-24" aria-hidden="true">
-              <div className="welcome-crystal-core grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-cyber-pink via-fuchsia-500 to-cyber-cyan shadow-cyber-glow sm:h-16 sm:w-16">
+          <div className="relative px-5 pb-6 pt-9 text-center sm:px-10 sm:pb-9 sm:pt-10">
+            <div className="welcome-archive-mark relative mx-auto mb-6 grid h-[76px] w-[150px] place-items-center sm:mb-7" aria-hidden="true">
+              <span className="welcome-prompt-card welcome-prompt-card-one">PROMPT</span>
+              <span className="welcome-prompt-card welcome-prompt-card-two">ART</span>
+              <div className="welcome-crystal-core relative z-10 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-cyber-pink via-fuchsia-500 to-cyber-cyan shadow-cyber-glow">
                 <SparklesIcon className="h-8 w-8 text-white sm:h-9 sm:w-9" />
               </div>
             </div>
 
-            <p className="mb-3 text-xs font-bold uppercase text-cyber-cyan sm:text-sm">Không gian sáng tạo dành cho bạn</p>
+            <p className="welcome-kicker mb-3 text-xs font-bold uppercase sm:text-sm">Thư viện câu lệnh tạo ảnh AI</p>
             <h2 id="welcome-modal-title" className="mx-auto max-w-xl font-oxanium text-2xl font-semibold leading-tight text-white sm:text-4xl">
-              Chào mừng bạn đến với <span className="text-transparent bg-gradient-to-r from-cyber-pink to-cyber-cyan bg-clip-text">AUDITION 3D AI</span>
+              Chào mừng bạn đến với <span className="text-transparent bg-gradient-to-r from-cyber-pink via-fuchsia-300 to-cyber-cyan bg-clip-text">Prompt Audition AI</span>
             </h2>
-            <p className="mx-auto mt-4 max-w-lg text-sm leading-6 text-cyber-on-surface-secondary sm:text-base sm:leading-7">
-              Kho câu lệnh tạo ảnh được tuyển chọn để mỗi ý tưởng của bạn dễ dàng trở thành một khung hình ấn tượng. Chúc bạn một ngày đầy cảm hứng và tạo nên thật nhiều tác phẩm đẹp.
+            <p className="welcome-stat mx-auto mt-4 inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold sm:text-sm">
+              <span className="welcome-stat-dot" aria-hidden="true" /> Hơn 1.000+ câu lệnh đang chờ bạn khám phá
+            </p>
+            <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-cyber-on-surface-secondary sm:text-base sm:leading-7">
+              Kho dữ liệu tổng hợp hơn 1.000+ câu lệnh tạo ảnh AI, được cập nhật liên tục để đồng hành cùng mọi ý tưởng của bạn.
             </p>
 
-            <div className="my-6 h-px bg-gradient-to-r from-transparent via-cyber-pink/60 to-transparent sm:my-7" aria-hidden="true" />
+            <div className="my-6 flex items-center gap-3 text-left sm:my-7">
+              <span className="h-px flex-1 bg-gradient-to-r from-transparent to-cyber-pink/70" aria-hidden="true" />
+              <span className="text-[11px] font-bold uppercase text-cyber-on-surface-secondary">Kết nối cùng chúng tôi</span>
+              <span className="h-px flex-1 bg-gradient-to-l from-transparent to-cyber-cyan/70" aria-hidden="true" />
+            </div>
 
-            <div className="grid gap-3 text-left sm:grid-cols-3">
+            <div className="grid gap-3 text-left sm:grid-cols-2">
               {socialLinks.map(({ label, description, href, icon: Icon, className }) => (
                 <a
                   key={label}
                   href={href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`group flex min-h-20 items-center gap-3 rounded-xl border p-3 transition duration-200 focus:outline-none focus:ring-2 focus:ring-cyber-cyan focus:ring-offset-2 focus:ring-offset-[#161222] active:scale-[0.98] ${className}`}
-                  aria-label={label}
+                  className={`welcome-social-link group flex min-h-[76px] items-center gap-3 rounded-xl border p-3 transition duration-200 focus:outline-none focus:ring-2 focus:ring-cyber-cyan focus:ring-offset-2 focus:ring-offset-[#161222] active:scale-[0.98] ${className}`}
+                  aria-label={`Mở ${label}`}
                 >
-                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-white/15 bg-black/25 transition duration-200 group-hover:scale-105">
+                  <span className="welcome-social-icon grid h-11 w-11 shrink-0 place-items-center rounded-lg transition duration-200 group-hover:scale-105">
                     <Icon className="h-6 w-6" />
                   </span>
                   <span className="min-w-0">
-                    <span className="block text-sm font-bold leading-5">{label}</span>
-                    <span className="mt-0.5 block text-xs leading-4 text-cyber-on-surface-secondary">{description}</span>
+                    <span className="block text-sm font-bold leading-5">Theo dõi {label}</span>
+                    <span className="mt-0.5 block text-xs leading-4 text-white/65">{description}</span>
                   </span>
+                  <ArrowUpRightIcon className="welcome-social-arrow ml-auto h-5 w-5 shrink-0" />
                 </a>
               ))}
             </div>

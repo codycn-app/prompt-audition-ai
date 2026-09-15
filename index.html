@@ -161,16 +161,15 @@
         perspective: 1100px;
       }
       .welcome-panel {
-        transform: rotateX(1.5deg);
+        transform: rotateX(1deg);
         animation: welcome-panel-in 380ms cubic-bezier(0.16, 1, 0.3, 1) both;
       }
       .welcome-grid {
-        background-image:
-          linear-gradient(rgba(0, 255, 255, 0.1) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(255, 0, 230, 0.1) 1px, transparent 1px);
-        background-size: 28px 28px;
-        mask-image: linear-gradient(to bottom, black, transparent 70%);
+        background-image: radial-gradient(circle at 50% -10%, rgba(255, 0, 230, 0.18), transparent 34%), linear-gradient(rgba(0, 255, 255, 0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 255, 255, 0.06) 1px, transparent 1px);
+        background-size: auto, 30px 30px, 30px 30px;
+        mask-image: linear-gradient(to bottom, black, transparent 86%);
       }
+      .welcome-light-strip { background: linear-gradient(90deg, transparent 4%, #ff00e6 33%, #00ffff 66%, transparent 96%); box-shadow: 0 0 16px rgba(0, 255, 255, 0.75); }
       .welcome-orbit {
         position: absolute;
         left: 50%;
@@ -191,30 +190,49 @@
         background: #ff00e6;
         box-shadow: 0 0 15px #ff00e6, 0 0 30px rgba(0, 255, 255, 0.7);
       }
-      .welcome-orbit-one { width: 90%; height: 74%; animation: welcome-orbit 10s linear infinite; }
-      .welcome-orbit-two { width: 84%; height: 105%; border-color: rgba(255, 0, 230, 0.3); animation: welcome-orbit-reverse 13s linear infinite; }
-      .welcome-orbit-three { width: 111%; height: 65%; border-color: rgba(255, 255, 255, 0.17); animation: welcome-orbit 16s linear infinite; }
-      .welcome-crystal { transform-style: preserve-3d; animation: welcome-float 3.6s ease-in-out infinite; }
-      .welcome-crystal::before, .welcome-crystal::after {
+      .welcome-orbit-one { width: 106%; height: 68%; animation: welcome-orbit 10s linear infinite; }
+      .welcome-orbit-two { width: 92%; height: 112%; border-color: rgba(255, 0, 230, 0.32); animation: welcome-orbit-reverse 13s linear infinite; }
+      .welcome-archive-mark { transform-style: preserve-3d; animation: welcome-float 3.6s ease-in-out infinite; }
+      .welcome-archive-mark::before, .welcome-archive-mark::after {
         content: '';
         position: absolute;
-        inset: 5px;
+        left: 50%; top: 50%; width: 54px; height: 54px;
         border: 1px solid rgba(0, 255, 255, 0.6);
-        transform: rotate(45deg) translateZ(-1px);
+        transform: translate(-50%, -50%) rotate(45deg) translateZ(-1px);
         box-shadow: 0 0 22px rgba(0, 255, 255, 0.28);
       }
-      .welcome-crystal::after { inset: 12px; border-color: rgba(255, 0, 230, 0.65); transform: rotate(22.5deg) translateZ(-2px); }
-      @keyframes welcome-panel-in { from { opacity: 0; transform: translateY(18px) scale(0.96) rotateX(4deg); } to { opacity: 1; transform: translateY(0) scale(1) rotateX(1.5deg); } }
+      .welcome-archive-mark::after { width: 70px; height: 70px; border-color: rgba(255, 0, 230, 0.65); transform: translate(-50%, -50%) rotate(22.5deg) translateZ(-2px); }
+      .welcome-prompt-card { position: absolute; width: 82px; border: 1px solid rgba(255, 255, 255, 0.35); border-radius: 7px; padding: 7px 3px; background: linear-gradient(135deg, rgba(35, 27, 60, 0.98), rgba(12, 24, 39, 0.94)); font: 700 9px/1 "Oxanium", sans-serif; letter-spacing: 1px; color: rgba(255, 255, 255, 0.86); box-shadow: 0 12px 20px rgba(0, 0, 0, 0.4); }
+      .welcome-prompt-card-one { transform: translateX(-42px) rotate(-11deg) translateZ(-8px); color: #ff8ef2; }
+      .welcome-prompt-card-two { transform: translateX(42px) rotate(11deg) translateZ(-8px); color: #75ffff; }
+      .welcome-kicker { color: #00ffff; text-shadow: 0 0 12px rgba(0, 255, 255, 0.65); }
+      .welcome-stat { border: 1px solid rgba(0, 255, 255, 0.26); background: rgba(0, 255, 255, 0.08); color: #e8ffff; box-shadow: inset 0 1px rgba(255, 255, 255, 0.06); }
+      .welcome-stat-dot { width: 7px; height: 7px; border-radius: 50%; background: #00ffff; box-shadow: 0 0 10px #00ffff; animation: welcome-pulse 1.8s ease-in-out infinite; }
+      .welcome-social-link { position: relative; overflow: hidden; border-color: rgba(255, 255, 255, 0.18); background: rgba(255, 255, 255, 0.055); color: #fff; box-shadow: inset 0 1px rgba(255, 255, 255, 0.07), 0 8px 20px rgba(0, 0, 0, 0.16); }
+      .welcome-social-link::before { content: ''; position: absolute; inset: 0; opacity: 0; transition: opacity 200ms ease; background: linear-gradient(115deg, transparent, rgba(255, 255, 255, 0.12), transparent); }
+      .welcome-social-link:hover::before { opacity: 1; }
+      .welcome-social-link:hover { transform: translateY(-2px); }
+      .welcome-social-icon { border: 1px solid rgba(255, 255, 255, 0.18); background: rgba(0, 0, 0, 0.22); }
+      .welcome-social-arrow { opacity: 0.6; transition: transform 200ms ease, opacity 200ms ease; }
+      .welcome-social-link:hover .welcome-social-arrow { opacity: 1; transform: translate(2px, -2px); }
+      .welcome-social-facebook:hover { border-color: #4b8dff; box-shadow: inset 0 1px rgba(255, 255, 255, 0.09), 0 8px 26px rgba(38, 119, 255, 0.22); }
+      .welcome-social-facebook .welcome-social-icon { color: #78a9ff; }
+      .welcome-social-tiktok:hover { border-color: #ff4ddf; box-shadow: inset 0 1px rgba(255, 255, 255, 0.09), 0 8px 26px rgba(255, 0, 230, 0.2); }
+      .welcome-social-tiktok .welcome-social-icon { color: #ff83eb; }
+      .welcome-social-app { grid-column: 1 / -1; border-color: rgba(0, 255, 255, 0.42); background: linear-gradient(100deg, rgba(0, 255, 255, 0.15), rgba(255, 0, 230, 0.16)); box-shadow: inset 0 1px rgba(255, 255, 255, 0.13), 0 10px 28px rgba(0, 255, 255, 0.12); }
+      .welcome-social-app:hover { border-color: #00ffff; box-shadow: inset 0 1px rgba(255, 255, 255, 0.16), 0 10px 32px rgba(0, 255, 255, 0.26); }
+      .welcome-social-app .welcome-social-icon { color: #75ffff; background: rgba(0, 255, 255, 0.14); }
+      @keyframes welcome-panel-in { from { opacity: 0; transform: translateY(18px) scale(0.96) rotateX(4deg); } to { opacity: 1; transform: translateY(0) scale(1) rotateX(1deg); } }
       @keyframes welcome-orbit { from { transform: translate(-50%, -50%) rotateX(63deg) rotateZ(0deg); } to { transform: translate(-50%, -50%) rotateX(63deg) rotateZ(360deg); } }
       @keyframes welcome-orbit-reverse { from { transform: translate(-50%, -50%) rotateX(68deg) rotateZ(360deg); } to { transform: translate(-50%, -50%) rotateX(68deg) rotateZ(0deg); } }
       @keyframes welcome-float { 0%, 100% { transform: translateY(0) rotateY(0); } 50% { transform: translateY(-6px) rotateY(12deg); } }
+      @keyframes welcome-pulse { 0%, 100% { opacity: 0.6; transform: scale(0.85); } 50% { opacity: 1; transform: scale(1.15); } }
       @media (max-width: 640px) {
-        .welcome-orbit-one { width: 95%; height: 86%; }
+        .welcome-orbit-one { width: 108%; height: 86%; }
         .welcome-orbit-two { width: 91%; height: 109%; }
-        .welcome-orbit-three { width: 115%; height: 72%; }
       }
       @media (prefers-reduced-motion: reduce) {
-        .welcome-panel, .welcome-orbit, .welcome-crystal { animation: none !important; }
+        .welcome-panel, .welcome-orbit, .welcome-archive-mark, .welcome-stat-dot { animation: none !important; }
       }
     </style>
   <script type="importmap">
