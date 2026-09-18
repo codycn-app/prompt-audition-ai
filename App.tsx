@@ -411,12 +411,17 @@ const App: React.FC = () => {
 
   const handleCloseModal = () => {
     setSelectedImage(null);
-    if (new URLSearchParams(window.location.search).has('post')) {
+    if (/^\/posts\/\d+$/.test(window.location.pathname) || new URLSearchParams(window.location.search).has('post')) {
       window.history.replaceState({}, '', '/');
     }
   };
 
   const handleSelectImage = useCallback(async (image: ImagePrompt) => {
+    const postPath = `/posts/${image.id}`;
+    if (window.location.pathname !== postPath) {
+      window.history.pushState({ postId: image.id }, '', postPath);
+    }
+
     const supabase = getSupabaseClient();
     setSelectedImage(image);
     
@@ -444,25 +449,10 @@ const App: React.FC = () => {
     setSelectedImage(prev => prev ? { ...prev, views: newViews } : null);
   }, []);
 
-  const handleShareImage = useCallback(async (image: ImagePrompt) => {
+  const handleCopyShareLink = useCallback(async (image: ImagePrompt) => {
     const shareUrl = new URL(`/posts/${image.id}`, window.location.origin).toString();
-    const shareData = {
-      title: image.title,
-      text: `Xem câu lệnh AI: ${image.title}`,
-      url: shareUrl,
-    };
-
-    if (navigator.share) {
-      try {
-        await navigator.share(shareData);
-        return;
-      } catch (error) {
-        if ((error as DOMException).name === 'AbortError') return;
-      }
-    }
-
     await handleCopyPrompt(shareUrl, 'Đã sao chép liên kết chia sẻ bài đăng!');
-  }, [handleCopyPrompt, showToast]);
+  }, [handleCopyPrompt]);
 
   useEffect(() => {
     const postId = new URLSearchParams(window.location.search).get('post');
@@ -705,7 +695,7 @@ const App: React.FC = () => {
             setImageToEdit(image);
           }}
           onCopyPrompt={handleCopyPrompt}
-          onShare={handleShareImage}
+          onCopyShareLink={handleCopyShareLink}
           currentUser={currentUser}
         />
       )}
