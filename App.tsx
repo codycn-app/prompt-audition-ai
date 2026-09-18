@@ -77,6 +77,7 @@ const App: React.FC = () => {
   const { showToast } = useToast();
   
   const [selectedImage, setSelectedImage] = useState<ImagePrompt | null>(null);
+  const sharedPostOpened = useRef(false);
   const [imageToEdit, setImageToEdit] = useState<ImagePrompt | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
@@ -383,11 +384,11 @@ const App: React.FC = () => {
 
   // --- Handlers ---
 
-  const handleCopyPrompt = useCallback(async (prompt: string) => {
+  const handleCopyPrompt = useCallback(async (prompt: string, successMessage = 'Đã sao chép câu lệnh!') => {
     if (navigator.clipboard && window.isSecureContext) {
         try {
             await navigator.clipboard.writeText(prompt);
-            showToast('Đã sao chép câu lệnh!', 'success');
+            showToast(successMessage, 'success');
             return;
         } catch (err) { console.error(err); }
     }
@@ -400,7 +401,7 @@ const App: React.FC = () => {
     textArea.select();
     try {
         document.execCommand('copy');
-        showToast('Đã sao chép câu lệnh!', 'success');
+        showToast(successMessage, 'success');
     } catch (err) {
         showToast('Sao chép thất bại.', 'error');
     } finally {
@@ -410,6 +411,9 @@ const App: React.FC = () => {
 
   const handleCloseModal = () => {
     setSelectedImage(null);
+    if (new URLSearchParams(window.location.search).has('post')) {
+      window.history.replaceState({}, '', '/');
+    }
   };
 
   const handleSelectImage = useCallback(async (image: ImagePrompt) => {
@@ -439,6 +443,57 @@ const App: React.FC = () => {
     setImages(prev => prev.map(img => img.id === image.id ? { ...img, views: newViews } : img));
     setSelectedImage(prev => prev ? { ...prev, views: newViews } : null);
   }, []);
+
+  const handleShareImage = useCallback(async (image: ImagePrompt) => {
+    const shareUrl = new URL(`/posts/${image.id}`, window.location.origin).toString();
+    const shareData = {
+      title: image.title,
+      text: `Xem câu lệnh AI: ${image.title}`,
+      url: shareUrl,
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+        return;
+      } catch (error) {
+        if ((error as DOMException).name === 'AbortError') return;
+      }
+    }
+
+    await handleCopyPrompt(shareUrl, 'Đã sao chép liên kết chia sẻ bài đăng!');
+  }, [handleCopyPrompt, showToast]);
+
+  useEffect(() => {
+    const postId = new URLSearchParams(window.location.search).get('post');
+    if (!postId || !/^\d+$/.test(postId) || sharedPostOpened.current) return;
+
+    sharedPostOpened.current = true;
+    const loadSharedPost = async () => {
+      const supabase = getSupabaseClient();
+      const { data, error } = await supabase
+        .from('images')
+        .select('*')
+        .eq('id', Number(postId))
+        .single();
+
+      if (error || !data) {
+        showToast('Không tìm thấy bài đăng được chia sẻ.', 'error');
+        return;
+      }
+
+      const categoryLookup = new Map(categories.map(category => [category.id, category]));
+      const categoryIds = imageCategoryMap.get(data.id) || [];
+      const sharedImage: ImagePrompt = {
+        ...(data as ImagePrompt),
+        profiles: null,
+        categories: categoryIds.map(id => categoryLookup.get(id)).filter(Boolean) as Category[],
+      };
+      await handleSelectImage(sharedImage);
+    };
+
+    loadSharedPost();
+  }, [categories, handleSelectImage, imageCategoryMap, showToast]);
 
   const handleAddImage = useCallback(async () => {
     setIsAddModalOpen(false);
@@ -650,6 +705,7 @@ const App: React.FC = () => {
             setImageToEdit(image);
           }}
           onCopyPrompt={handleCopyPrompt}
+          onShare={handleShareImage}
           currentUser={currentUser}
         />
       )}
