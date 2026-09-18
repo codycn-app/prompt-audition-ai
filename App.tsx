@@ -53,6 +53,11 @@ const fetchAllRows = async <T,>(
   return rows;
 };
 
+const getSharedPostIdFromLocation = () => {
+  const pathMatch = window.location.pathname.match(/^\/posts\/(\d+)$/);
+  return pathMatch?.[1] || new URLSearchParams(window.location.search).get('post');
+};
+
 const App: React.FC = () => {
   // Main data state
   const [images, setImages] = useState<ImagePrompt[]>([]);
@@ -455,7 +460,7 @@ const App: React.FC = () => {
   }, [handleCopyPrompt]);
 
   useEffect(() => {
-    const postId = new URLSearchParams(window.location.search).get('post');
+    const postId = getSharedPostIdFromLocation();
     if (!postId || !/^\d+$/.test(postId) || sharedPostOpened.current) return;
 
     sharedPostOpened.current = true;
