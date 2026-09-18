@@ -39,11 +39,14 @@ const siteUrlFromEvent = (event: any) => {
 export const handler = async (event: any) => {
   const id = event.queryStringParameters?.id;
   const siteUrl = siteUrlFromEvent(event);
-  const fallbackUrl = `${siteUrl}/`;
 
   if (!id || !/^\d+$/.test(id)) {
-    return { statusCode: 302, headers: { Location: fallbackUrl }, body: '' };
+    return { statusCode: 302, headers: { Location: `${siteUrl}/` }, body: '' };
   }
+
+  // Keep the post ID when metadata cannot be loaded so the React app can still
+  // fetch and open the shared post for a human visitor.
+  const appUrl = `${siteUrl}/?post=${id}`;
 
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
@@ -65,7 +68,7 @@ export const handler = async (event: any) => {
   }
 
   if (!post) {
-    return { statusCode: 302, headers: { Location: fallbackUrl }, body: '' };
+    return { statusCode: 302, headers: { Location: appUrl }, body: '' };
   }
 
   const canonicalUrl = `${siteUrl}/posts/${post.id}`;
@@ -73,7 +76,7 @@ export const handler = async (event: any) => {
   const description = textForMeta(post.prompt, 190) || 'Khám phá câu lệnh AI được chia sẻ trên Prompt Audition AI.';
   // A shared post must advertise its own artwork, not the generic site thumbnail.
   const imageUrl = toAbsoluteUrl(post.image_url || post.thumbnail_url, siteUrl);
-  const appUrl = `${siteUrl}/?post=${post.id}`;
+  const sharedPostAppUrl = `${siteUrl}/?post=${post.id}`;
 
   return {
     statusCode: 200,
@@ -102,7 +105,7 @@ export const handler = async (event: any) => {
     <meta name="twitter:title" content="${escapeHtml(title)}">
     <meta name="twitter:description" content="${escapeHtml(description)}">
     <meta name="twitter:image" content="${escapeHtml(imageUrl)}">
-    <script>window.location.replace(${JSON.stringify(appUrl)});</script>
+    <script>window.location.replace(${JSON.stringify(sharedPostAppUrl)});</script>
   </head>
   <body>
     <p>Đang mở bài đăng...</p>
