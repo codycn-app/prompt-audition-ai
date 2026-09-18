@@ -8,6 +8,7 @@ import { PencilIcon } from './icons/PencilIcon';
 import { useAuth } from '../contexts/AuthContext';
 import { getRankInfo } from '../lib/ranking';
 import { InformationCircleIcon } from './icons/InformationCircleIcon';
+import { ShareIcon } from './icons/ShareIcon';
 
 interface ImageDetailModalProps {
   image: ImagePrompt;
@@ -16,11 +17,12 @@ interface ImageDetailModalProps {
   onRequestDelete: () => void;
   onRequestEdit: (image: ImagePrompt) => void;
   onCopyPrompt: (prompt: string) => Promise<void>;
+  onShare: (image: ImagePrompt) => Promise<void>;
   currentUser: User | null;
 }
 
 const ImageDetailModal: React.FC<ImageDetailModalProps> = ({ 
-    image, images, onClose, onRequestDelete, onRequestEdit, onCopyPrompt, currentUser
+    image, images, onClose, onRequestDelete, onRequestEdit, onCopyPrompt, onShare, currentUser
 }) => {
   const [copied, setCopied] = useState(false);
   const [isImageBroken, setIsImageBroken] = useState(false);
@@ -130,6 +132,13 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
                   >
                     {copied ? <CheckIcon className="w-4 h-4" /> : <CopyIcon className="w-4 h-4" />}
                     {copied ? 'Đã sao chép!' : 'Sao chép'}
+                  </button>
+                 <button
+                    onClick={() => onShare(image)}
+                    className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-cyber-black transition-all duration-300 rounded-full bg-cyber-cyan hover:bg-cyan-200 focus:outline-none focus:ring-2 focus:ring-cyber-cyan focus:ring-offset-2 focus:ring-offset-cyber-surface active:scale-95"
+                  >
+                    <ShareIcon className="w-4 h-4" />
+                    Chia sẻ
                   </button>
               </div>
             </div>
