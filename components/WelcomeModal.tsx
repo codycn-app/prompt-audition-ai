@@ -14,7 +14,7 @@ const socialLinks = [
     label: 'Facebook',
     description: 'Theo dõi CodyCN',
     actionLabel: 'Theo dõi Facebook',
-    href: 'https://www.facebook.com/codycn2804/',
+    href: 'https://www.facebook.com/profile.php?id=61573249500027',
     icon: FacebookIcon,
     className: 'welcome-social-facebook',
   },
