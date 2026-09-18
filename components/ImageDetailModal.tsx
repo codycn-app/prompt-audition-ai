@@ -8,7 +8,6 @@ import { PencilIcon } from './icons/PencilIcon';
 import { useAuth } from '../contexts/AuthContext';
 import { getRankInfo } from '../lib/ranking';
 import { InformationCircleIcon } from './icons/InformationCircleIcon';
-import { ShareIcon } from './icons/ShareIcon';
 
 interface ImageDetailModalProps {
   image: ImagePrompt;
@@ -17,12 +16,12 @@ interface ImageDetailModalProps {
   onRequestDelete: () => void;
   onRequestEdit: (image: ImagePrompt) => void;
   onCopyPrompt: (prompt: string) => Promise<void>;
-  onShare: (image: ImagePrompt) => Promise<void>;
+  onCopyShareLink: (image: ImagePrompt) => Promise<void>;
   currentUser: User | null;
 }
 
 const ImageDetailModal: React.FC<ImageDetailModalProps> = ({ 
-    image, images, onClose, onRequestDelete, onRequestEdit, onCopyPrompt, onShare, currentUser
+    image, images, onClose, onRequestDelete, onRequestEdit, onCopyPrompt, onCopyShareLink, currentUser
 }) => {
   const [copied, setCopied] = useState(false);
   const [isImageBroken, setIsImageBroken] = useState(false);
@@ -131,14 +130,14 @@ const ImageDetailModal: React.FC<ImageDetailModalProps> = ({
                     className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-white transition-all duration-300 border border-transparent rounded-full shadow-md outline-none bg-gradient-to-r from-cyber-pink/80 to-cyber-cyan/80 group hover:shadow-cyber-glow focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-cyber-surface focus:ring-cyber-pink active:scale-95"
                   >
                     {copied ? <CheckIcon className="w-4 h-4" /> : <CopyIcon className="w-4 h-4" />}
-                    {copied ? 'Đã sao chép!' : 'Sao chép'}
+                    {copied ? 'Đã sao chép!' : 'Sao chép prompt'}
                   </button>
                  <button
-                    onClick={() => onShare(image)}
+                    onClick={() => onCopyShareLink(image)}
                     className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-cyber-black transition-all duration-300 rounded-full bg-cyber-cyan hover:bg-cyan-200 focus:outline-none focus:ring-2 focus:ring-cyber-cyan focus:ring-offset-2 focus:ring-offset-cyber-surface active:scale-95"
                   >
-                    <ShareIcon className="w-4 h-4" />
-                    Chia sẻ
+                    <CopyIcon className="w-4 h-4" />
+                    Sao chép link
                   </button>
               </div>
             </div>
