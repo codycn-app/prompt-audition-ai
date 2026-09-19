@@ -1,0 +1,2 @@
+/posts/*  /.netlify/functions/post-share?id=:splat  200!
+/*         /index.html                               200
