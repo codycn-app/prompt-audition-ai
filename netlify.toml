@@ -8,8 +8,8 @@
   node_bundler = "esbuild"
 
 [[redirects]]
-  from = "/posts/:id"
-  to = "/.netlify/functions/post-share?id=:id"
+  from = "/posts/*"
+  to = "/.netlify/functions/post-share?id=:splat"
   status = 200
   force = true
 
