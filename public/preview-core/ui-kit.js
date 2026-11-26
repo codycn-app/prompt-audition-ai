@@ -40,21 +40,23 @@ export function ensureKitStyles() {
     }
     .uk-btn {
       display: inline-flex; align-items: center; justify-content: center; gap: 7px;
-      padding: 9px 15px; border-radius: var(--btn-radius, 10px); font-size: 13px; font-weight: 600;
-      cursor: pointer; border: 1px solid var(--border, rgba(255,255,255,0.14));
-      background: var(--surface-2, rgba(255,255,255,0.06)); color: var(--text, #fff);
-      transition: transform 0.18s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+      padding: 9px 16px; border-radius: var(--btn-radius, 12px); font-size: 13px; font-weight: 600;
+      cursor: pointer; border: 1px solid var(--border, rgba(255,255,255,0.16));
+      background: var(--surface-2, rgba(255,255,255,0.07)); color: var(--text, #fff);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 4px 12px rgba(0,0,0,0.18);
+      backdrop-filter: blur(10px);
+      transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
       white-space: nowrap; text-decoration: none;
     }
     .uk-btn svg { width: 15px; height: 15px; flex-shrink: 0; }
-    .uk-btn:hover { transform: translateY(-1px); border-color: var(--accent, #FF3B7F); }
-    .uk-btn:active { transform: scale(0.96); }
+    .uk-btn:hover { transform: translateY(-2px); border-color: var(--accent, #38bdf8); background: rgba(255,255,255,0.12); box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 8px 20px rgba(0,0,0,0.28); }
+    .uk-btn:active { transform: scale(0.95); }
     .uk-btn-primary {
-      background: linear-gradient(135deg, var(--accent, #FF3B7F), var(--accent-2, #22D3EE));
-      color: var(--on-accent, #ffffff); border-color: transparent;
-      box-shadow: 0 6px 20px var(--accent-glow, rgba(255,59,127,0.32));
+      background: linear-gradient(135deg, var(--accent, #38bdf8), var(--accent-2, #c084fc));
+      color: var(--on-accent, #ffffff); border-color: rgba(255,255,255,0.22);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 6px 22px var(--accent-glow, rgba(56,189,248,0.38));
     }
-    .uk-btn-primary:hover { box-shadow: 0 10px 28px var(--accent-glow, rgba(255,59,127,0.48)); }
+    .uk-btn-primary:hover { background: linear-gradient(135deg, var(--accent, #38bdf8), var(--accent-2, #c084fc)); filter: brightness(1.08); box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), 0 10px 30px var(--accent-glow, rgba(56,189,248,0.52)); }
     .uk-prompt-box {
       background: var(--bg, #0B0C10); border: 1px solid var(--border, rgba(255,255,255,0.1));
       border-radius: 12px; padding: 14px; font-size: 13.5px; line-height: 1.65;
