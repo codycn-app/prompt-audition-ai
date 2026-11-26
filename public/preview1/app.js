@@ -19,7 +19,7 @@ const LOGO_SVG = `
 
 const CAT_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>`;
 
-// Silky-smooth floating volumetric light orbs canvas (zero jagged pixels)
+// Silky flowing neon silk waves & soft glowing bokeh motes (60fps, zero ugly squares)
 function initSmoothAuroraCanvas() {
   const canvas = document.getElementById('os-aurora-canvas');
   if (!canvas) return;
@@ -32,13 +32,20 @@ function initSmoothAuroraCanvas() {
   resize();
   window.addEventListener('resize', resize, { passive: true });
 
-  const orbs = [
-    { x: 0.2, y: 0.15, r: 0.42, vx: 0.0004, vy: 0.0003, color: 'rgba(56, 189, 248, 0.14)' },
-    { x: 0.82, y: 0.25, r: 0.38, vx: -0.0003, vy: 0.0004, color: 'rgba(232, 121, 249, 0.12)' },
-    { x: 0.5, y: 0.82, r: 0.45, vx: 0.00025, vy: -0.0003, color: 'rgba(99, 102, 241, 0.12)' },
+  const waves = [
+    { amp: 55, freq: 0.0022, speed: 0.014, yRatio: 0.28, color: 'rgba(56, 189, 248, 0.22)', lw: 2.2 },
+    { amp: 70, freq: 0.0018, speed: -0.011, yRatio: 0.48, color: 'rgba(232, 121, 249, 0.18)', lw: 2.4 },
+    { amp: 45, freq: 0.0028, speed: 0.018, yRatio: 0.72, color: 'rgba(99, 102, 241, 0.2)', lw: 1.8 },
   ];
 
-  let mx = 0.5, my = 0.5;
+  const motes = Array.from({ length: window.innerWidth < 768 ? 16 : 32 }, () => ({
+    x: Math.random(), y: Math.random(),
+    r: 1.5 + Math.random() * 3.5,
+    vy: 0.00025 + Math.random() * 0.00045,
+    color: Math.random() > 0.5 ? 'rgba(56, 189, 248, 0.55)' : 'rgba(232, 121, 249, 0.5)'
+  }));
+
+  let mx = 0.5, my = 0.5, t = 0;
   window.addEventListener('pointermove', (e) => {
     mx = e.clientX / (w || 1);
     my = e.clientY / (h || 1);
@@ -48,23 +55,47 @@ function initSmoothAuroraCanvas() {
 
   function draw() {
     ctx.clearRect(0, 0, w, h);
-    const maxDim = Math.max(w, h);
-    for (let i = 0; i < orbs.length; i++) {
-      const o = orbs[i];
-      if (!prefersReduced) {
-        o.x += o.vx; o.y += o.vy;
-        if (o.x < 0.05 || o.x > 0.95) o.vx *= -1;
-        if (o.y < 0.05 || o.y > 0.95) o.vy *= -1;
+    ctx.globalCompositeOperation = 'lighter';
+
+    // Ambient cursor glow
+    const cg = ctx.createRadialGradient(mx * w, my * h, 0, mx * w, my * h, Math.max(w, h) * 0.35);
+    cg.addColorStop(0, 'rgba(56, 189, 248, 0.12)');
+    cg.addColorStop(1, 'rgba(5, 7, 14, 0)');
+    ctx.fillStyle = cg;
+    ctx.fillRect(0, 0, w, h);
+
+    // Flowing neon silk waves
+    waves.forEach((wv, idx) => {
+      ctx.beginPath();
+      const baseY = wv.yRatio * h + (my - 0.5) * 35;
+      for (let x = 0; x <= w; x += 18) {
+        const y = baseY + Math.sin(x * wv.freq + t * wv.speed * 60 + idx) * wv.amp;
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
       }
-      const cx = (o.x + (mx - 0.5) * 0.04) * w;
-      const cy = (o.y + (my - 0.5) * 0.04) * h;
-      const rad = o.r * maxDim;
-      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
-      grad.addColorStop(0, o.color);
-      grad.addColorStop(1, 'rgba(5, 7, 14, 0)');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, w, h);
-    }
+      ctx.strokeStyle = wv.color;
+      ctx.lineWidth = wv.lw;
+      ctx.stroke();
+    });
+
+    // Soft round bokeh motes
+    motes.forEach(m => {
+      if (!prefersReduced) {
+        m.y -= m.vy;
+        if (m.y < -0.05) { m.y = 1.05; m.x = Math.random(); }
+      }
+      const cx = m.x * w, cy = m.y * h;
+      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, m.r * 3);
+      g.addColorStop(0, m.color);
+      g.addColorStop(1, 'rgba(5, 7, 14, 0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(cx, cy, m.r * 3, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    ctx.globalCompositeOperation = 'source-over';
+    t += 0.016;
     if (!prefersReduced) requestAnimationFrame(draw);
   }
   draw();
