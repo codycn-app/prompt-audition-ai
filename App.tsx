@@ -11,6 +11,7 @@ import ConfirmationModal from './components/ConfirmationModal';
 import Footer from './components/Footer';
 import LoginModal from './components/LoginModal';
 import SignupModal from './components/SignupModal';
+import WelcomeModal from './components/WelcomeModal';
 import SettingsPage from './pages/SettingsPage';
 import UserManagementPage from './pages/UserManagementPage';
 import ImageGridSkeleton from './components/ImageGridSkeleton';
@@ -27,6 +28,7 @@ import { deleteFile } from './lib/storage';
 const ITEMS_PER_PAGE = 24;
 const SUPABASE_PAGE_SIZE = 1000;
 const BROKEN_IMAGE_CHECK_CONCURRENCY = 6;
+const WELCOME_SESSION_KEY = 'audition-ai-welcome-shown';
 
 type LightweightImage = {
   id: number;
@@ -49,6 +51,11 @@ const fetchAllRows = async <T,>(
   }
 
   return rows;
+};
+
+const getSharedPostIdFromLocation = () => {
+  const pathMatch = window.location.pathname.match(/^\/posts\/(\d+)$/);
+  return pathMatch?.[1] || new URLSearchParams(window.location.search).get('post');
 };
 
 const App: React.FC = () => {
@@ -75,6 +82,7 @@ const App: React.FC = () => {
   const { showToast } = useToast();
   
   const [selectedImage, setSelectedImage] = useState<ImagePrompt | null>(null);
+  const sharedPostOpened = useRef(false);
   const [imageToEdit, setImageToEdit] = useState<ImagePrompt | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
@@ -84,6 +92,22 @@ const App: React.FC = () => {
   const [imageToDelete, setImageToDelete] = useState<ImagePrompt | null>(null);
   
   const [currentPage, setCurrentPage] = useState<string>('home');
+  const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(() => {
+    try {
+      return sessionStorage.getItem(WELCOME_SESSION_KEY) !== 'true';
+    } catch {
+      return true;
+    }
+  });
+
+  const handleCloseWelcomeModal = useCallback(() => {
+    try {
+      sessionStorage.setItem(WELCOME_SESSION_KEY, 'true');
+    } catch {
+      // The modal still closes if browser storage is unavailable.
+    }
+    setIsWelcomeModalOpen(false);
+  }, []);
 
   useEffect(() => {
     if (!localStorage.getItem('theme')) {
@@ -365,11 +389,11 @@ const App: React.FC = () => {
 
   // --- Handlers ---
 
-  const handleCopyPrompt = useCallback(async (prompt: string) => {
+  const handleCopyPrompt = useCallback(async (prompt: string, successMessage = 'Đã sao chép câu lệnh!') => {
     if (navigator.clipboard && window.isSecureContext) {
         try {
             await navigator.clipboard.writeText(prompt);
-            showToast('Đã sao chép câu lệnh!', 'success');
+            showToast(successMessage, 'success');
             return;
         } catch (err) { console.error(err); }
     }
@@ -382,7 +406,7 @@ const App: React.FC = () => {
     textArea.select();
     try {
         document.execCommand('copy');
-        showToast('Đã sao chép câu lệnh!', 'success');
+        showToast(successMessage, 'success');
     } catch (err) {
         showToast('Sao chép thất bại.', 'error');
     } finally {
@@ -392,9 +416,17 @@ const App: React.FC = () => {
 
   const handleCloseModal = () => {
     setSelectedImage(null);
+    if (/^\/posts\/\d+$/.test(window.location.pathname) || new URLSearchParams(window.location.search).has('post')) {
+      window.history.replaceState({}, '', '/');
+    }
   };
 
   const handleSelectImage = useCallback(async (image: ImagePrompt) => {
+    const postPath = `/posts/${image.id}`;
+    if (window.location.pathname !== postPath) {
+      window.history.pushState({ postId: image.id }, '', postPath);
+    }
+
     const supabase = getSupabaseClient();
     setSelectedImage(image);
     
@@ -409,11 +441,54 @@ const App: React.FC = () => {
     }
 
     const newViews = (image.views || 0) + 1;
-    await supabase.from('images').update({ views: newViews }).eq('id', image.id);
+    // Increment through a narrowly scoped RPC. Anonymous visitors must never
+    // receive broad UPDATE access to the images table merely to count views.
+    const { error: viewError } = await supabase.rpc('increment_image_views', {
+      p_image_id: image.id,
+    });
+    if (viewError) {
+      console.warn('Unable to record image view:', viewError.message);
+    }
     
     setImages(prev => prev.map(img => img.id === image.id ? { ...img, views: newViews } : img));
     setSelectedImage(prev => prev ? { ...prev, views: newViews } : null);
   }, []);
+
+  const handleCopyShareLink = useCallback(async (image: ImagePrompt) => {
+    const shareUrl = new URL(`/posts/${image.id}`, window.location.origin).toString();
+    await handleCopyPrompt(shareUrl, 'Đã sao chép liên kết chia sẻ bài đăng!');
+  }, [handleCopyPrompt]);
+
+  useEffect(() => {
+    const postId = getSharedPostIdFromLocation();
+    if (!postId || !/^\d+$/.test(postId) || sharedPostOpened.current) return;
+
+    sharedPostOpened.current = true;
+    const loadSharedPost = async () => {
+      const supabase = getSupabaseClient();
+      const { data, error } = await supabase
+        .from('images')
+        .select('*')
+        .eq('id', Number(postId))
+        .single();
+
+      if (error || !data) {
+        showToast('Không tìm thấy bài đăng được chia sẻ.', 'error');
+        return;
+      }
+
+      const categoryLookup = new Map(categories.map(category => [category.id, category]));
+      const categoryIds = imageCategoryMap.get(data.id) || [];
+      const sharedImage: ImagePrompt = {
+        ...(data as ImagePrompt),
+        profiles: null,
+        categories: categoryIds.map(id => categoryLookup.get(id)).filter(Boolean) as Category[],
+      };
+      await handleSelectImage(sharedImage);
+    };
+
+    loadSharedPost();
+  }, [categories, handleSelectImage, imageCategoryMap, showToast]);
 
   const handleAddImage = useCallback(async () => {
     setIsAddModalOpen(false);
@@ -452,6 +527,9 @@ const App: React.FC = () => {
 
     if (imageToDelete.image_url) {
         await deleteFile(imageToDelete.image_url);
+    }
+    if (imageToDelete.thumbnail_url) {
+        await deleteFile(imageToDelete.thumbnail_url);
     }
     
     const { error } = await supabase.from('images').delete().eq('id', imageToDelete.id);
@@ -608,6 +686,8 @@ const App: React.FC = () => {
       </main>
       
       <Footer />
+
+      {isWelcomeModalOpen && <WelcomeModal onClose={handleCloseWelcomeModal} />}
       
       {selectedImage && (
         <ImageDetailModal 
@@ -620,6 +700,7 @@ const App: React.FC = () => {
             setImageToEdit(image);
           }}
           onCopyPrompt={handleCopyPrompt}
+          onCopyShareLink={handleCopyShareLink}
           currentUser={currentUser}
         />
       )}

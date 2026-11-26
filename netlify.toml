@@ -8,6 +8,12 @@
   node_bundler = "esbuild"
 
 [[redirects]]
+  from = "/posts/*"
+  to = "/.netlify/functions/post-share?id=:splat"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
