@@ -1,0 +1,69 @@
+:root {
+  --bg: #08080a;
+  --surface: #131318;
+  --surface-2: rgba(255, 255, 255, 0.06);
+  --border: rgba(255, 255, 255, 0.14);
+  --text: #f4f4f5;
+  --text-muted: #a1a1aa;
+  --accent: #f43f5e;
+  --accent-2: #a5b4fc;
+  --on-accent: #ffffff;
+  --accent-glow: rgba(244, 63, 94, 0.35);
+  --font-display: 'Syne', sans-serif;
+  --font-body: 'Be Vietnam Pro', sans-serif;
+  --btn-radius: 999px;
+}
+body { background: radial-gradient(circle at 50% 45%, #1c1220 0%, #08080a 70%); color: var(--text); font-family: var(--font-body); overflow-x: hidden; }
+
+.cin-shell { min-height: 100vh; display: flex; flex-direction: column; justify-content: space-between; }
+.cin-top {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 14px 24px; border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.cin-brand { font-family: var(--font-display); font-weight: 800; font-size: 19px; letter-spacing: -0.02em; cursor: pointer; }
+
+.cin-cats { display: flex; gap: 8px; overflow-x: auto; padding: 10px 24px; scrollbar-width: none; justify-content: flex-start; }
+.cin-cats::-webkit-scrollbar { display: none; }
+.cin-cat {
+  flex-shrink: 0; padding: 6px 14px; border-radius: 999px; font-size: 12.5px; font-weight: 600;
+  background: rgba(255,255,255,0.05); color: var(--text-muted); border: 1px solid var(--border); cursor: pointer;
+}
+.cin-cat.active { background: #fff; color: #08080a; border-color: #fff; }
+
+/* 3D Coverflow Stage */
+.cin-stage {
+  position: relative; flex: 1; min-height: 410px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; overflow: hidden; padding: 10px 0;
+}
+.cin-track {
+  position: relative; width: 100%; height: 350px; perspective: 1300px;
+  display: flex; align-items: center; justify-content: center;
+}
+.cin-slide {
+  position: absolute; width: 245px; height: 325px; border-radius: 18px; overflow: hidden;
+  cursor: pointer; border: 1px solid rgba(255,255,255,0.22);
+  box-shadow: 0 25px 60px rgba(0,0,0,0.65);
+  transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.45s ease, filter 0.45s ease;
+}
+.cin-slide img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.cin-focus-info {
+  max-width: 680px; width: calc(100% - 32px); margin: 12px auto 0; padding: 14px 18px;
+  border-radius: 16px; background: rgba(19,19,24,0.86); backdrop-filter: blur(18px);
+  border: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px;
+}
+
+/* Bottom Filmstrip Scrubber */
+.cin-filmstrip {
+  display: flex; align-items: center; gap: 8px; overflow-x: auto; padding: 12px 24px 80px;
+  background: rgba(0,0,0,0.45); border-top: 1px solid rgba(255,255,255,0.08); scrollbar-width: none;
+}
+@media (min-width: 768px) { .cin-filmstrip { padding-bottom: 14px; } }
+.cin-filmstrip::-webkit-scrollbar { display: none; }
+.cin-thumb {
+  width: 46px; height: 60px; flex-shrink: 0; border-radius: 8px; overflow: hidden;
+  opacity: 0.45; cursor: pointer; border: 2px solid transparent; transition: all 0.2s;
+}
+.cin-thumb.active { opacity: 1; border-color: var(--accent); transform: scale(1.1); }
+.cin-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+@media (max-width: 640px) { .cin-hide-mob { display: none !important; } }

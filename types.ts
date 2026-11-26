@@ -1,6 +1,7 @@
 export interface ImagePrompt {
   id: number;
   image_url: string;
+  thumbnail_url?: string | null;
   title: string;
   prompt: string;
   created_at: string;

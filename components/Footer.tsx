@@ -64,7 +64,7 @@ const Footer: React.FC = () => {
           <a href="tel:+84123456789" aria-label="Phone" className="text-cyber-on-surface-secondary hover:text-cyber-pink transition-colors">
             <PhoneIcon className="w-5 h-5" />
           </a>
-          <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" aria-label="Facebook" className="text-cyber-on-surface-secondary hover:text-cyber-pink transition-colors">
+          <a href="https://www.facebook.com/profile.php?id=61573249500027" target="_blank" rel="noopener noreferrer" aria-label="Facebook" className="text-cyber-on-surface-secondary hover:text-cyber-pink transition-colors">
             <FacebookIcon className="w-5 h-5" />
           </a>
         </div>

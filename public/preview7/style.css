@@ -1,0 +1,57 @@
+:root {
+  --bg: #0b0e14;
+  --surface: #111622;
+  --surface-2: #192132;
+  --border: rgba(148, 163, 184, 0.16);
+  --text: #e2e8f0;
+  --text-muted: #94a3b8;
+  --accent: #10b981;
+  --accent-2: #38bdf8;
+  --on-accent: #042f2e;
+  --accent-glow: rgba(16, 185, 129, 0.3);
+  --font-display: 'JetBrains Mono', monospace;
+  --font-body: 'Be Vietnam Pro', sans-serif;
+  --btn-radius: 6px;
+}
+body { background: var(--bg); color: var(--text); font-family: var(--font-body); }
+
+/* 3-Pane IDE Workbench */
+.ide-shell { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+.ide-titlebar {
+  height: 44px; flex-shrink: 0; padding: 0 14px; background: #080a0f; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.ide-panes { flex: 1; display: flex; min-height: 0; overflow: hidden; }
+
+.ide-left {
+  display: none; width: 230px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--border);
+  padding: 12px; flex-direction: column; gap: 6px; overflow-y: auto;
+}
+@media (min-width: 900px) { .ide-left { display: flex; } }
+
+.ide-center { flex: 1; min-width: 0; overflow-y: auto; padding: 14px 16px 84px; }
+
+.ide-right {
+  display: none; width: 350px; flex-shrink: 0; background: var(--surface); border-left: 1px solid var(--border);
+  padding: 16px; flex-direction: column; gap: 12px; overflow-y: auto;
+}
+@media (min-width: 1180px) { .ide-right { display: flex; } }
+
+.ide-tree-item {
+  width: 100%; text-align: left; padding: 7px 10px; border-radius: 6px; font-size: 13px; font-weight: 500;
+  background: none; border: none; color: var(--text-muted); cursor: pointer;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.ide-tree-item:hover { background: var(--surface-2); color: #fff; }
+.ide-tree-item.active { background: rgba(16,185,129,0.16); color: var(--accent); font-weight: 700; }
+
+.ide-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+@media (min-width: 640px) { .ide-grid { grid-template-columns: repeat(var(--cols, 4), 1fr); gap: 12px; } }
+
+.ide-cell {
+  position: relative; aspect-ratio: 3/4; border-radius: 8px; overflow: hidden; cursor: pointer;
+  border: 2px solid transparent; background: var(--surface); transition: border-color 0.15s;
+}
+.ide-cell.selected { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(16,185,129,0.25); }
+.ide-cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
+@media (max-width: 640px) { .ide-hide-mob { display: none !important; } }

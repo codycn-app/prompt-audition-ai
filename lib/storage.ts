@@ -39,7 +39,8 @@ export const uploadFile = async (
             action: 'upload',
             bucket: R2_BUCKET_NAME,
             key: fullPath,
-            contentType: file.type
+            contentType: file.type,
+            cacheControl: 'public, max-age=31536000, immutable'
         });
 
         if (!data?.signedUrl) {
@@ -51,7 +52,8 @@ export const uploadFile = async (
             method: 'PUT',
             body: file,
             headers: {
-                'Content-Type': file.type
+                'Content-Type': file.type,
+                'Cache-Control': 'public, max-age=31536000, immutable'
             }
         });
 
@@ -107,7 +109,8 @@ export const migrateBlobToR2 = async (blob: Blob, folder: string, fileName: stri
         action: 'upload',
         bucket: R2_BUCKET_NAME,
         key: fullPath,
-        contentType: blob.type
+        contentType: blob.type,
+        cacheControl: 'public, max-age=31536000, immutable'
     });
 
     if (!data?.signedUrl) {
@@ -117,7 +120,7 @@ export const migrateBlobToR2 = async (blob: Blob, folder: string, fileName: stri
     const uploadResponse = await fetch(data.signedUrl, {
         method: 'PUT',
         body: blob,
-        headers: { 'Content-Type': blob.type }
+        headers: { 'Content-Type': blob.type, 'Cache-Control': 'public, max-age=31536000, immutable' }
     });
 
     if (!uploadResponse.ok) {
@@ -126,3 +129,24 @@ export const migrateBlobToR2 = async (blob: Blob, folder: string, fileName: stri
 
     return `${R2_PUBLIC_DOMAIN}/${fullPath}`;
 }
+
+export const createThumbnailWebP = async (file: Blob, crop?: { x: number; y: number; width: number; height: number } | null): Promise<Blob> => {
+    const bitmap = await createImageBitmap(file);
+    const source = crop && crop.width > 0 && crop.height > 0 ? crop : { x: 0, y: 0, width: bitmap.width, height: bitmap.height };
+    const scale = Math.min(1, 640 / Math.max(source.width, source.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(source.width * scale));
+    canvas.height = Math.max(1, Math.round(source.height * scale));
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Không thể tạo thumbnail.');
+    context.drawImage(bitmap, source.x, source.y, source.width, source.height, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    return new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Không thể mã hóa WebP.')), 'image/webp', 0.82));
+};
+
+export const uploadImageWithThumbnail = async (file: File, folder: 'images' | 'avatars', fileName: string, crop?: { x: number; y: number; width: number; height: number } | null) => {
+    const imageUrl = await uploadFile(file, folder, fileName);
+    const thumbnail = await createThumbnailWebP(file, crop);
+    const thumbnailUrl = await migrateBlobToR2(thumbnail, folder, `${fileName.replace(/\.[^.]+$/, '')}.webp`);
+    return { imageUrl, thumbnailUrl };
+};

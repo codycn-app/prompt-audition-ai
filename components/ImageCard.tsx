@@ -8,6 +8,7 @@ interface ImageCardProps {
 
 const ImageCard: React.FC<ImageCardProps> = ({ image, onClick }) => {
   const [isImageBroken, setIsImageBroken] = useState(false);
+  const [useOriginal, setUseOriginal] = useState(false);
 
   // Calculate object-position based on crop data.
   // This ensures the user's selected focal point is centered in the thumbnail.
@@ -41,12 +42,15 @@ const ImageCard: React.FC<ImageCardProps> = ({ image, onClick }) => {
           </div>
         ) : (
           <img
-            src={image.image_url}
+            src={useOriginal ? image.image_url : (image.thumbnail_url || image.image_url)}
             alt={image.title}
             className="block object-cover w-full h-full transition-transform duration-500 group-hover:scale-105"
             style={{ objectPosition: getObjectPosition() }}
             loading="lazy"
-            onError={() => setIsImageBroken(true)}
+            onError={() => {
+              if (image.thumbnail_url && !useOriginal) setUseOriginal(true);
+              else setIsImageBroken(true);
+            }}
           />
         )}
         
