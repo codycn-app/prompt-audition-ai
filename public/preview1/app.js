@@ -1,4 +1,3 @@
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js';
 import gsap from 'https://cdn.jsdelivr.net/npm/gsap@3.12.5/index.js';
 import { PromptAppEngine, escapeHtml, getObjectPosition, copyText } from '/preview-core/core.js';
 import { ICONS, renderDetailModal, closeDetailModal, renderArticleView, renderSupportView, renderProfileView, openAuthModal, openAddModal } from '/preview-core/ui-kit.js';
@@ -20,79 +19,8 @@ const LOGO_SVG = `
 
 const CAT_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>`;
 
-function initStarfield() {
-  const canvas = document.getElementById('os-stars');
-  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
-  camera.position.z = 5;
-
-  const count = window.innerWidth < 768 ? 400 : 1000;
-  const pos = new Float32Array(count * 3);
-  const cols = new Float32Array(count * 3);
-  const c1 = new THREE.Color('#38bdf8'), c2 = new THREE.Color('#e879f9');
-  for (let i = 0; i < count; i++) {
-    pos[i * 3] = (Math.random() - 0.5) * 22;
-    pos[i * 3 + 1] = (Math.random() - 0.5) * 14;
-    pos[i * 3 + 2] = (Math.random() - 0.5) * 14;
-    const c = Math.random() > 0.5 ? c1 : c2;
-    cols[i * 3] = c.r; cols[i * 3 + 1] = c.g; cols[i * 3 + 2] = c.b;
-  }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  geo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
-  const pts = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.045, vertexColors: true, transparent: true, opacity: 0.72 }));
-  scene.add(pts);
-
-  let mx = 0, my = 0;
-  window.addEventListener('pointermove', (e) => { mx = (e.clientX / window.innerWidth - 0.5) * 0.45; my = (e.clientY / window.innerHeight - 0.5) * 0.35; });
-  window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-  });
-  function anim() {
-    requestAnimationFrame(anim);
-    pts.rotation.y += 0.0007;
-    pts.rotation.x += (my - pts.rotation.x) * 0.03;
-    pts.rotation.y += (mx - pts.rotation.y) * 0.015;
-    renderer.render(scene, camera);
-  }
-  anim();
-}
-
-function initBanner3D() {
-  const canvas = document.getElementById('os-banner-3d');
-  if (!canvas) return;
-  const r = canvas.parentElement.getBoundingClientRect();
-  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
-  renderer.setSize(r.width, r.height);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(45, r.width / r.height, 0.1, 100);
-  camera.position.z = 5;
-
-  const knot = new THREE.Mesh(
-    new THREE.TorusKnotGeometry(1.15, 0.32, 90, 14),
-    new THREE.MeshBasicMaterial({ color: 0x38bdf8, wireframe: true, transparent: true, opacity: 0.28 })
-  );
-  knot.position.set(-1.6, 0, 0);
-  scene.add(knot);
-
-  function anim() {
-    if (!document.getElementById('os-banner-3d')) return;
-    requestAnimationFrame(anim);
-    knot.rotation.y += 0.006;
-    knot.rotation.x += 0.004;
-    renderer.render(scene, camera);
-  }
-  anim();
-}
-
 const adapter = {
   mountShell(engine) {
-    initStarfield();
     document.getElementById('app').innerHTML = `
       <div class="os-root">
         <header class="os-menubar">
@@ -115,17 +43,16 @@ const adapter = {
         <main class="os-desktop" id="os-main">
           <section class="os-hero-banner">
             <div class="os-hero-inner">
-              <canvas id="os-banner-3d"></canvas>
               <div class="os-hero-copy">
                 <div class="os-hero-badge"><span class="os-hero-dot"></span> <span id="os-count-label">Kho câu lệnh AI cộng đồng</span></div>
-                <h1 style="margin:0 0 10px;font-family:var(--font-display);font-size:clamp(24px,3.2vw,36px);line-height:1.15;">Khám phá & Chia sẻ Câu Lệnh Tạo Ảnh AI</h1>
-                <p style="margin:0 0 18px;font-size:14px;color:var(--text-muted);line-height:1.6;max-width:540px;">Bấm vào ảnh để mở xem kích thước gốc kèm câu lệnh chi tiết, hoặc mở dạng bài viết để chia sẻ link trực tiếp cho bạn bè.</p>
-                <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-                  <button class="uk-btn uk-btn-primary" id="os-hero-add">${ICONS.plus} Đóng góp Prompt</button>
-                  <select class="uk-input" id="os-sort" style="width:auto;padding:9px 14px;border-radius:999px;font-size:13px;">
-                    <option value="newest">Mới nhất</option>
-                    <option value="views">Xem nhiều nhất</option>
+                <h1 style="margin:0 0 10px;font-family:var(--font-display);font-size:clamp(24px,3.2vw,38px);line-height:1.15;">Thư viện Câu Lệnh Tạo Ảnh AI</h1>
+                <p style="margin:0 0 18px;font-size:14px;color:var(--text-muted);line-height:1.65;max-width:540px;">Khám phá hàng nghìn câu lệnh tuyển chọn, sao chép nhanh trực tiếp trên ảnh hoặc mở xem kích thước gốc kèm link chia sẻ bài viết.</p>
+                <div class="os-hero-meta">
+                  <select class="uk-input" id="os-sort" style="width:auto;padding:9px 16px;border-radius:999px;font-size:13px;font-weight:600;">
+                    <option value="newest">Sắp xếp: Mới nhất</option>
+                    <option value="views">Sắp xếp: Xem nhiều nhất</option>
                   </select>
+                  <span class="os-stat-chip">${ICONS.sparkles.replace('<svg', '<svg style="width:14px;height:14px;color:var(--accent);"')} Ảnh gốc sắc nét</span>
                 </div>
               </div>
               <div class="os-featured-strip" id="os-featured"></div>
@@ -137,7 +64,7 @@ const adapter = {
               <div class="os-cats-scroll" id="os-cats"></div>
             </div>
             <div class="os-grid" id="os-grid"></div>
-            <div id="os-more" style="text-align:center;padding:8px 18px 24px;"></div>
+            <div id="os-more" style="text-align:center;padding:10px 18px 26px;"></div>
           </section>
         </main>
 
@@ -156,7 +83,6 @@ const adapter = {
       </div>
     `;
 
-    initBanner3D();
     this.bindControls(engine);
   },
 
@@ -164,7 +90,6 @@ const adapter = {
     document.getElementById('os-logo').onclick = () => engine.setCategory('all');
     document.getElementById('os-sup').onclick = () => engine.setPage('support');
     document.getElementById('os-add').onclick = () => openAddModal(engine);
-    document.getElementById('os-hero-add').onclick = () => openAddModal(engine);
     document.getElementById('os-dock-add').onclick = () => openAddModal(engine);
     document.getElementById('os-sort').onchange = (e) => engine.setSort(e.target.value);
 
@@ -194,7 +119,7 @@ const adapter = {
 
   renderLoading(engine, l) {
     if (!l) return;
-    document.getElementById('os-grid').innerHTML = Array.from({ length: 12 }, () => `<div class="os-tile" style="opacity:0.35;"></div>`).join('');
+    document.getElementById('os-grid').innerHTML = Array.from({ length: 14 }, () => `<div class="os-tile" style="opacity:0.35;"></div>`).join('');
   },
 
   renderCategories(engine) {
@@ -249,25 +174,12 @@ const adapter = {
     g.innerHTML = loadedImages.map(img => `
       <div class="os-tile" data-id="${img.id}">
         <img src="${escapeHtml(img.thumbnail_url || img.image_url)}" alt="${escapeHtml(img.title)}" style="object-position:${getObjectPosition(img)}" loading="lazy" />
-        <div class="os-tile-foot">
-          <span style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(img.title)}</span>
-          <button class="uk-btn" data-copy="${img.id}" style="padding:6px 8px;border-radius:999px;" title="Sao chép nhanh">${ICONS.copy}</button>
-        </div>
+        <button class="os-copy-pill" data-copy="${img.id}" title="Sao chép Prompt">${ICONS.copy}<span>Copy Prompt</span></button>
       </div>`).join('');
 
-    gsap.fromTo('.os-tile', { opacity: 0, y: 16, scale: 0.96 }, { opacity: 1, y: 0, scale: 1, duration: 0.4, stagger: 0.02, ease: 'power3.out' });
+    gsap.fromTo('.os-tile', { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.35, stagger: 0.018, ease: 'power2.out' });
 
     g.querySelectorAll('.os-tile').forEach(card => {
-      card.addEventListener('pointermove', (e) => {
-        if (window.innerWidth < 768) return;
-        const r = card.getBoundingClientRect();
-        const x = (e.clientX - r.left) / r.width;
-        const y = (e.clientY - r.top) / r.height;
-        card.style.setProperty('--mx', `${e.clientX - r.left}px`);
-        card.style.setProperty('--my', `${e.clientY - r.top}px`);
-        card.style.transform = `perspective(700px) rotateX(${(0.5 - y) * 7}deg) rotateY(${(x - 0.5) * 7}deg) translateY(-4px)`;
-      });
-      card.addEventListener('pointerleave', () => { card.style.transform = ''; });
       card.onclick = (e) => {
         if (e.target.closest('[data-copy]')) return;
         const item = loadedImages.find(i => i.id === Number(card.dataset.id));
@@ -275,10 +187,13 @@ const adapter = {
       };
     });
 
-    g.querySelectorAll('[data-copy]').forEach(b => b.onclick = (e) => {
+    g.querySelectorAll('[data-copy]').forEach(b => b.onclick = async (e) => {
       e.stopPropagation();
       const item = loadedImages.find(i => i.id === Number(b.dataset.copy));
-      if (item) copyText(item.prompt);
+      if (item && await copyText(item.prompt)) {
+        b.innerHTML = `${ICONS.check}<span>Đã chép!</span>`;
+        setTimeout(() => { if (b.isConnected) b.innerHTML = `${ICONS.copy}<span>Copy Prompt</span>`; }, 1500);
+      }
     });
 
     m.innerHTML = hasMore ? `<button class="uk-btn uk-btn-primary" id="os-more-btn">Xem thêm (${filteredImages.length - loadedImages.length})</button>` : '';
@@ -292,11 +207,9 @@ const adapter = {
     else if (engine.state.currentPage === 'profile') renderProfileView(main, engine);
     else {
       main.innerHTML = `
-        <section class="os-hero-banner"><div class="os-hero-inner"><canvas id="os-banner-3d"></canvas><div class="os-hero-copy"><div class="os-hero-badge"><span class="os-hero-dot"></span> <span id="os-count-label">Kho câu lệnh AI cộng đồng</span></div><h1 style="margin:0 0 10px;font-family:var(--font-display);font-size:clamp(24px,3.2vw,36px);line-height:1.15;">Khám phá & Chia sẻ Câu Lệnh Tạo Ảnh AI</h1><p style="margin:0 0 18px;font-size:14px;color:var(--text-muted);line-height:1.6;max-width:540px;">Bấm vào ảnh để mở xem kích thước gốc kèm câu lệnh chi tiết, hoặc mở dạng bài viết để chia sẻ link trực tiếp cho bạn bè.</p><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;"><button class="uk-btn uk-btn-primary" id="os-hero-add">${ICONS.plus} Đóng góp Prompt</button><select class="uk-input" id="os-sort" style="width:auto;padding:9px 14px;border-radius:999px;font-size:13px;"><option value="newest" ${engine.state.sortBy === 'newest' ? 'selected' : ''}>Mới nhất</option><option value="views" ${engine.state.sortBy === 'views' ? 'selected' : ''}>Xem nhiều nhất</option></select></div></div><div class="os-featured-strip" id="os-featured"></div></div></section>
-        <section class="os-library-win"><div class="os-cat-bar"><div class="os-cats-scroll" id="os-cats"></div></div><div class="os-grid" id="os-grid"></div><div id="os-more" style="text-align:center;padding:8px 18px 24px;"></div></section>
+        <section class="os-hero-banner"><div class="os-hero-inner"><div class="os-hero-copy"><div class="os-hero-badge"><span class="os-hero-dot"></span> <span id="os-count-label">Kho câu lệnh AI cộng đồng</span></div><h1 style="margin:0 0 10px;font-family:var(--font-display);font-size:clamp(24px,3.2vw,38px);line-height:1.15;">Thư viện Câu Lệnh Tạo Ảnh AI</h1><p style="margin:0 0 18px;font-size:14px;color:var(--text-muted);line-height:1.65;max-width:540px;">Khám phá hàng nghìn câu lệnh tuyển chọn, sao chép nhanh trực tiếp trên ảnh hoặc mở xem kích thước gốc kèm link chia sẻ bài viết.</p><div class="os-hero-meta"><select class="uk-input" id="os-sort" style="width:auto;padding:9px 16px;border-radius:999px;font-size:13px;font-weight:600;"><option value="newest" ${engine.state.sortBy === 'newest' ? 'selected' : ''}>Sắp xếp: Mới nhất</option><option value="views" ${engine.state.sortBy === 'views' ? 'selected' : ''}>Sắp xếp: Xem nhiều nhất</option></select><span class="os-stat-chip">${ICONS.sparkles.replace('<svg', '<svg style="width:14px;height:14px;color:var(--accent);"')} Ảnh gốc sắc nét</span></div></div><div class="os-featured-strip" id="os-featured"></div></div></section>
+        <section class="os-library-win"><div class="os-cat-bar"><div class="os-cats-scroll" id="os-cats"></div></div><div class="os-grid" id="os-grid"></div><div id="os-more" style="text-align:center;padding:10px 18px 26px;"></div></section>
       `;
-      initBanner3D();
-      main.querySelector('#os-hero-add').onclick = () => openAddModal(engine);
       main.querySelector('#os-sort').onchange = (e) => engine.setSort(e.target.value);
       this.renderCategories(engine);
       this.renderGallery(engine);
@@ -306,7 +219,7 @@ const adapter = {
   openDetailModal(engine, image) {
     renderDetailModal(engine, image, {
       onModalMount(modal) {
-        gsap.fromTo(modal.querySelector('.pc-modal-card'), { scale: 0.9, opacity: 0, y: 18 }, { scale: 1, opacity: 1, y: 0, duration: 0.34, ease: 'back.out(1.4)' });
+        gsap.fromTo(modal.querySelector('.pc-modal-card'), { scale: 0.92, opacity: 0, y: 16 }, { scale: 1, opacity: 1, y: 0, duration: 0.3, ease: 'power3.out' });
       }
     });
   },

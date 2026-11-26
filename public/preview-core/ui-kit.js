@@ -111,54 +111,62 @@ export function renderDetailModal(engine, image, opts = {}) {
   modal.setAttribute('role', 'dialog');
   modal.setAttribute('aria-modal', 'true');
   modal.innerHTML = `
-    <div class="pc-modal-card pc-split uk-modal-shell">
-      <button class="uk-close-btn" id="uk-modal-close" aria-label="Đóng">${ICONS.close}</button>
-      <div style="flex:1.25;background:#050507;display:flex;align-items:center;justify-content:center;min-height:260px;max-height:46vh;overflow:hidden;position:relative;" class="uk-modal-media">
-        <img src="${escapeHtml(image.image_url)}" alt="${escapeHtml(image.title)}" style="width:100%;height:100%;object-fit:contain;" />
+    <div class="pc-modal-card pc-split uk-modal-shell" style="max-width:1060px;border-radius:24px;border:1px solid rgba(255,255,255,0.16);background:rgba(12,16,28,0.96);backdrop-filter:blur(28px);box-shadow:0 32px 90px rgba(0,0,0,0.75), inset 0 1px 0 rgba(255,255,255,0.14);">
+      <button class="uk-close-btn" id="uk-modal-close" aria-label="Đóng" style="top:14px;right:14px;width:38px;height:38px;background:rgba(255,255,255,0.08);backdrop-filter:blur(10px);">${ICONS.close}</button>
+
+      <div class="uk-modal-media" style="flex:1.3;background:radial-gradient(circle at center, #111827 0%, #05070c 100%);display:flex;align-items:center;justify-content:center;min-height:280px;max-height:46vh;overflow:hidden;position:relative;padding:14px;border-right:1px solid rgba(255,255,255,0.08);">
+        <div style="position:absolute;top:14px;left:14px;display:flex;align-items:center;gap:8px;z-index:2;">
+          <span style="padding:4px 10px;border-radius:999px;font-size:11.5px;font-weight:700;background:rgba(5,7,14,0.78);border:1px solid rgba(255,255,255,0.16);color:#e2e8f0;backdrop-filter:blur(8px);">#${image.id}</span>
+          <span style="padding:4px 10px;border-radius:999px;font-size:11.5px;font-weight:600;background:rgba(5,7,14,0.78);border:1px solid rgba(255,255,255,0.16);color:#7dd3fc;backdrop-filter:blur(8px);display:inline-flex;align-items:center;gap:5px;">${ICONS.eye.replace('<svg', '<svg style="width:13px;height:13px;"')} ${image.views || 0}</span>
+        </div>
+        <img src="${escapeHtml(image.image_url)}" alt="${escapeHtml(image.title)}" style="width:100%;height:100%;object-fit:contain;border-radius:12px;filter:drop-shadow(0 16px 36px rgba(0,0,0,0.65));" />
       </div>
-      <div style="flex:1;padding:22px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;">
-        <div>
-          <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-muted);margin-bottom:6px;">
-            <span>#${image.id}</span>
-            <span>•</span>
-            <span style="display:inline-flex;align-items:center;gap:4px;">${ICONS.eye.replace('<svg', '<svg style="width:13px;height:13px;"')} ${image.views || 0} lượt xem</span>
+
+      <div style="flex:1;padding:24px 26px;display:flex;flex-direction:column;gap:16px;overflow-y:auto;">
+        <div style="padding-right:34px;">
+          <h2 style="margin:0;font-size:23px;line-height:1.25;font-weight:700;font-family:var(--font-display, inherit);color:#fff;">${escapeHtml(image.title)}</h2>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 14px;border-radius:14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.09);">
+          <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+            ${author?.avatarUrl
+              ? `<img src="${escapeHtml(author.avatarUrl)}" alt="" style="width:38px;height:38px;border-radius:999px;object-fit:cover;border:1px solid rgba(255,255,255,0.2);">`
+              : `<div style="width:38px;height:38px;border-radius:999px;display:grid;place-items:center;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;flex-shrink:0;">${escapeHtml((author?.username || '?')[0].toUpperCase())}</div>`}
+            <div style="min-width:0;">
+              <div style="font-weight:700;font-size:14px;color:${rank.color};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(author?.username || 'Thành viên Audition AI')}</div>
+              <div style="font-size:12px;color:var(--text-muted);">${escapeHtml(rank.name)}</div>
+            </div>
           </div>
-          <h2 style="margin:0;font-size:21px;font-weight:700;font-family:var(--font-display, inherit);">${escapeHtml(image.title)}</h2>
+          ${catsHtml ? `<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;">${catsHtml}</div>` : ''}
         </div>
 
-        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:var(--surface-2,rgba(255,255,255,0.04));border:1px solid var(--border,rgba(255,255,255,0.08));">
-          ${author?.avatarUrl
-            ? `<img src="${escapeHtml(author.avatarUrl)}" alt="" style="width:36px;height:36px;border-radius:999px;object-fit:cover;">`
-            : `<div style="width:36px;height:36px;border-radius:999px;display:grid;place-items:center;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;">${escapeHtml((author?.username || '?')[0].toUpperCase())}</div>`}
-          <div style="min-width:0;">
-            <div style="font-weight:600;font-size:14px;color:${rank.color}">${escapeHtml(author?.username || 'Thành viên Audition AI')}</div>
-            <div style="font-size:12px;color:var(--text-muted);">${escapeHtml(rank.name)}</div>
+        <div style="display:flex;flex-direction:column;flex:1;min-height:140px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent);">Câu lệnh (Prompt)</span>
+            <span style="font-size:11px;color:var(--text-muted);">${(image.prompt || '').length} ký tự</span>
+          </div>
+          <div class="uk-prompt-box" id="uk-prompt-text" style="flex:1;max-height:250px;background:rgba(5,7,14,0.75);border:1px solid rgba(56,189,248,0.22);border-radius:14px;padding:14px 16px;font-size:13.5px;line-height:1.68;color:#e2e8f0;">${escapeHtml(image.prompt)}</div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:9px;">
+          <button class="uk-btn uk-btn-primary" id="uk-copy-prompt" style="width:100%;padding:12px 18px;font-size:14px;border-radius:14px;">${ICONS.copy} <span>Sao chép Prompt</span></button>
+          <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:8px;">
+            <button class="uk-btn" id="uk-copy-link" style="padding:9px 10px;font-size:12.5px;">${ICONS.link} <span>Chép Link</span></button>
+            <button class="uk-btn" id="uk-open-article" style="padding:9px 10px;font-size:12.5px;">${ICONS.article} <span>Bài viết</span></button>
+            <button class="uk-btn" id="uk-open-guide" style="padding:9px 10px;font-size:12.5px;">${ICONS.info} <span>Hướng dẫn</span></button>
           </div>
         </div>
 
-        <div>
-          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--accent);margin-bottom:6px;">Câu lệnh (Prompt)</div>
-          <div class="uk-prompt-box" id="uk-prompt-text">${escapeHtml(image.prompt)}</div>
-        </div>
-
-        <div style="display:flex;flex-wrap:wrap;gap:8px;">
-          <button class="uk-btn uk-btn-primary" id="uk-copy-prompt">${ICONS.copy} <span>Sao chép Prompt</span></button>
-          <button class="uk-btn" id="uk-copy-link">${ICONS.link} <span>Sao chép Link</span></button>
-          <button class="uk-btn" id="uk-open-article">${ICONS.article} <span>Mở bài viết</span></button>
-          <button class="uk-btn" id="uk-open-guide">${ICONS.info} <span>Hướng dẫn</span></button>
-        </div>
-
-        ${catsHtml ? `<div style="display:flex;flex-wrap:wrap;gap:6px;">${catsHtml}</div>` : ''}
-
-        <div style="margin-top:auto;display:flex;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid var(--border,rgba(255,255,255,0.08));font-size:12px;color:var(--text-muted);">
-          <span>Tạo lúc: ${new Date(image.created_at).toLocaleString('vi-VN')}</span>
-          ${canDelete ? `<button class="uk-btn" id="uk-delete-post" style="padding:6px 10px;color:#f87171;border-color:rgba(248,113,113,0.3);">${ICONS.trash} Xóa</button>` : ''}
+        <div style="display:flex;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08);font-size:12px;color:var(--text-muted);">
+          <span>Đăng lúc: ${new Date(image.created_at).toLocaleString('vi-VN')}</span>
+          ${canDelete ? `<button class="uk-btn" id="uk-delete-post" style="padding:5px 10px;color:#f87171;border-color:rgba(248,113,113,0.3);">${ICONS.trash} Xóa</button>` : ''}
         </div>
       </div>
     </div>
   `;
 
   if (window.innerWidth >= 768) {
+    modal.querySelector('.pc-modal-card').style.height = 'min(680px, 90vh)';
     modal.querySelector('.uk-modal-media').style.maxHeight = 'none';
   }
 

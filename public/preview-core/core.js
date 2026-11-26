@@ -9,7 +9,7 @@ const SUPABASE_URL = 'https://awovbdypluazfcfvnmym.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF3b3ZiZHlwbHVhemZjZnZubXltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5NzYyOTEsImV4cCI6MjEwNzU1MjI5MX0.jFWiLLQGxrctqdWtts8979ibgwSKaj6GsJXxqcV49WU';
 const R2_PUBLIC_DOMAIN = 'https://pub-7a59a184512144158a3ce246c7165fee.r2.dev';
 const R2_BUCKET_NAME = 'audition-ai-images';
-const ITEMS_PER_PAGE = 24;
+const ITEMS_PER_PAGE = 28;
 
 export const INITIAL_RANKS = [
   { name: 'Thành viên mới', color: '#9CA3AF', requiredExp: 0 },
