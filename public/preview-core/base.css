@@ -1,0 +1,49 @@
+/* Shared base utilities & modal/toast/responsive primitives for Preview 1..10 */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; min-height: 100%; overflow-x: hidden; }
+
+.pc-toast-wrap {
+  position: fixed; bottom: 84px; right: 20px; z-index: 9999;
+  display: flex; flex-direction: column; gap: 10px; pointer-events: none;
+}
+@media (min-width: 768px) { .pc-toast-wrap { bottom: 24px; } }
+.pc-toast {
+  pointer-events: auto; padding: 12px 18px; border-radius: 12px;
+  font-size: 13px; font-weight: 600; color: #fff;
+  background: rgba(16, 185, 129, 0.92); backdrop-filter: blur(12px);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+  animation: pcToastIn 0.25s ease forwards;
+}
+.pc-toast.error { background: rgba(239, 68, 68, 0.94); }
+@keyframes pcToastIn { from { opacity: 0; transform: translateY(12px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+.pc-hidden { display: none !important; }
+.pc-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+
+/* Modal Backdrop */
+.pc-modal-backdrop {
+  position: fixed; inset: 0; z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+  padding: 12px; background: rgba(0,0,0,0.72); backdrop-filter: blur(14px);
+}
+.pc-modal-card {
+  position: relative; width: 100%; max-width: 980px; max-height: 92vh;
+  overflow: hidden; border-radius: 20px;
+  display: flex; flex-direction: column;
+}
+@media (min-width: 768px) {
+  .pc-modal-card.pc-split { flex-direction: row; height: 640px; }
+}
+
+/* Mobile bottom dock */
+.pc-mobile-dock {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 900;
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  height: 64px; align-items: center;
+}
+@media (min-width: 768px) { .pc-mobile-dock { display: none !important; } }
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
