@@ -209,59 +209,64 @@ export function renderArticleView(container, engine, image) {
   const fallbackRelated = related.length ? related : engine.state.allImagesMeta.filter(i => i.id !== image.id).slice(0, 4);
 
   container.innerHTML = `
-    <article class="uk-article-wrap">
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
-        <button class="uk-btn" id="uk-art-back">${ICONS.back} <span>Quay lại thư viện</span></button>
-        <div style="font-size:13px;color:var(--text-muted);">Bài viết Prompt #${image.id}</div>
+    <article class="uk-article-wrap" style="max-width:980px;padding:18px 16px 96px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+        <button class="uk-btn" id="uk-art-back" style="padding:7px 14px;">${ICONS.back} <span>Quay lại thư viện</span></button>
+        <div style="font-size:12.5px;color:var(--text-muted);display:flex;align-items:center;gap:10px;">
+          <span>#${image.id}</span>
+          <span>•</span>
+          <span style="display:inline-flex;align-items:center;gap:4px;">${ICONS.eye.replace('<svg', '<svg style="width:14px;height:14px;"')} ${image.views || 0} lượt xem</span>
+        </div>
       </div>
 
-      <div class="uk-article-grid uk-modal-shell" style="padding:20px;border-radius:20px;">
-        <div style="background:#050507;border-radius:14px;overflow:hidden;border:1px solid var(--border);">
-          <img src="${escapeHtml(image.image_url)}" alt="${escapeHtml(image.title)}" style="width:100%;max-height:75vh;object-fit:contain;display:block;" />
+      <div class="uk-article-grid uk-modal-shell" style="padding:18px;border-radius:22px;gap:22px;">
+        <div style="background:radial-gradient(circle at center,#111827,#05070c);border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,0.1);padding:10px;display:flex;align-items:center;justify-content:center;">
+          <img src="${escapeHtml(image.image_url)}" alt="${escapeHtml(image.title)}" style="width:100%;max-height:62vh;object-fit:contain;display:block;border-radius:10px;" />
         </div>
-        <div style="display:flex;flex-direction:column;gap:16px;">
-          <h1 style="margin:0;font-size:28px;line-height:1.25;font-family:var(--font-display,inherit);">${escapeHtml(image.title)}</h1>
 
-          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:12px 14px;border-radius:14px;background:var(--surface-2);border:1px solid var(--border);">
+        <div style="display:flex;flex-direction:column;gap:14px;">
+          <h1 style="margin:0;font-size:24px;line-height:1.25;font-family:var(--font-display,inherit);">${escapeHtml(image.title)}</h1>
+
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);">
             <div style="display:flex;align-items:center;gap:10px;">
               ${author?.avatarUrl
-                ? `<img src="${escapeHtml(author.avatarUrl)}" style="width:40px;height:40px;border-radius:999px;object-fit:cover;">`
-                : `<div style="width:40px;height:40px;border-radius:999px;display:grid;place-items:center;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;">${escapeHtml((author?.username || '?')[0].toUpperCase())}</div>`}
+                ? `<img src="${escapeHtml(author.avatarUrl)}" style="width:36px;height:36px;border-radius:999px;object-fit:cover;">`
+                : `<div style="width:36px;height:36px;border-radius:999px;display:grid;place-items:center;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;">${escapeHtml((author?.username || '?')[0].toUpperCase())}</div>`}
               <div>
-                <div style="font-weight:700;color:${rank.color}">${escapeHtml(author?.username || 'Thành viên Audition AI')}</div>
-                <div style="font-size:12px;color:var(--text-muted);">${escapeHtml(rank.name)} • ${new Date(image.created_at).toLocaleDateString('vi-VN')}</div>
+                <div style="font-weight:700;font-size:13.5px;color:${rank.color}">${escapeHtml(author?.username || 'Thành viên Audition AI')}</div>
+                <div style="font-size:11.5px;color:var(--text-muted);">${escapeHtml(rank.name)} • ${new Date(image.created_at).toLocaleDateString('vi-VN')}</div>
               </div>
             </div>
-            <div style="font-size:13px;color:var(--text-muted);display:flex;align-items:center;gap:5px;">
-              ${ICONS.eye.replace('<svg', '<svg style="width:15px;height:15px;"')} ${image.views || 0} lượt xem
-            </div>
+            ${image.categories?.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;">${image.categories.map(c => `<button class="uk-chip" data-art-cat="${c.id}" style="padding:4px 10px;font-size:11.5px;">${escapeHtml(c.name)}</button>`).join('')}</div>` : ''}
           </div>
 
           <div>
-            <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--accent);margin-bottom:8px;">Câu lệnh tạo ảnh (Prompt)</div>
-            <div class="uk-prompt-box" style="max-height:none;">${escapeHtml(image.prompt)}</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+              <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--accent);">Câu lệnh (Prompt)</span>
+              <button type="button" id="uk-art-toggle-prompt" style="background:none;border:none;color:var(--accent);font-size:11.5px;font-weight:600;cursor:pointer;padding:0;">Mở rộng</button>
+            </div>
+            <div class="uk-prompt-box" id="uk-art-prompt-box" style="max-height:165px;font-size:13px;line-height:1.6;">${escapeHtml(image.prompt)}</div>
           </div>
 
-          <div style="display:flex;flex-wrap:wrap;gap:10px;">
-            <button class="uk-btn uk-btn-primary" id="uk-art-copy">${ICONS.copy} <span>Sao chép Prompt</span></button>
-            <button class="uk-btn" id="uk-art-share">${ICONS.link} <span>Sao chép Link bài viết</span></button>
-            <button class="uk-btn" id="uk-art-guide">${ICONS.info} <span>Hướng dẫn dùng</span></button>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-top:auto;">
+            <button class="uk-btn uk-btn-primary" id="uk-art-copy" style="width:100%;padding:11px;">${ICONS.copy} <span>Sao chép Prompt</span></button>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+              <button class="uk-btn" id="uk-art-share">${ICONS.link} <span>Chép Link bài viết</span></button>
+              <button class="uk-btn" id="uk-art-guide">${ICONS.info} <span>Hướng dẫn</span></button>
+            </div>
           </div>
-
-          ${image.categories?.length ? `<div style="display:flex;flex-wrap:wrap;gap:8px;">${image.categories.map(c => `<button class="uk-chip" data-art-cat="${c.id}">${escapeHtml(c.name)}</button>`).join('')}</div>` : ''}
         </div>
       </div>
 
       ${fallbackRelated.length ? `
-        <section style="margin-top:36px;">
-          <h3 style="margin:0 0 12px;font-size:18px;font-family:var(--font-display,inherit);">Prompt liên quan</h3>
+        <section style="margin-top:28px;">
+          <h3 style="margin:0 0 12px;font-size:17px;font-family:var(--font-display,inherit);">Prompt liên quan</h3>
           <div class="uk-related-grid">
             ${fallbackRelated.map(r => `
               <div class="uk-modal-shell" data-rel-id="${r.id}" style="border-radius:14px;overflow:hidden;cursor:pointer;">
-                <div style="aspect-ratio:3/4;overflow:hidden;background:#0a0a0c;">
+                <div style="aspect-ratio:4/5;overflow:hidden;background:#0a0a0c;">
                   <img src="${escapeHtml(r.thumbnail_url || r.image_url)}" alt="${escapeHtml(r.title)}" style="width:100%;height:100%;object-fit:cover;object-position:${getObjectPosition(r)};" loading="lazy" />
                 </div>
-                <div style="padding:10px;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(r.title)}</div>
               </div>
             `).join('')}
           </div>
@@ -269,6 +274,14 @@ export function renderArticleView(container, engine, image) {
       ` : ''}
     </article>
   `;
+
+  const pBox = container.querySelector('#uk-art-prompt-box');
+  const pToggle = container.querySelector('#uk-art-toggle-prompt');
+  pToggle.onclick = () => {
+    const expanded = pBox.style.maxHeight === 'none';
+    pBox.style.maxHeight = expanded ? '165px' : 'none';
+    pToggle.textContent = expanded ? 'Mở rộng' : 'Thu gọn';
+  };
 
   container.querySelector('#uk-art-back').onclick = () => engine.setPage('home');
   container.querySelector('#uk-art-copy').onclick = () => copyText(image.prompt);
