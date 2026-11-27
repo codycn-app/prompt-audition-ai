@@ -4,7 +4,7 @@
  * Auth Modals, Add Post Modal, Guide Modal, Support Page, and Profile Page
  * using the active theme's CSS variables & hooks.
  */
-import { escapeHtml, getObjectPosition, getRankInfo, copyText, showToast, getDisplayViews, saveCmsConfig, saveBrokenIds, INITIAL_RANKS } from './core.js';
+import { escapeHtml, getObjectPosition, getRankInfo, copyText, showToast, getDisplayViews, saveCmsConfig, saveBrokenIds, INITIAL_RANKS, analyzeImageTone, suggestHashtagsFromPost } from './core.js';
 
 export const ICONS = {
   search: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>`,
@@ -684,37 +684,206 @@ export function openAddModal(engine) {
   m.id = 'uk-add-modal';
   m.className = 'pc-modal-backdrop';
   m.innerHTML = `
-    <div class="pc-modal-card uk-modal-shell" style="max-width:540px;padding:24px;overflow-y:auto;">
-      <button class="uk-close-btn" id="uk-add-close">${ICONS.close}</button>
-      <h3 style="margin:0 0 16px;font-size:20px;font-family:var(--font-display,inherit);">Đăng Prompt & Ảnh mới</h3>
-      <form id="uk-add-form" style="display:flex;flex-direction:column;gap:12px;">
-        <input class="uk-input" type="text" id="uk-add-title" placeholder="Tiêu đề bức ảnh..." required />
-        <textarea class="uk-input" id="uk-add-prompt" rows="4" placeholder="Nhập câu lệnh (Prompt)..." required></textarea>
-        <input class="uk-input" type="file" id="uk-add-file" accept="image/*" required />
-        <div style="display:flex;flex-wrap:wrap;gap:6px;">
-          ${engine.state.categories.map(c => `<label class="uk-chip"><input type="checkbox" value="${c.id}" style="accent-color:var(--accent);"> ${escapeHtml(c.name)}</label>`).join('')}
+    <div class="pc-modal-card uk-modal-shell" style="max-width:860px;max-height:92vh;overflow-y:auto;padding:24px;border-radius:24px;border:1px solid rgba(56,189,248,0.32);background:linear-gradient(155deg,rgba(12,18,36,0.97),rgba(18,12,34,0.97));box-shadow:0 32px 90px rgba(0,0,0,0.78),0 0 40px rgba(56,189,248,0.16);">
+      <button class="uk-close-btn" id="uk-add-close" aria-label="Đóng">${ICONS.close}</button>
+
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;padding-right:36px;">
+        <div style="width:42px;height:42px;border-radius:13px;display:grid;place-items:center;background:linear-gradient(135deg,rgba(56,189,248,0.22),rgba(232,121,249,0.22));border:1px solid rgba(56,189,248,0.42);color:#7dd3fc;flex-shrink:0;">
+          ${ICONS.plus.replace('<svg', '<svg style="width:20px;height:20px;"')}
         </div>
-        <button class="uk-btn uk-btn-primary" type="submit" id="uk-add-submit">${ICONS.plus} Đăng bài (+50 EXP)</button>
+        <div>
+          <h3 style="margin:0;font-size:20px;font-weight:700;font-family:var(--font-display,inherit);background:linear-gradient(90deg,#fff,#7dd3fc,#f0abfc);-webkit-background-clip:text;color:transparent;">Đăng Prompt &amp; Ảnh mới</h3>
+          <div style="font-size:12.5px;color:var(--text-muted);margin-top:2px;">Tải ảnh lên, nhập câu lệnh và nhận ngay +50 EXP đóng góp cộng đồng</div>
+        </div>
+      </div>
+
+      <form id="uk-add-form" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:18px;align-items:start;">
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div id="uk-add-dropzone" style="position:relative;aspect-ratio:4/5;border-radius:18px;border:1.5px dashed rgba(56,189,248,0.45);background:rgba(5,7,14,0.65);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;cursor:pointer;overflow:hidden;text-align:center;padding:16px;transition:border-color 0.2s,background 0.2s;user-select:none;">
+            <img id="uk-add-preview" alt="" draggable="false" style="display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 50%;background:#05070e;cursor:grab;" />
+            <div id="uk-add-crop-hint" style="display:none;position:absolute;bottom:10px;left:50%;transform:translateX(-50%);z-index:3;padding:4px 10px;border-radius:999px;background:rgba(5,7,14,0.82);border:1px solid rgba(56,189,248,0.4);font-size:11px;font-weight:600;color:#7dd3fc;white-space:nowrap;pointer-events:none;">Kéo lướt để căn khung thumbnail 4:5</div>
+            <div id="uk-add-placeholder" style="display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--text-muted);">
+              <div style="width:48px;height:48px;border-radius:14px;background:rgba(56,189,248,0.14);border:1px solid rgba(56,189,248,0.35);display:grid;place-items:center;color:#7dd3fc;">
+                ${ICONS.plus.replace('<svg', '<svg style="width:22px;height:22px;"')}
+              </div>
+              <div style="font-weight:700;font-size:13.5px;color:#e2e8f0;">Bấm hoặc kéo thả ảnh vào đây</div>
+              <div style="font-size:11.5px;">Khung xem trước căn thumbnail 4:5 — Ảnh gốc (vd 9:16) vẫn giữ nguyên kích thước khi tải lên</div>
+            </div>
+            <input type="file" id="uk-add-file" accept="image/*" style="display:none;" required />
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+            <div id="uk-add-file-info" style="font-size:12px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Chưa chọn ảnh</div>
+            <button type="button" id="uk-add-change-img" class="uk-btn" style="display:none;padding:4px 10px;font-size:11.5px;flex-shrink:0;">Đổi ảnh</button>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div>
+            <label style="display:block;font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:5px;">Tiêu đề bức ảnh</label>
+            <input class="uk-input" type="text" id="uk-add-title" placeholder="Ví dụ: Chân dung nữ cá tính neon..." required />
+          </div>
+
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+              <label style="font-size:12px;font-weight:600;color:var(--text-muted);">Câu lệnh (Prompt)</label>
+              <span id="uk-add-char" style="font-size:11px;color:var(--text-muted);">0 ký tự</span>
+            </div>
+            <textarea class="uk-input" id="uk-add-prompt" rows="5" placeholder="Dán toàn bộ câu lệnh tạo ảnh AI..." required style="resize:vertical;line-height:1.55;"></textarea>
+          </div>
+
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:6px;">Chuyên mục</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;" id="uk-add-cats">
+              ${engine.state.categories.map(c => `<label class="uk-chip" style="padding:5px 11px;"><input type="checkbox" value="${c.id}" data-cat-name="${escapeHtml(c.name)}" style="accent-color:var(--accent);"> ${escapeHtml(c.name)}</label>`).join('')}
+            </div>
+          </div>
+
+          <div style="padding:12px;border-radius:14px;background:rgba(56,189,248,0.07);border:1px solid rgba(56,189,248,0.24);">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;">
+              <span style="font-size:12px;font-weight:700;color:#7dd3fc;">5 Từ khóa chủ đề (Tự động gợi ý)</span>
+              <button type="button" id="uk-add-retag" class="uk-btn" style="padding:4px 10px;font-size:11.5px;">${ICONS.sparkles.replace('<svg', '<svg style="width:13px;height:13px;"')} Gợi ý lại</button>
+            </div>
+            <input class="uk-input" type="text" id="uk-add-tags" placeholder="Tự động điền khi nhập tiêu đề, prompt &amp; ảnh..." style="font-size:12.5px;" />
+            <div style="font-size:11px;color:var(--text-muted);margin-top:5px;">Ngăn cách nhau bằng dấu phẩy (tối đa 5 từ khóa, có thể tự sửa).</div>
+          </div>
+
+          <button class="uk-btn uk-btn-primary" type="submit" id="uk-add-submit" style="padding:12px 18px;font-size:14px;border-radius:14px;margin-top:4px;">${ICONS.plus} <span>Đăng bài ngay (+50 EXP)</span></button>
+        </div>
       </form>
     </div>
   `;
   document.body.appendChild(m);
   m.onclick = (e) => { if (e.target === m) m.remove(); };
   m.querySelector('#uk-add-close').onclick = () => m.remove();
+
+  const fileInput = m.querySelector('#uk-add-file');
+  const previewImg = m.querySelector('#uk-add-preview');
+  const cropHint = m.querySelector('#uk-add-crop-hint');
+  const changeImgBtn = m.querySelector('#uk-add-change-img');
+  const placeholder = m.querySelector('#uk-add-placeholder');
+  const fileInfo = m.querySelector('#uk-add-file-info');
+  const titleEl = m.querySelector('#uk-add-title');
+  const promptEl = m.querySelector('#uk-add-prompt');
+  const tagsEl = m.querySelector('#uk-add-tags');
+  const charEl = m.querySelector('#uk-add-char');
+  let detectedTone = '';
+  let userEditedTags = false;
+  let posX = 50, posY = 50, natW = 0, natH = 0;
+
+  const refreshSuggestedTags = (force = false) => {
+    if (userEditedTags && !force) return;
+    const categoryNames = [...m.querySelectorAll('#uk-add-cats input:checked')].map(i => i.dataset.catName || '');
+    const tags = suggestHashtagsFromPost({
+      title: titleEl.value,
+      prompt: promptEl.value,
+      categoryNames,
+      toneTag: detectedTone,
+    });
+    tagsEl.value = tags.join(', ');
+  };
+
+  tagsEl.addEventListener('input', () => { userEditedTags = true; });
+  titleEl.addEventListener('input', () => refreshSuggestedTags(false));
+  promptEl.addEventListener('input', () => {
+    charEl.textContent = `${promptEl.value.length} ký tự`;
+    refreshSuggestedTags(false);
+  });
+  m.querySelectorAll('#uk-add-cats input').forEach(cb => cb.addEventListener('change', () => refreshSuggestedTags(false)));
+  m.querySelector('#uk-add-retag').onclick = () => { userEditedTags = false; refreshSuggestedTags(true); };
+
+  const handleFileSelect = async (file) => {
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    posX = 50; posY = 50;
+    previewImg.onload = () => {
+      natW = previewImg.naturalWidth || 0;
+      natH = previewImg.naturalHeight || 0;
+      fileInfo.textContent = `${file.name} (${natW}×${natH} • ${Math.round(file.size / 1024)} KB)`;
+    };
+    previewImg.src = url;
+    previewImg.style.objectPosition = '50% 50%';
+    previewImg.style.display = 'block';
+    cropHint.style.display = 'block';
+    changeImgBtn.style.display = 'inline-flex';
+    placeholder.style.display = 'none';
+    detectedTone = await analyzeImageTone(file) || '';
+    refreshSuggestedTags(false);
+  };
+
+  const dz = m.querySelector('#uk-add-dropzone');
+  dz.onclick = (e) => {
+    if (e.target === previewImg) return;
+    fileInput.click();
+  };
+  changeImgBtn.onclick = () => fileInput.click();
+
+  let draggingCrop = false, dragSX = 0, dragSY = 0;
+  previewImg.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    draggingCrop = true;
+    dragSX = e.clientX;
+    dragSY = e.clientY;
+    previewImg.style.cursor = 'grabbing';
+  });
+  window.addEventListener('pointermove', (e) => {
+    if (!draggingCrop) return;
+    const dx = e.clientX - dragSX;
+    const dy = e.clientY - dragSY;
+    dragSX = e.clientX; dragSY = e.clientY;
+    posX = Math.max(0, Math.min(100, posX - dx * 0.35));
+    posY = Math.max(0, Math.min(100, posY - dy * 0.35));
+    previewImg.style.objectPosition = `${posX.toFixed(1)}% ${posY.toFixed(1)}%`;
+  });
+  window.addEventListener('pointerup', () => {
+    if (!draggingCrop) return;
+    draggingCrop = false;
+    previewImg.style.cursor = 'grab';
+  });
+
+  fileInput.onchange = () => handleFileSelect(fileInput.files?.[0]);
+  dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.style.borderColor = '#e879f9'; });
+  dz.addEventListener('dragleave', () => { dz.style.borderColor = 'rgba(56,189,248,0.45)'; });
+  dz.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dz.style.borderColor = 'rgba(56,189,248,0.45)';
+    const f = e.dataTransfer?.files?.[0];
+    if (f) {
+      const dt = new DataTransfer();
+      dt.items.add(f);
+      fileInput.files = dt.files;
+      handleFileSelect(f);
+    }
+  });
+
   m.querySelector('#uk-add-form').onsubmit = async (e) => {
     e.preventDefault();
+    const file = fileInput.files?.[0];
+    if (!file) { showToast('Vui lòng chọn ảnh để đăng.', 'error'); return; }
     const btn = m.querySelector('#uk-add-submit');
     btn.disabled = true; btn.textContent = 'Đang tải lên...';
     try {
-      const title = m.querySelector('#uk-add-title').value.trim();
-      const prompt = m.querySelector('#uk-add-prompt').value.trim();
-      const file = m.querySelector('#uk-add-file').files[0];
-      const categoryIds = [...m.querySelectorAll('input[type=checkbox]:checked')].map(i => Number(i.value));
-      await engine.createPost({ title, prompt, categoryIds, file });
+      const title = titleEl.value.trim();
+      const prompt = promptEl.value.trim();
+      const categoryIds = [...m.querySelectorAll('#uk-add-cats input:checked')].map(i => Number(i.value));
+      const hashtags = tagsEl.value.split(',').map(s => s.replace(/^#/, '').trim()).filter(Boolean).slice(0, 5);
+      let cropData = null;
+      if (natW && natH) {
+        const targetRatio = 4 / 5;
+        const srcRatio = natW / natH;
+        const cw = srcRatio > targetRatio ? Math.round(natH * targetRatio) : natW;
+        const ch = srcRatio > targetRatio ? natH : Math.round(natW / targetRatio);
+        cropData = {
+          x: Math.round(((natW - cw) * posX) / 100),
+          y: Math.round(((natH - ch) * posY) / 100),
+          width: cw,
+          height: ch,
+        };
+      }
+      await engine.createPost({ title, prompt, categoryIds, file, hashtags, cropData, originalWidth: natW, originalHeight: natH });
       m.remove();
     } catch (err) {
       showToast(err.message, 'error');
-      btn.disabled = false; btn.innerHTML = `${ICONS.plus} Đăng bài (+50 EXP)`;
+      btn.disabled = false; btn.innerHTML = `${ICONS.plus} <span>Đăng bài ngay (+50 EXP)</span>`;
     }
   };
 }
