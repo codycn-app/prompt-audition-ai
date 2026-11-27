@@ -28,7 +28,8 @@ body {
   position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none;
 }
 
-.os-root { position: relative; z-index: 1; min-height: 100vh; padding-bottom: 112px; }
+.os-root { position: relative; z-index: 1; min-height: 100vh; padding-bottom: 104px; }
+@media (min-width: 768px) { .os-root { padding-bottom: 36px; } }
 
 /* Full-width Sticky Top Bar */
 .os-menubar {
@@ -41,12 +42,18 @@ body {
 @media (min-width: 768px) { .os-menubar { padding: 11px 28px; } }
 
 .os-brand { display: flex; align-items: center; gap: 10px; cursor: pointer; flex-shrink: 0; }
-.os-logo-svg {
-  width: 36px; height: 36px; flex-shrink: 0;
-  filter: drop-shadow(0 0 16px rgba(56, 189, 248, 0.65));
+.os-logo-wrap {
+  position: relative; width: 40px; height: 40px; flex-shrink: 0;
+  display: grid; place-items: center;
+  filter: drop-shadow(0 0 14px rgba(56, 189, 248, 0.55));
   transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-.os-brand:hover .os-logo-svg { transform: rotate(12deg) scale(1.1); }
+.os-brand:hover .os-logo-wrap { transform: scale(1.1); }
+.os-logo-svg { width: 40px; height: 40px; overflow: visible; }
+.os-logo-ring { transform-origin: 20px 20px; animation: osLogoSpin 9s linear infinite; }
+.os-logo-c { transform-origin: 20px 20px; animation: osLogoPulse 2.8s ease-in-out infinite; }
+@keyframes osLogoSpin { to { transform: rotate(360deg); } }
+@keyframes osLogoPulse { 0%,100% { transform: scale(1); filter: drop-shadow(0 0 4px rgba(56,189,248,0.6)); } 50% { transform: scale(1.07); filter: drop-shadow(0 0 12px rgba(232,121,249,0.9)); } }
 .os-brand-text {
   font-family: var(--font-brand); font-weight: 700; font-size: 18px; letter-spacing: 0.02em;
   background: linear-gradient(90deg, #ffffff 0%, #38bdf8 35%, #e879f9 70%, #ffffff 100%);
@@ -104,21 +111,17 @@ body {
 .os-hero-dot { width: 7px; height: 7px; border-radius: 999px; background: #38bdf8; box-shadow: 0 0 10px #38bdf8; animation: pulseDot 1.5s infinite; }
 @keyframes pulseDot { 0%,100% { transform: scale(0.85); opacity: 0.7; } 50% { transform: scale(1.3); opacity: 1; } }
 
-/* Smooth Horizontal Sliding Carousel (10 daily picks from Top 100) */
+/* Smooth Horizontal Sliding Carousel (10 daily picks from Top 100, pause on hover, drag left/right) */
 .os-slide-viewport {
   position: relative; overflow: hidden; width: 100%; padding-top: 14px;
+  cursor: grab; user-select: none; -webkit-user-select: none; touch-action: pan-y;
   mask-image: linear-gradient(90deg, transparent, #000 2%, #000 98%, transparent);
   -webkit-mask-image: linear-gradient(90deg, transparent, #000 2%, #000 98%, transparent);
 }
+.os-slide-viewport.is-dragging { cursor: grabbing; }
 .os-slide-track {
   display: flex; gap: 14px; width: max-content;
-  animation: osSlideLoop 40s linear infinite;
   will-change: transform;
-}
-.os-slide-viewport:hover .os-slide-track { animation-play-state: paused; }
-@keyframes osSlideLoop {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
 }
 
 .os-slide-wrap {
@@ -262,11 +265,12 @@ body {
 }
 .os-copy-pill:active { transform: scale(0.94); }
 
-/* Floating Bottom Dock */
+/* Floating Bottom Dock (Mobile only — hidden on Desktop) */
 .os-dock-wrap {
   position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 800;
   display: flex; flex-direction: column; align-items: center; gap: 10px; max-width: calc(100vw - 24px);
 }
+@media (min-width: 768px) { .os-dock-wrap { display: none !important; } }
 .os-dock-popover {
   padding: 12px; border-radius: 20px; background: rgba(12, 17, 30, 0.94); backdrop-filter: blur(24px);
   border: 1px solid rgba(56,189,248,0.35); box-shadow: 0 20px 50px rgba(0,0,0,0.65);

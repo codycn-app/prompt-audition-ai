@@ -112,6 +112,19 @@ function renderAvatar(user, size = 38) {
   return `<img src="${escapeHtml(user.avatarUrl)}" alt="" style="width:${size}px;height:${size}px;border-radius:999px;object-fit:cover;border:1px solid rgba(255,255,255,0.2);flex-shrink:0;" onerror="const d=document.createElement('div');d.style.cssText='width:${size}px;height:${size}px;border-radius:999px;display:grid;place-items:center;font-weight:700;font-size:${Math.round(size * 0.42)}px;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;flex-shrink:0;';d.textContent='${letter}';this.replaceWith(d);" />`;
 }
 
+function renderTopicHashtags(image) {
+  const tags = Array.isArray(image?.hashtags) ? image.hashtags.filter(Boolean).slice(0, 5) : [];
+  if (!tags.length) return '';
+  return `
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">
+      ${tags.map(t => {
+        const clean = String(t).replace(/^#/, '').trim();
+        return `<button type="button" class="uk-chip" data-tag-search="${escapeHtml(clean)}" style="padding:4px 10px;font-size:11.5px;background:rgba(56,189,248,0.1);border-color:rgba(56,189,248,0.3);color:#7dd3fc;">#${escapeHtml(clean)}</button>`;
+      }).join('')}
+    </div>
+  `;
+}
+
 export function renderDetailModal(engine, image, opts = {}) {
   ensureKitStyles();
   closeDetailModal();
@@ -160,7 +173,8 @@ export function renderDetailModal(engine, image, opts = {}) {
             <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent);">Câu lệnh (Prompt)</span>
             <span style="font-size:11px;color:var(--text-muted);">${(image.prompt || '').length} ký tự</span>
           </div>
-          <div class="uk-prompt-box" id="uk-prompt-text" style="flex:1;max-height:250px;background:rgba(5,7,14,0.75);border:1px solid rgba(56,189,248,0.22);border-radius:14px;padding:14px 16px;font-size:13.5px;line-height:1.68;color:#e2e8f0;">${escapeHtml(image.prompt)}</div>
+          <div class="uk-prompt-box" id="uk-prompt-text" style="flex:1;max-height:220px;background:rgba(5,7,14,0.75);border:1px solid rgba(56,189,248,0.22);border-radius:14px;padding:14px 16px;font-size:13.5px;line-height:1.68;color:#e2e8f0;">${escapeHtml(image.prompt)}</div>
+          ${renderTopicHashtags(image)}
         </div>
 
         <div style="display:flex;flex-direction:column;gap:9px;">
@@ -206,6 +220,15 @@ export function renderDetailModal(engine, image, opts = {}) {
   modal.querySelector('#uk-open-guide').onclick = () => openGuideModal();
   modal.querySelectorAll('[data-filter-cat]').forEach(btn => {
     btn.onclick = () => { engine.closeModal(); engine.setCategory(Number(btn.dataset.filterCat)); };
+  });
+  modal.querySelectorAll('[data-tag-search]').forEach(btn => {
+    btn.onclick = () => {
+      const q = btn.dataset.tagSearch;
+      const sInp = document.getElementById('os-search');
+      if (sInp) sInp.value = q;
+      engine.closeModal();
+      engine.setSearch(q);
+    };
   });
   const delBtn = modal.querySelector('#uk-delete-post');
   if (delBtn) delBtn.onclick = () => { if (confirm('Xóa ảnh và câu lệnh này?')) engine.deletePost(image); };
@@ -258,6 +281,7 @@ export function renderArticleView(container, engine, image) {
               <button type="button" id="uk-art-toggle-prompt" style="background:none;border:none;color:var(--accent);font-size:11.5px;font-weight:600;cursor:pointer;padding:0;">Mở rộng</button>
             </div>
             <div class="uk-prompt-box" id="uk-art-prompt-box" style="max-height:165px;font-size:13px;line-height:1.6;">${escapeHtml(image.prompt)}</div>
+            ${renderTopicHashtags(image)}
           </div>
 
           <div style="display:flex;flex-direction:column;gap:8px;margin-top:auto;">
@@ -300,6 +324,12 @@ export function renderArticleView(container, engine, image) {
   container.querySelector('#uk-art-share').onclick = () => copyText(engine.getShareUrl(image, true), 'Đã sao chép link bài viết!');
   container.querySelector('#uk-art-guide').onclick = () => openGuideModal();
   container.querySelectorAll('[data-art-cat]').forEach(b => b.onclick = () => engine.setCategory(Number(b.dataset.artCat)));
+  container.querySelectorAll('[data-tag-search]').forEach(b => b.onclick = () => {
+    const q = b.dataset.tagSearch;
+    const sInp = document.getElementById('os-search');
+    if (sInp) sInp.value = q;
+    engine.setSearch(q);
+  });
   container.querySelectorAll('[data-rel-id]').forEach(card => {
     card.onclick = () => engine.openArticle(Number(card.dataset.relId));
   });
@@ -403,16 +433,22 @@ export function openAuthModal(engine, mode = 'login') {
       <h3 style="margin:0 0 16px;font-size:21px;font-family:var(--font-display,inherit);" id="uk-a-title">${mode === 'login' ? 'Đăng nhập' : 'Đăng ký tài khoản'}</h3>
       <form id="uk-a-form" style="display:flex;flex-direction:column;gap:12px;">
         <div id="uk-a-user-wrap" style="display:${mode === 'signup' ? 'block' : 'none'}">
-          <input class="uk-input" type="text" id="uk-a-username" placeholder="Tên hiển thị" />
+          <input class="uk-input" type="text" id="uk-a-username" placeholder="Tên hiển thị" autocomplete="nickname" />
         </div>
-        <input class="uk-input" type="email" id="uk-a-email" placeholder="Email" required />
-        <input class="uk-input" type="password" id="uk-a-pass" placeholder="Mật khẩu" required />
+        <input class="uk-input" type="email" id="uk-a-email" placeholder="Email" autocomplete="email" required />
+        <div style="position:relative;">
+          <input class="uk-input" type="password" id="uk-a-pass" placeholder="Mật khẩu" autocomplete="current-password" style="padding-right:42px;" required />
+          <button type="button" id="uk-a-toggle-pass" title="Hiện/Ẩn mật khẩu" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:#94a3b8;cursor:pointer;padding:4px;display:grid;place-items:center;">${ICONS.eye.replace('<svg', '<svg style="width:18px;height:18px;"')}</button>
+        </div>
         <div id="uk-a-err" style="font-size:13px;color:#f87171;display:none;"></div>
         <button class="uk-btn uk-btn-primary" type="submit" id="uk-a-submit">${mode === 'login' ? 'Đăng nhập' : 'Tạo tài khoản'}</button>
       </form>
-      <div style="margin-top:14px;font-size:13px;text-align:center;color:var(--text-muted);">
+      <div style="margin-top:12px;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;color:var(--text-muted);">
         <button type="button" id="uk-a-switch" style="background:none;border:none;color:var(--accent-2);cursor:pointer;font-weight:600;">
           ${mode === 'login' ? 'Chưa có tài khoản? Đăng ký ngay' : 'Đã có tài khoản? Đăng nhập'}
+        </button>
+        <button type="button" id="uk-a-forgot" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:12.5px;display:${mode === 'login' ? 'inline-block' : 'none'};">
+          Quên mật khẩu?
         </button>
       </div>
     </div>
@@ -422,10 +458,30 @@ export function openAuthModal(engine, mode = 'login') {
   const close = () => m.remove();
   m.onclick = (e) => { if (e.target === m) close(); };
   m.querySelector('#uk-a-close').onclick = close;
+  m.querySelector('#uk-a-toggle-pass').onclick = () => {
+    const p = m.querySelector('#uk-a-pass');
+    p.type = p.type === 'password' ? 'text' : 'password';
+  };
+  m.querySelector('#uk-a-forgot').onclick = async () => {
+    const email = m.querySelector('#uk-a-email').value.trim();
+    const errEl = m.querySelector('#uk-a-err');
+    if (!email) {
+      errEl.textContent = 'Vui lòng nhập email trước khi bấm Quên mật khẩu.';
+      errEl.style.display = 'block';
+      return;
+    }
+    try {
+      await engine.resetPassword(email);
+    } catch (err) {
+      errEl.textContent = err.message || 'Không thể gửi email đặt lại mật khẩu.';
+      errEl.style.display = 'block';
+    }
+  };
   m.querySelector('#uk-a-switch').onclick = () => {
     curMode = curMode === 'login' ? 'signup' : 'login';
     m.querySelector('#uk-a-title').textContent = curMode === 'login' ? 'Đăng nhập' : 'Đăng ký tài khoản';
     m.querySelector('#uk-a-user-wrap').style.display = curMode === 'signup' ? 'block' : 'none';
+    m.querySelector('#uk-a-forgot').style.display = curMode === 'login' ? 'inline-block' : 'none';
     m.querySelector('#uk-a-submit').textContent = curMode === 'login' ? 'Đăng nhập' : 'Tạo tài khoản';
     m.querySelector('#uk-a-switch').textContent = curMode === 'login' ? 'Chưa có tài khoản? Đăng ký ngay' : 'Đã có tài khoản? Đăng nhập';
   };
@@ -556,6 +612,7 @@ export function openAdminSettingsModal(engine) {
         <button class="uk-btn uk-btn-primary" data-tab="r2">Ảnh lỗi R2 / Private</button>
         <button class="uk-btn" data-tab="support">Sửa Trang Ủng hộ</button>
         <button class="uk-btn" data-tab="welcome">Sửa Thông báo</button>
+        <button class="uk-btn" data-tab="seo">Sửa SEO</button>
       </div>
       <div id="uk-adm-body" style="flex:1;overflow-y:auto;padding-right:4px;"></div>
     </div>
@@ -712,12 +769,54 @@ export function openAdminSettingsModal(engine) {
     body.querySelector('#uk-wel-preview').onclick = () => openWelcomeModal(engine, true);
   };
 
+  const renderSeoTab = () => {
+    const seo = engine.state.cmsConfig.seo || {};
+    body.innerHTML = `
+      <form id="uk-adm-seo-form" style="display:flex;flex-direction:column;gap:12px;">
+        <label style="font-size:12px;color:var(--text-muted);">Tiêu đề SEO Trang chủ (Title)<input class="uk-input" name="siteTitle" value="${escapeHtml(seo.siteTitle || '')}" /></label>
+        <label style="font-size:12px;color:var(--text-muted);">Mô tả SEO (Meta Description)<textarea class="uk-input" name="siteDescription" rows="3">${escapeHtml(seo.siteDescription || '')}</textarea></label>
+        <label style="font-size:12px;color:var(--text-muted);">Từ khóa SEO (Meta Keywords)<input class="uk-input" name="keywords" value="${escapeHtml(seo.keywords || '')}" /></label>
+        <label style="font-size:12px;color:var(--text-muted);">Canonical Base URL<input class="uk-input" name="canonicalBase" value="${escapeHtml(seo.canonicalBase || '')}" /></label>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid var(--border);">
+          <div style="flex:1;min-width:180px;">
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Ảnh đại diện SEO (OG Image)</div>
+            <input class="uk-input" name="ogImage" id="uk-seo-og-url" value="${escapeHtml(seo.ogImage || '')}" />
+          </div>
+          <label class="uk-btn" style="cursor:pointer;">
+            Tải ảnh OG
+            <input type="file" accept="image/*" id="uk-seo-og-file" style="display:none;" />
+          </label>
+        </div>
+        <button class="uk-btn uk-btn-primary" type="submit">Lưu Cấu hình SEO</button>
+      </form>
+    `;
+    body.querySelector('#uk-seo-og-file').onchange = async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        showToast('Đang tải ảnh SEO lên R2...');
+        const url = await engine.uploadQrImage(file);
+        body.querySelector('#uk-seo-og-url').value = url;
+        showToast('Đã tải ảnh SEO! Bấm Lưu Cấu hình SEO để áp dụng.');
+      } catch (err) { showToast(err.message, 'error'); }
+    };
+    body.querySelector('#uk-adm-seo-form').onsubmit = async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const next = { ...engine.state.cmsConfig, seo: Object.fromEntries(fd.entries()) };
+      await engine.saveRemoteCmsConfig(next);
+      engine.updateSeoMeta(engine.state.activePost || null);
+      showToast('Đã lưu và áp dụng cấu hình SEO!');
+    };
+  };
+
   tabs.forEach(t => t.onclick = () => {
     tabs.forEach(x => x.classList.remove('uk-btn-primary'));
     t.classList.add('uk-btn-primary');
     if (t.dataset.tab === 'r2') renderR2Tab();
     else if (t.dataset.tab === 'support') renderSupportTab();
-    else renderWelcomeTab();
+    else if (t.dataset.tab === 'welcome') renderWelcomeTab();
+    else renderSeoTab();
   });
   renderR2Tab();
 }

@@ -33,8 +33,24 @@ export const DEFAULT_CMS_CONFIG = {
     accountHolder: 'NGUYEN CONG CUONG',
     qrImageUrl: '',
   },
+  seo: {
+    siteTitle: 'Prompt Audition AI | Kho Câu Lệnh Tạo Ảnh AI Đẹp Nhất',
+    siteDescription: 'Khám phá, tìm kiếm và sao chép hơn 1.700+ câu lệnh tạo ảnh AI Audition đẹp nhất, cập nhật liên tục mỗi ngày.',
+    keywords: 'prompt audition ai, câu lệnh tạo ảnh ai, prompt ai, tạo ảnh audition, prompt couple, prompt nam ngầu, prompt nữ xinh',
+    ogImage: 'https://auditionai.io.vn/seo/prompt-audition-ai-social-preview.png',
+    canonicalBase: 'https://caulenhau.io.vn/preview1/',
+  },
   privateIds: [],
 };
+
+export function normalizeVi(str = '') {
+  return String(str)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .trim();
+}
 
 export function loadCmsConfig() {
   try {
@@ -44,6 +60,7 @@ export function loadCmsConfig() {
     return {
       welcome: { ...DEFAULT_CMS_CONFIG.welcome, ...(parsed.welcome || {}) },
       support: { ...DEFAULT_CMS_CONFIG.support, ...(parsed.support || {}) },
+      seo: { ...DEFAULT_CMS_CONFIG.seo, ...(parsed.seo || {}) },
       privateIds: Array.isArray(parsed.privateIds) ? parsed.privateIds : [],
     };
   } catch {
@@ -259,16 +276,28 @@ export class PromptAppEngine {
       // Trigger once-per-day DB smart view sync silently if SQL migration is active
       supabase.rpc('sync_daily_views').then(() => {}, () => {});
 
+      const fetchImagesSafe = async () => {
+        try {
+          return await this.fetchAllRows((from, to) =>
+            supabase.from('images')
+              .select('id,title,image_url,thumbnail_url,views,created_at,thumbnail_crop_data,original_width,original_height,hashtags')
+              .order('created_at', { ascending: false }).order('id', { ascending: false }).range(from, to)
+          );
+        } catch {
+          return await this.fetchAllRows((from, to) =>
+            supabase.from('images')
+              .select('id,title,image_url,thumbnail_url,views,created_at,thumbnail_crop_data,original_width,original_height')
+              .order('created_at', { ascending: false }).order('id', { ascending: false }).range(from, to)
+          );
+        }
+      };
+
       const [catsRes, links, imgs, settingsRes] = await Promise.all([
         supabase.from('categories').select('id,name,position').order('position', { ascending: true }),
         this.fetchAllRows((from, to) =>
           supabase.from('image_categories').select('image_id,category_id').order('image_id').range(from, to)
         ),
-        this.fetchAllRows((from, to) =>
-          supabase.from('images')
-            .select('id,title,image_url,thumbnail_url,views,created_at,thumbnail_crop_data,original_width,original_height')
-            .order('created_at', { ascending: false }).order('id', { ascending: false }).range(from, to)
-        ),
+        fetchImagesSafe(),
         supabase.from('app_settings').select('key,value').in('key', ['cms_config']),
       ]);
 
@@ -278,11 +307,13 @@ export class PromptAppEngine {
           this.state.cmsConfig = {
             welcome: { ...DEFAULT_CMS_CONFIG.welcome, ...(cmsRow.welcome || {}) },
             support: { ...DEFAULT_CMS_CONFIG.support, ...(cmsRow.support || {}) },
+            seo: { ...DEFAULT_CMS_CONFIG.seo, ...(cmsRow.seo || {}) },
             privateIds: Array.isArray(cmsRow.privateIds) ? cmsRow.privateIds : [],
           };
           saveCmsConfig(this.state.cmsConfig);
         }
       }
+      this.updateSeoMeta();
 
       if (catsRes.error) throw catsRes.error;
       this.state.categories = catsRes.data || [];
@@ -339,15 +370,23 @@ export class PromptAppEngine {
     const id = typeof idOrImg === 'object' ? idOrImg.id : Number(idOrImg);
     if (this.fullPostCache.has(id)) return this.fullPostCache.get(id);
 
-    const { data, error } = await supabase
+    let res = await supabase
       .from('images')
-      .select('id,title,prompt,image_url,thumbnail_url,views,created_at,user_id')
+      .select('id,title,prompt,image_url,thumbnail_url,views,created_at,user_id,hashtags')
       .eq('id', id)
       .single();
+    if (res.error) {
+      res = await supabase
+        .from('images')
+        .select('id,title,prompt,image_url,thumbnail_url,views,created_at,user_id')
+        .eq('id', id)
+        .single();
+    }
+    const { data, error } = res;
     if (error || !data) throw new Error('Không tải được chi tiết bài đăng.');
 
     const meta = this.state.allImagesMeta.find(i => i.id === id);
-    const full = { ...(meta || {}), ...data, categories: meta?.categories || [] };
+    const full = { ...(meta || {}), ...data, categories: meta?.categories || [], hashtags: data.hashtags || meta?.hashtags || [] };
     full.profiles = await this.fetchAuthor(full.user_id);
     this.fullPostCache.set(id, full);
     return full;
@@ -361,7 +400,8 @@ export class PromptAppEngine {
 
   applyFilters() {
     const { selectedCategory, searchQuery, sortBy } = this.state;
-    const q = searchQuery.trim().toLowerCase();
+    const rawQ = searchQuery.trim().toLowerCase();
+    const normQ = normalizeVi(rawQ.replace(/^#/, ''));
 
     let list = this.getPublicImages().filter(img => {
       if (selectedCategory === 'uncategorized') {
@@ -369,12 +409,13 @@ export class PromptAppEngine {
       } else if (selectedCategory !== 'all') {
         if (!img.categories.some(c => c.id === selectedCategory)) return false;
       }
-      if (q) {
-        const matchTitle = (img.title || '').toLowerCase().includes(q);
-        const matchCat = img.categories.some(c => c.name.toLowerCase().includes(q));
+      if (normQ) {
+        const matchTitle = normalizeVi(img.title || '').includes(normQ);
+        const matchCat = img.categories.some(c => normalizeVi(c.name).includes(normQ));
+        const matchTags = Array.isArray(img.hashtags) && img.hashtags.some(t => normalizeVi(t).replace(/^#/, '').includes(normQ));
         const cachedFull = this.fullPostCache.get(img.id);
-        const matchPrompt = cachedFull?.prompt?.toLowerCase().includes(q);
-        if (!matchTitle && !matchCat && !matchPrompt) return false;
+        const matchPrompt = cachedFull?.prompt ? normalizeVi(cachedFull.prompt).includes(normQ) : false;
+        if (!matchTitle && !matchCat && !matchTags && !matchPrompt) return false;
       }
       return true;
     });
@@ -419,6 +460,72 @@ export class PromptAppEngine {
     this.applyFilters();
   }
 
+  updateSeoMeta(post = null) {
+    const seo = this.state.cmsConfig?.seo || DEFAULT_CMS_CONFIG.seo;
+    const setMeta = (selector, attr, val) => {
+      let el = document.head.querySelector(selector);
+      if (!el) {
+        el = document.createElement('meta');
+        if (selector.includes('property=')) el.setAttribute('property', selector.match(/property="([^"]+)"/)[1]);
+        else if (selector.includes('name=')) el.setAttribute('name', selector.match(/name="([^"]+)"/)[1]);
+        document.head.appendChild(el);
+      }
+      el.setAttribute(attr, val);
+    };
+    const canonicalEl = document.head.querySelector('link[rel="canonical"]');
+
+    if (post) {
+      const title = `${post.title || 'Prompt AI'} | Prompt Audition AI`;
+      const desc = (post.prompt || seo.siteDescription).replace(/\s+/g, ' ').trim().slice(0, 175);
+      const imgUrl = post.image_url || post.thumbnail_url || seo.ogImage;
+      const postUrl = this.getShareUrl(post, true);
+      const tagStr = Array.isArray(post.hashtags) && post.hashtags.length ? post.hashtags.join(', ') : seo.keywords;
+
+      document.title = title;
+      setMeta('meta[name="description"]', 'content', desc);
+      setMeta('meta[name="keywords"]', 'content', tagStr);
+      setMeta('meta[property="og:type"]', 'content', 'article');
+      setMeta('meta[property="og:title"]', 'content', title);
+      setMeta('meta[property="og:description"]', 'content', desc);
+      setMeta('meta[property="og:url"]', 'content', postUrl);
+      setMeta('meta[property="og:image"]', 'content', imgUrl);
+      setMeta('meta[property="og:image:secure_url"]', 'content', imgUrl);
+      setMeta('meta[name="twitter:title"]', 'content', title);
+      setMeta('meta[name="twitter:description"]', 'content', desc);
+      setMeta('meta[name="twitter:image"]', 'content', imgUrl);
+      if (canonicalEl) canonicalEl.setAttribute('href', postUrl);
+
+      const ld = document.getElementById('seo-jsonld');
+      if (ld) {
+        ld.textContent = JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type': 'ImageObject',
+          name: post.title,
+          description: desc,
+          contentUrl: imgUrl,
+          thumbnailUrl: post.thumbnail_url || imgUrl,
+          url: postUrl,
+          keywords: tagStr,
+        });
+      }
+    } else {
+      const base = seo.canonicalBase || window.location.origin + window.location.pathname;
+      document.title = seo.siteTitle;
+      setMeta('meta[name="description"]', 'content', seo.siteDescription);
+      setMeta('meta[name="keywords"]', 'content', seo.keywords);
+      setMeta('meta[property="og:type"]', 'content', 'website');
+      setMeta('meta[property="og:title"]', 'content', seo.siteTitle);
+      setMeta('meta[property="og:description"]', 'content', seo.siteDescription);
+      setMeta('meta[property="og:url"]', 'content', base);
+      setMeta('meta[property="og:image"]', 'content', seo.ogImage);
+      setMeta('meta[property="og:image:secure_url"]', 'content', seo.ogImage);
+      setMeta('meta[name="twitter:title"]', 'content', seo.siteTitle);
+      setMeta('meta[name="twitter:description"]', 'content', seo.siteDescription);
+      setMeta('meta[name="twitter:image"]', 'content', seo.ogImage);
+      if (canonicalEl) canonicalEl.setAttribute('href', base);
+    }
+  }
+
   setPage(page) {
     this.state.currentPage = page;
     if (page === 'home') {
@@ -426,6 +533,7 @@ export class PromptAppEngine {
       url.searchParams.delete('post');
       url.searchParams.delete('view');
       window.history.replaceState({}, '', url.pathname + url.search);
+      this.updateSeoMeta(null);
     }
     this.theme.renderPage(this);
   }
@@ -454,6 +562,7 @@ export class PromptAppEngine {
       const full = await this.ensureFullPost(image);
       this.state.activePost = full;
       this.recordView(full);
+      this.updateSeoMeta(full);
       this.theme.openDetailModal(this, full, sourceEl);
     } catch (e) {
       showToast(e.message, 'error');
@@ -471,6 +580,7 @@ export class PromptAppEngine {
       this.recordView(full);
       this.state.activePost = full;
       this.state.currentPage = 'article';
+      this.updateSeoMeta(full);
       this.theme.closeDetailModal(this);
       this.theme.renderPage(this);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -485,6 +595,7 @@ export class PromptAppEngine {
     url.searchParams.delete('post');
     url.searchParams.delete('view');
     window.history.replaceState({}, '', url.pathname + url.search);
+    this.updateSeoMeta(null);
     this.theme.closeDetailModal(this);
   }
 
@@ -507,8 +618,24 @@ export class PromptAppEngine {
 
   async login(email, password) {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
+    if (error) {
+      if (error.message?.includes('Invalid login credentials')) {
+        throw new Error('Sai email hoặc mật khẩu. Vui lòng kiểm tra lại hoặc bấm "Quên mật khẩu?".');
+      }
+      if (error.message?.includes('Email not confirmed')) {
+        throw new Error('Email chưa được xác nhận. Vui lòng kiểm tra hộp thư.');
+      }
+      throw error;
+    }
     showToast('Đăng nhập thành công!');
+  }
+
+  async resetPassword(email) {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}${window.location.pathname}`
+    });
+    if (error) throw error;
+    showToast('Đã gửi email đặt lại mật khẩu! Vui lòng kiểm tra hộp thư.');
   }
 
   async signup(email, password, username) {

@@ -7,19 +7,25 @@ import {
 } from '/preview-core/ui-kit.js';
 
 const LOGO_SVG = `
-<svg class="os-logo-svg" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="prismGrad" x1="4" y1="4" x2="36" y2="36" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#38BDF8"/>
-      <stop offset="50%" stop-color="#A855F7"/>
-      <stop offset="100%" stop-color="#F472B6"/>
-    </linearGradient>
-  </defs>
-  <rect x="2" y="2" width="36" height="36" rx="11" fill="url(#prismGrad)" fill-opacity="0.18" stroke="url(#prismGrad)" stroke-width="1.6"/>
-  <path d="M20 7L31 15.5L26.5 31H13.5L9 15.5L20 7Z" fill="url(#prismGrad)" fill-opacity="0.28" stroke="#FFFFFF" stroke-opacity="0.75" stroke-width="1.4" stroke-linejoin="round"/>
-  <path d="M20 7V31M9 15.5H31M13.5 31L20 15.5L26.5 31" stroke="#38BDF8" stroke-opacity="0.8" stroke-width="1.2"/>
-  <circle cx="20" cy="15.5" r="2.6" fill="#FFFFFF"/>
-</svg>`;
+<div class="os-logo-wrap" aria-hidden="true">
+  <svg class="os-logo-svg" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="cGrad" x1="4" y1="4" x2="36" y2="36" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stop-color="#38BDF8"/>
+        <stop offset="50%" stop-color="#E879F9"/>
+        <stop offset="100%" stop-color="#FBBF24"/>
+      </linearGradient>
+    </defs>
+    <rect x="2" y="2" width="36" height="36" rx="11" fill="rgba(10,15,30,0.85)" stroke="rgba(56,189,248,0.28)" stroke-width="1.2"/>
+    <g class="os-logo-ring">
+      <circle cx="20" cy="20" r="15.5" stroke="url(#cGrad)" stroke-width="1.8" stroke-dasharray="26 10 8 10" stroke-linecap="round"/>
+    </g>
+    <g class="os-logo-c">
+      <path d="M25.8 14.3C24.3 12.6 22.3 11.7 19.9 11.7C15.2 11.7 11.8 15.2 11.8 20C11.8 24.8 15.2 28.3 19.9 28.3C22.4 28.3 24.4 27.3 25.9 25.5" stroke="url(#cGrad)" stroke-width="4.2" stroke-linecap="round"/>
+      <circle cx="26.5" cy="14" r="1.8" fill="#38BDF8"/>
+    </g>
+  </svg>
+</div>`;
 
 const CAT_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>`;
 
@@ -300,17 +306,82 @@ const adapter = {
           <div class="os-slide-wrap" data-fid="${img.id}">
             <span class="os-hot-pill"><span class="os-hot-dot"></span>HOT ${hotNum}</span>
             <div class="os-slide-card">
-              <img src="${escapeHtml(img.thumbnail_url || img.image_url)}" alt="${escapeHtml(img.title)}" style="object-position:${getObjectPosition(img)}" decoding="async" fetchpriority="high" />
+              <img src="${escapeHtml(img.thumbnail_url || img.image_url)}" alt="${escapeHtml(img.title)}" draggable="false" style="object-position:${getObjectPosition(img)}" decoding="async" fetchpriority="high" />
               <span class="os-slide-views">👁 ${getDisplayViews(img)}</span>
             </div>
           </div>`;
       }).join('');
       feat.dataset.ready = '1';
+
+      const viewport = feat.closest('.os-slide-viewport');
+      let offset = 0;
+      let isHovering = false;
+      let isDragging = false;
+      let startX = 0;
+      let dragMoved = 0;
+      let rafId = null;
+
+      const wrapOffset = () => {
+        const half = feat.scrollWidth / 2;
+        if (half <= 0) return;
+        while (offset <= -half) offset += half;
+        while (offset > 0) offset -= half;
+        feat.style.transform = `translate3d(${offset}px, 0, 0)`;
+      };
+
+      const step = () => {
+        if (!feat.isConnected) { cancelAnimationFrame(rafId); return; }
+        if (!isHovering && !isDragging) {
+          offset -= 0.55;
+          wrapOffset();
+        }
+        rafId = requestAnimationFrame(step);
+      };
+      rafId = requestAnimationFrame(step);
+
+      if (viewport) {
+        viewport.addEventListener('pointerenter', () => { isHovering = true; });
+        viewport.addEventListener('pointerleave', () => { isHovering = false; });
+        viewport.addEventListener('pointerdown', (e) => {
+          if (e.button !== 0) return;
+          isDragging = true;
+          startX = e.clientX;
+          dragMoved = 0;
+          viewport.classList.add('is-dragging');
+        });
+        window.addEventListener('pointermove', (e) => {
+          if (!isDragging) return;
+          const dx = e.clientX - startX;
+          startX = e.clientX;
+          dragMoved += Math.abs(dx);
+          offset += dx;
+          wrapOffset();
+        });
+        const stopDrag = () => {
+          if (!isDragging) return;
+          isDragging = false;
+          viewport.classList.remove('is-dragging');
+        };
+        window.addEventListener('pointerup', stopDrag);
+        window.addEventListener('pointercancel', stopDrag);
+        viewport.addEventListener('wheel', (e) => {
+          const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+          if (delta !== 0) {
+            e.preventDefault();
+            offset -= delta * 0.85;
+            wrapOffset();
+          }
+        }, { passive: false });
+      }
+
       feat.querySelectorAll('.os-slide-wrap').forEach(c => {
         const item = daily10.find(i => i.id === Number(c.dataset.fid));
         if (!item) return;
         attachSafeImageFallback(c.querySelector('img'), item, c, engine);
-        c.onclick = () => engine.openModal(item, c);
+        c.onclick = () => {
+          if (dragMoved > 6) return;
+          engine.openModal(item, c);
+        };
       });
     }
 
