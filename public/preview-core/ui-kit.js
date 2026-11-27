@@ -145,16 +145,16 @@ export function renderDetailModal(engine, image, opts = {}) {
     <div class="pc-modal-card pc-split uk-modal-shell" style="max-width:1060px;border-radius:24px;border:1px solid rgba(255,255,255,0.16);background:rgba(12,16,28,0.96);backdrop-filter:blur(28px);box-shadow:0 32px 90px rgba(0,0,0,0.75), inset 0 1px 0 rgba(255,255,255,0.14);">
       <button class="uk-close-btn" id="uk-modal-close" aria-label="Đóng" style="top:14px;right:14px;width:38px;height:38px;background:rgba(255,255,255,0.08);backdrop-filter:blur(10px);">${ICONS.close}</button>
 
-      <div class="uk-modal-media" style="flex:1.3;background:radial-gradient(circle at center, #111827 0%, #05070c 100%);display:flex;align-items:center;justify-content:center;min-height:280px;max-height:46vh;overflow:hidden;position:relative;padding:14px;border-right:1px solid rgba(255,255,255,0.08);">
+      <div class="uk-modal-media" style="flex:1.3;background:radial-gradient(circle at center, #111827 0%, #05070c 100%);display:flex;align-items:center;justify-content:center;min-height:220px;max-height:36vh;overflow:hidden;position:relative;padding:12px;border-right:1px solid rgba(255,255,255,0.08);">
         <div style="position:absolute;top:14px;left:14px;display:flex;align-items:center;gap:8px;z-index:2;">
           <span style="padding:4px 10px;border-radius:999px;font-size:11.5px;font-weight:600;background:rgba(5,7,14,0.78);border:1px solid rgba(255,255,255,0.16);color:#7dd3fc;backdrop-filter:blur(8px);display:inline-flex;align-items:center;gap:5px;">${ICONS.eye.replace('<svg', '<svg style="width:13px;height:13px;"')} ${getDisplayViews(image)}</span>
         </div>
         <img src="${escapeHtml(image.image_url)}" alt="${escapeHtml(image.title)}" style="width:100%;height:100%;object-fit:contain;border-radius:12px;filter:drop-shadow(0 16px 36px rgba(0,0,0,0.65));" />
       </div>
 
-      <div style="flex:1;padding:24px 26px;display:flex;flex-direction:column;gap:16px;overflow-y:auto;">
+      <div class="uk-modal-body" style="flex:1;padding:20px 20px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;">
         <div style="padding-right:34px;">
-          <h2 style="margin:0;font-size:23px;line-height:1.25;font-weight:700;font-family:var(--font-display, inherit);color:#fff;">${escapeHtml(image.title)}</h2>
+          <h2 style="margin:0;font-size:21px;line-height:1.25;font-weight:700;font-family:var(--font-display, inherit);color:#fff;">${escapeHtml(image.title)}</h2>
         </div>
 
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 14px;border-radius:14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.09);">
@@ -168,12 +168,12 @@ export function renderDetailModal(engine, image, opts = {}) {
           ${catsHtml ? `<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;">${catsHtml}</div>` : ''}
         </div>
 
-        <div style="display:flex;flex-direction:column;flex:1;min-height:140px;">
+        <div style="display:flex;flex-direction:column;flex:1;min-height:170px;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
             <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent);">Câu lệnh (Prompt)</span>
             <span style="font-size:11px;color:var(--text-muted);">${(image.prompt || '').length} ký tự</span>
           </div>
-          <div class="uk-prompt-box" id="uk-prompt-text" style="flex:1;max-height:220px;background:rgba(5,7,14,0.75);border:1px solid rgba(56,189,248,0.22);border-radius:14px;padding:14px 16px;font-size:13.5px;line-height:1.68;color:#e2e8f0;">${escapeHtml(image.prompt)}</div>
+          <div class="uk-prompt-box" id="uk-prompt-text" style="flex:1;min-height:135px;max-height:220px;background:rgba(5,7,14,0.75);border:1px solid rgba(56,189,248,0.22);border-radius:14px;padding:14px 16px;font-size:13.5px;line-height:1.68;color:#e2e8f0;">${escapeHtml(image.prompt)}</div>
           ${renderTopicHashtags(image)}
         </div>
 
@@ -197,6 +197,14 @@ export function renderDetailModal(engine, image, opts = {}) {
   if (window.innerWidth >= 768) {
     modal.querySelector('.pc-modal-card').style.height = 'min(680px, 90vh)';
     modal.querySelector('.uk-modal-media').style.maxHeight = 'none';
+  } else {
+    const card = modal.querySelector('.pc-modal-card');
+    card.style.maxHeight = '92vh';
+    card.style.overflowY = 'auto';
+    modal.querySelector('.uk-modal-media').style.flex = 'none';
+    modal.querySelector('.uk-modal-media').style.borderRight = 'none';
+    modal.querySelector('.uk-modal-body').style.overflowY = 'visible';
+    modal.querySelector('.uk-modal-body').style.flex = 'none';
   }
 
   document.body.appendChild(modal);
@@ -403,16 +411,75 @@ export function openGuideModal() {
   m.id = 'uk-guide-modal';
   m.className = 'pc-modal-backdrop';
   m.style.zIndex = '1100';
+
+  const steps = [
+    {
+      num: '01',
+      title: 'Chọn mẫu & Sao chép Prompt',
+      desc: 'Duyệt thư viện hoặc tìm theo hashtag chủ đề (vd: #ảnh nữ xinh, #ảnh couple, #ảnh nhóm), sau đó bấm nút "Sao chép Prompt".',
+      color: '#38bdf8',
+    },
+    {
+      num: '02',
+      title: 'Mở ứng dụng AUDITION AI',
+      desc: 'Truy cập công cụ tạo ảnh chuyên dụng tại auditionai.io.vn (hoặc bấm nút "Mở AUDITION AI" bên dưới để mở nhanh).',
+      color: '#e879f9',
+    },
+    {
+      num: '03',
+      title: 'Tải ảnh mẫu & Dán câu lệnh',
+      desc: 'Tải lên ảnh nhân vật/khuôn mặt tham chiếu của bạn (đúng số người với prompt đơn/couple/nhóm) rồi dán câu lệnh vừa chép.',
+      color: '#a78bfa',
+    },
+    {
+      num: '04',
+      title: 'Chọn tỷ lệ & Nhấn Tạo ảnh',
+      desc: 'Chọn tỷ lệ khung hình 4:5 hoặc 3:4 cho ảnh chân dung, nhấn Tạo ảnh và tải về thành quả sắc nét.',
+      color: '#34d399',
+    },
+  ];
+
   m.innerHTML = `
-    <div class="pc-modal-card uk-modal-shell" style="max-width:520px;padding:24px;">
-      <button class="uk-close-btn" id="uk-g-close">${ICONS.close}</button>
-      <h3 style="margin:0 0 14px;font-size:19px;color:var(--accent-2);display:flex;align-items:center;gap:8px;">${ICONS.info} Hướng dẫn sử dụng</h3>
-      <ol style="margin:0;padding-left:20px;line-height:1.75;font-size:14px;color:var(--text-muted);">
-        <li><strong>B1:</strong> Bấm nút <em>Sao chép Prompt</em> để lấy toàn bộ câu lệnh mẫu.</li>
-        <li><strong>B2:</strong> Mở ứng dụng <strong>APP AUDITION AI</strong> hoặc trình tạo ảnh AI yêu thích của bạn.</li>
-        <li><strong>B3:</strong> Dán câu lệnh, tải ảnh khuôn mặt tham chiếu (nếu cần) và nhấn Tạo ảnh.</li>
-      </ol>
-      <button class="uk-btn uk-btn-primary" id="uk-g-ok" style="margin-top:20px;align-self:flex-end;">Đã hiểu</button>
+    <div class="pc-modal-card uk-modal-shell" style="max-width:640px;max-height:90vh;overflow-y:auto;padding:26px 24px;border-radius:24px;border:1px solid rgba(56,189,248,0.32);background:linear-gradient(155deg,rgba(13,21,44,0.97),rgba(20,14,38,0.97));box-shadow:0 32px 90px rgba(0,0,0,0.78),0 0 40px rgba(56,189,248,0.16);">
+      <button class="uk-close-btn" id="uk-g-close" aria-label="Đóng">${ICONS.close}</button>
+
+      <div style="display:flex;align-items:center;gap:14px;padding-right:36px;margin-bottom:18px;">
+        <div style="width:46px;height:46px;border-radius:14px;flex-shrink:0;display:grid;place-items:center;background:linear-gradient(135deg,rgba(56,189,248,0.22),rgba(232,121,249,0.22));border:1px solid rgba(56,189,248,0.45);color:#7dd3fc;">
+          ${ICONS.sparkles.replace('<svg', '<svg style="width:24px;height:24px;"')}
+        </div>
+        <div>
+          <h3 style="margin:0;font-size:20px;font-weight:700;font-family:var(--font-display,inherit);background:linear-gradient(90deg,#fff,#7dd3fc,#f0abfc);-webkit-background-clip:text;color:transparent;">Hướng dẫn tạo ảnh với AUDITION AI</h3>
+          <div style="font-size:12.5px;color:var(--text-muted);margin-top:3px;">4 bước đơn giản để biến câu lệnh mẫu thành ảnh AI sắc nét</div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:16px;">
+        ${steps.map(s => `
+          <div style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.09);">
+            <div style="min-width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-weight:800;font-size:12.5px;background:rgba(255,255,255,0.06);border:1px solid ${s.color};color:${s.color};flex-shrink:0;">${s.num}</div>
+            <div style="min-width:0;">
+              <div style="font-weight:700;font-size:14px;color:#f8fafc;margin-bottom:3px;">${escapeHtml(s.title)}</div>
+              <div style="font-size:12.8px;line-height:1.55;color:#cbd5e1;">${escapeHtml(s.desc)}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+
+      <div style="padding:12px 14px;border-radius:14px;background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.28);margin-bottom:18px;">
+        <div style="font-size:12px;font-weight:700;color:#7dd3fc;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.05em;">Mẹo để ảnh đẹp &amp; giống mẫu nhất</div>
+        <ul style="margin:0;padding-left:18px;font-size:12.5px;line-height:1.65;color:#cbd5e1;">
+          <li>Chọn ảnh khuôn mặt rõ nét, ánh sáng đều, không bị che khuất.</li>
+          <li>Có thể sửa trực tiếp màu tóc, trang phục hoặc bối cảnh trong câu lệnh trước khi tạo.</li>
+        </ul>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <a href="https://auditionai.io.vn/" target="_blank" rel="noopener noreferrer" class="uk-btn uk-btn-primary" style="flex:1;min-width:210px;padding:12px 18px;font-size:14px;border-radius:14px;">
+          ${ICONS.article.replace('<svg', '<svg style="width:16px;height:16px;"')}
+          <span>Mở ứng dụng AUDITION AI</span>
+        </a>
+        <button class="uk-btn" id="uk-g-ok" style="padding:12px 20px;border-radius:14px;">Đã hiểu</button>
+      </div>
     </div>
   `;
   document.body.appendChild(m);
