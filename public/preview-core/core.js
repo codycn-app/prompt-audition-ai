@@ -38,7 +38,7 @@ export const DEFAULT_CMS_CONFIG = {
     siteDescription: 'Khám phá, tìm kiếm và sao chép hơn 1.700+ câu lệnh tạo ảnh AI Audition đẹp nhất, cập nhật liên tục mỗi ngày.',
     keywords: 'prompt audition ai, câu lệnh tạo ảnh ai, prompt ai, tạo ảnh audition, prompt couple, prompt nam ngầu, prompt nữ xinh',
     ogImage: 'https://auditionai.io.vn/seo/prompt-audition-ai-social-preview.png',
-    canonicalBase: 'https://caulenhau.io.vn/preview1/',
+    canonicalBase: 'https://caulenhau.io.vn/',
   },
   privateIds: [],
 };
@@ -299,7 +299,7 @@ export class PromptAppEngine {
         ),
         fetchImagesSafe(),
         supabase.from('app_settings').select('key,value').in('key', ['cms_config']),
-        fetch('./hashtags-map.json').then(r => r.ok ? r.json() : {}).catch(() => ({})),
+        fetch('/hashtags-map.json').then(r => r.ok ? r.json() : {}).catch(() => ({})),
       ]);
 
       if (!settingsRes?.error && settingsRes?.data?.length) {

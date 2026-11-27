@@ -1,284 +1,50 @@
 <!DOCTYPE html>
 <html lang="vi">
-  <head>
-    <meta charset="UTF-8" />
-    
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Prompt Audition AI | Kho lưu trữ câu lệnh AI</title>
-    <meta name="description" content="Khám phá, lưu trữ và chia sẻ các câu lệnh tạo ảnh AI từ cộng đồng Prompt Audition AI." />
-    <meta name="robots" content="index, follow" />
-    <link rel="canonical" href="https://auditionai.io.vn/" />
-    <meta property="og:locale" content="vi_VN" />
-    <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="Prompt Audition AI" />
-    <meta property="og:title" content="Prompt Audition AI | Kho lưu trữ câu lệnh AI" />
-    <meta property="og:description" content="Khám phá, lưu trữ và chia sẻ các câu lệnh tạo ảnh AI từ cộng đồng Prompt Audition AI." />
-    <meta property="og:url" content="https://auditionai.io.vn/" />
-    <meta property="og:image" content="https://auditionai.io.vn/seo/prompt-audition-ai-social-preview.png" />
-    <meta property="og:image:secure_url" content="https://auditionai.io.vn/seo/prompt-audition-ai-social-preview.png" />
-    <meta property="og:image:type" content="image/png" />
-    <meta property="og:image:width" content="1672" />
-    <meta property="og:image:height" content="941" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Prompt Audition AI | Kho lưu trữ câu lệnh AI" />
-    <meta name="twitter:description" content="Khám phá, lưu trữ và chia sẻ các câu lệnh tạo ảnh AI từ cộng đồng Prompt Audition AI." />
-    <meta name="twitter:image" content="https://auditionai.io.vn/seo/prompt-audition-ai-social-preview.png" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@600&family=Be+Vietnam+Pro:wght@400;500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/react-image-crop/dist/ReactCrop.css" />
-    <script>
-      // Definitive Supabase Session Corruption Fix - "The Shield"
-      // This script runs BEFORE React and the Supabase client are initialized.
-      // Its purpose is to find and destroy any malformed or "poisonous" session data
-      // in localStorage that would cause the Supabase client to hang silently on startup.
-      (function() {
-        try {
-          const keysToDelete = [];
-          for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            // Identify potential Supabase auth tokens
-            if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
-              const value = localStorage.getItem(key);
-              if (!value) {
-                keysToDelete.push(key);
-                continue;
-              }
-              try {
-                const session = JSON.parse(value);
-                // Perform rigorous validation. If any check fails, the key is invalid.
-                if (
-                  typeof session.access_token !== 'string' || !session.access_token ||
-                  typeof session.refresh_token !== 'string' || !session.refresh_token ||
-                  typeof session.user !== 'object' || session.user === null ||
-                  typeof session.user.id !== 'string' || !session.user.id ||
-                  session.user.aud !== 'authenticated'
-                ) {
-                  keysToDelete.push(key);
-                }
-              } catch (e) {
-                // If it's not valid JSON, it's corrupted.
-                keysToDelete.push(key);
-              }
-            }
-          }
-          // Delete all identified bad keys.
-          for (const key of keysToDelete) {
-            localStorage.removeItem(key);
-          }
-        } catch (e) {
-          console.error("Error during pre-emptive session cleanup:", e);
-        }
-      })();
-
-      // Definitive fix for black screen/flicker issue.
-      // This script runs BEFORE React and applies the theme instantly.
-      (function() {
-        try {
-          const theme = localStorage.getItem('theme');
-          if (theme === 'light') {
-            document.documentElement.classList.add('light');
-          } else {
-            // Default to dark if no theme is set or it's invalid.
-            document.documentElement.classList.add('dark');
-          }
-        } catch (e) {
-          // Fallback to dark theme in case of any error.
-          document.documentElement.classList.add('dark');
-        }
-      })();
-    </script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        darkMode: 'class',
-        theme: {
-          extend: {
-            fontFamily: {
-              'sans': ['"Be Vietnam Pro"', 'sans-serif'],
-              'oxanium': ['"Oxanium"', 'sans-serif'],
-            },
-            colors: {
-              'cyber-black': '#0D0D0D',
-              'cyber-surface': '#1A1A1A',
-              'cyber-pink': '#FF00E6',
-              'cyber-cyan': '#00FFFF',
-              'cyber-on-surface': '#E0E0E0',
-              'cyber-on-surface-secondary': '#A0A0A0',
-              'rank-admin': '#FF4141',
-              'rank-master': '#FFD700', // Gold
-              'rank-silver': '#C0C0C0', // Silver
-              'rank-bronze': '#CD7F32', // Bronze
-              'rank-expert': '#DA70D6',
-              'rank-advanced': '#87CEFA',
-            },
-            boxShadow: {
-              'cyber-glow': '0 0 15px rgba(255, 0, 230, 0.5), 0 0 5px rgba(0, 255, 255, 0.4)',
-              'cyber-glow-lg': '0 0 25px rgba(255, 0, 230, 0.6), 0 0 10px rgba(0, 255, 255, 0.5)',
-            },
-            keyframes: {
-              'fade-in-scale': {
-                '0%': { opacity: '0', transform: 'scale(0.95)' },
-                '100%': { opacity: '1', transform: 'scale(1)' },
-              },
-              'background-pan': {
-                '0%': { backgroundPosition: '0% center' },
-                '100%': { backgroundPosition: '-200% center' },
-              },
-              'toast-in-out': {
-                '0%': { transform: 'translateY(100%)', opacity: '0' },
-                '20%': { transform: 'translateY(0)', opacity: '1' },
-                '80%': { transform: 'translateY(0)', opacity: '1' },
-                '100%': { transform: 'translateY(100%)', opacity: '0' },
-              },
-              'text-glow': {
-                '0%': { textShadow: '0 0 4px currentColor' },
-                '100%': { textShadow: '0 0 10px currentColor' },
-              },
-              'icon-glow': {
-                '0%, 100%': { filter: 'drop-shadow(0 0 2px rgba(255, 215, 0, 0.7))' },
-                '50%': { filter: 'drop-shadow(0 0 5px rgba(255, 215, 0, 1))' },
-              },
-            },
-            animation: {
-              'fade-in-scale': 'fade-in-scale 0.3s ease-in-out',
-              'background-pan': 'background-pan 3s linear infinite',
-              'toast-in-out': 'toast-in-out 3s ease-in-out forwards',
-              'text-glow': 'text-glow 1.5s ease-in-out infinite alternate',
-              'icon-glow': 'icon-glow 2s ease-in-out infinite',
-            }
-          },
-        },
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Câu Lệnh Audition AI | Kho Câu Lệnh Tạo Ảnh AI Đẹp Nhất</title>
+  <meta name="description" content="Khám phá, tìm kiếm và sao chép hơn 1.700+ câu lệnh tạo ảnh AI Audition đẹp nhất, cập nhật liên tục mỗi ngày cho cộng đồng sáng tạo." />
+  <meta name="keywords" content="prompt audition ai, câu lệnh tạo ảnh ai, prompt ai, tạo ảnh audition, prompt couple, prompt nam ngầu, prompt nữ xinh" />
+  <meta name="robots" content="index, follow, max-image-preview:large" />
+  <link rel="canonical" href="https://caulenhau.io.vn/" />
+  <meta property="og:locale" content="vi_VN" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Câu Lệnh Audition AI" />
+  <meta property="og:title" content="Câu Lệnh Audition AI | Kho Câu Lệnh Tạo Ảnh AI Đẹp Nhất" />
+  <meta property="og:description" content="Khám phá, tìm kiếm và sao chép hơn 1.700+ câu lệnh tạo ảnh AI Audition đẹp nhất, cập nhật liên tục mỗi ngày." />
+  <meta property="og:url" content="https://caulenhau.io.vn/" />
+  <meta property="og:image" content="https://auditionai.io.vn/seo/prompt-audition-ai-social-preview.png" />
+  <meta property="og:image:secure_url" content="https://auditionai.io.vn/seo/prompt-audition-ai-social-preview.png" />
+  <meta property="og:image:alt" content="Câu Lệnh Audition AI - Kho Câu Lệnh Tạo Ảnh AI" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Câu Lệnh Audition AI | Kho Câu Lệnh Tạo Ảnh AI Đẹp Nhất" />
+  <meta name="twitter:description" content="Khám phá, tìm kiếm và sao chép hơn 1.700+ câu lệnh tạo ảnh AI Audition đẹp nhất." />
+  <meta name="twitter:image" content="https://auditionai.io.vn/seo/prompt-audition-ai-social-preview.png" />
+  <script type="application/ld+json" id="seo-jsonld">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "Câu Lệnh Audition AI",
+      "url": "https://caulenhau.io.vn/",
+      "description": "Kho câu lệnh tạo ảnh AI Audition tuyển chọn",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": "https://caulenhau.io.vn/?q={search_term_string}",
+        "query-input": "required name=search_term_string"
       }
-    </script>
-    <style>
-      body {
-        background-color: #0D0D0D;
-        background-image:
-          linear-gradient(rgba(255, 0, 230, 0.05) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(255, 0, 230, 0.05) 1px, transparent 1px);
-        background-size: 40px 40px;
-      }
-      /* Custom Scrollbar Styles */
-      .custom-scrollbar::-webkit-scrollbar {
-        width: 8px;
-      }
-      .custom-scrollbar::-webkit-scrollbar-track {
-        background: #1A1A1A; /* cyber-surface */
-        border-radius: 10px;
-      }
-      .custom-scrollbar::-webkit-scrollbar-thumb {
-        background-image: linear-gradient(to bottom, #FF00E6, #00FFFF); /* cyber-pink to cyber-cyan */
-        border-radius: 10px;
-      }
-      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-        opacity: 0.8;
-      }
-
-      .welcome-stage {
-        perspective: 1100px;
-      }
-      .welcome-panel {
-        transform: rotateX(1deg);
-        animation: welcome-panel-in 380ms cubic-bezier(0.16, 1, 0.3, 1) both;
-      }
-      .welcome-grid {
-        background-image: radial-gradient(circle at 50% -10%, rgba(255, 0, 230, 0.18), transparent 34%), linear-gradient(rgba(0, 255, 255, 0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 255, 255, 0.06) 1px, transparent 1px);
-        background-size: auto, 30px 30px, 30px 30px;
-        mask-image: linear-gradient(to bottom, black, transparent 86%);
-      }
-      .welcome-light-strip { background: linear-gradient(90deg, transparent 4%, #ff00e6 33%, #00ffff 66%, transparent 96%); box-shadow: 0 0 16px rgba(0, 255, 255, 0.75); }
-      .welcome-orbit {
-        position: absolute;
-        left: 50%;
-        top: 50%;
-        border: 1px solid rgba(0, 255, 255, 0.4);
-        border-radius: 50%;
-        pointer-events: none;
-        transform-style: preserve-3d;
-      }
-      .welcome-orbit::after {
-        content: '';
-        position: absolute;
-        left: 50%;
-        top: -4px;
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: #ff00e6;
-        box-shadow: 0 0 15px #ff00e6, 0 0 30px rgba(0, 255, 255, 0.7);
-      }
-      .welcome-orbit-one { width: 106%; height: 68%; animation: welcome-orbit 10s linear infinite; }
-      .welcome-orbit-two { width: 92%; height: 112%; border-color: rgba(255, 0, 230, 0.32); animation: welcome-orbit-reverse 13s linear infinite; }
-      .welcome-archive-mark { transform-style: preserve-3d; animation: welcome-float 3.6s ease-in-out infinite; }
-      .welcome-archive-mark::before, .welcome-archive-mark::after {
-        content: '';
-        position: absolute;
-        left: 50%; top: 50%; width: 54px; height: 54px;
-        border: 1px solid rgba(0, 255, 255, 0.6);
-        transform: translate(-50%, -50%) rotate(45deg) translateZ(-1px);
-        box-shadow: 0 0 22px rgba(0, 255, 255, 0.28);
-      }
-      .welcome-archive-mark::after { width: 70px; height: 70px; border-color: rgba(255, 0, 230, 0.65); transform: translate(-50%, -50%) rotate(22.5deg) translateZ(-2px); }
-      .welcome-prompt-card { position: absolute; width: 82px; border: 1px solid rgba(255, 255, 255, 0.35); border-radius: 7px; padding: 7px 3px; background: linear-gradient(135deg, rgba(35, 27, 60, 0.98), rgba(12, 24, 39, 0.94)); font: 700 9px/1 "Oxanium", sans-serif; letter-spacing: 1px; color: rgba(255, 255, 255, 0.86); box-shadow: 0 12px 20px rgba(0, 0, 0, 0.4); }
-      .welcome-prompt-card-one { transform: translateX(-42px) rotate(-11deg) translateZ(-8px); color: #ff8ef2; }
-      .welcome-prompt-card-two { transform: translateX(42px) rotate(11deg) translateZ(-8px); color: #75ffff; }
-      .welcome-kicker { color: #00ffff; text-shadow: 0 0 12px rgba(0, 255, 255, 0.65); }
-      .welcome-stat { border: 1px solid rgba(0, 255, 255, 0.26); background: rgba(0, 255, 255, 0.08); color: #e8ffff; box-shadow: inset 0 1px rgba(255, 255, 255, 0.06); }
-      .welcome-stat-dot { width: 7px; height: 7px; border-radius: 50%; background: #00ffff; box-shadow: 0 0 10px #00ffff; animation: welcome-pulse 1.8s ease-in-out infinite; }
-      .welcome-social-link { position: relative; overflow: hidden; border-color: rgba(255, 255, 255, 0.18); background: rgba(255, 255, 255, 0.055); color: #fff; box-shadow: inset 0 1px rgba(255, 255, 255, 0.07), 0 8px 20px rgba(0, 0, 0, 0.16); }
-      .welcome-social-link::before { content: ''; position: absolute; inset: 0; opacity: 0; transition: opacity 200ms ease; background: linear-gradient(115deg, transparent, rgba(255, 255, 255, 0.12), transparent); }
-      .welcome-social-link:hover::before { opacity: 1; }
-      .welcome-social-link:hover { transform: translateY(-2px); }
-      .welcome-social-icon { border: 1px solid rgba(255, 255, 255, 0.18); background: rgba(0, 0, 0, 0.22); }
-      .welcome-social-arrow { opacity: 0.6; transition: transform 200ms ease, opacity 200ms ease; }
-      .welcome-social-link:hover .welcome-social-arrow { opacity: 1; transform: translate(2px, -2px); }
-      .welcome-social-facebook:hover { border-color: #4b8dff; box-shadow: inset 0 1px rgba(255, 255, 255, 0.09), 0 8px 26px rgba(38, 119, 255, 0.22); }
-      .welcome-social-facebook .welcome-social-icon { color: #78a9ff; }
-      .welcome-social-tiktok:hover { border-color: #ff4ddf; box-shadow: inset 0 1px rgba(255, 255, 255, 0.09), 0 8px 26px rgba(255, 0, 230, 0.2); }
-      .welcome-social-tiktok .welcome-social-icon { color: #ff83eb; }
-      .welcome-social-app { grid-column: 1 / -1; border-color: rgba(0, 255, 255, 0.42); background: linear-gradient(100deg, rgba(0, 255, 255, 0.15), rgba(255, 0, 230, 0.16)); box-shadow: inset 0 1px rgba(255, 255, 255, 0.13), 0 10px 28px rgba(0, 255, 255, 0.12); }
-      .welcome-social-app:hover { border-color: #00ffff; box-shadow: inset 0 1px rgba(255, 255, 255, 0.16), 0 10px 32px rgba(0, 255, 255, 0.26); }
-      .welcome-social-app .welcome-social-icon { color: #75ffff; background: rgba(0, 255, 255, 0.14); }
-      @keyframes welcome-panel-in { from { opacity: 0; transform: translateY(18px) scale(0.96) rotateX(4deg); } to { opacity: 1; transform: translateY(0) scale(1) rotateX(1deg); } }
-      @keyframes welcome-orbit { from { transform: translate(-50%, -50%) rotateX(63deg) rotateZ(0deg); } to { transform: translate(-50%, -50%) rotateX(63deg) rotateZ(360deg); } }
-      @keyframes welcome-orbit-reverse { from { transform: translate(-50%, -50%) rotateX(68deg) rotateZ(360deg); } to { transform: translate(-50%, -50%) rotateX(68deg) rotateZ(0deg); } }
-      @keyframes welcome-float { 0%, 100% { transform: translateY(0) rotateY(0); } 50% { transform: translateY(-6px) rotateY(12deg); } }
-      @keyframes welcome-pulse { 0%, 100% { opacity: 0.6; transform: scale(0.85); } 50% { opacity: 1; transform: scale(1.15); } }
-      @media (max-width: 640px) {
-        .welcome-orbit-one { width: 108%; height: 86%; }
-        .welcome-orbit-two { width: 91%; height: 109%; }
-      }
-      @media (prefers-reduced-motion: reduce) {
-        .welcome-panel, .welcome-orbit, .welcome-archive-mark, .welcome-stat-dot { animation: none !important; }
-      }
-    </style>
-  <script type="importmap">
-{
-  "imports": {
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^0.15.0",
-    "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm",
-    "@aws-sdk/s3-request-presigner": "https://esm.sh/@aws-sdk/s3-request-presigner@^3.975.0",
-    "@aws-sdk/client-s3": "https://esm.sh/@aws-sdk/client-s3@^3.975.0"
-  }
-}
-</script>
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-BZQELL2FLM"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'G-BZQELL2FLM');
-  gtag('config', 'G-ZLHRSDD8EY');
-</script>
+    }
+  </script>
+  <link rel="preconnect" href="https://pub-7a59a184512144158a3ce246c7165fee.r2.dev" crossorigin />
+  <link rel="preconnect" href="https://awovbdypluazfcfvnmym.supabase.co" crossorigin />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Space+Grotesk:wght@500;700&family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/preview-core/base.css" />
+  <link rel="stylesheet" href="/style.css" />
 </head>
-  <body class="bg-cyber-black font-sans">
-    <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
-  </body>
+<body>
+  <canvas id="os-aurora-canvas" aria-hidden="true"></canvas>
+  <div id="app"></div>
+  <script type="module" src="/app.js"></script>
+</body>
 </html>
