@@ -52,6 +52,101 @@ export function normalizeVi(str = '') {
     .trim();
 }
 
+export async function analyzeImageTone(file) {
+  if (!file) return null;
+  try {
+    const bmp = await createImageBitmap(file);
+    const canvas = document.createElement('canvas');
+    canvas.width = 24;
+    canvas.height = 24;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(bmp, 0, 0, 24, 24);
+    bmp.close();
+    const { data } = ctx.getImageData(0, 0, 24, 24);
+    let r = 0, g = 0, b = 0, count = data.length / 4;
+    for (let i = 0; i < data.length; i += 4) {
+      r += data[i]; g += data[i + 1]; b += data[i + 2];
+    }
+    r /= count; g /= count; b /= count;
+    const lum = (0.299 * r + 0.587 * g + 0.114 * b);
+    if (lum < 75) return 'tông màu tối';
+    if (r > g + 35 && r > b + 20) return 'tông đỏ ấm';
+    if (r > 175 && b > 165 && g < 165) return 'tông hồng pastel';
+    if (b > r + 25 && b > g + 15) return 'tông xanh lạnh';
+    if (lum > 185) return 'ánh sáng tươi sáng';
+    return 'ánh sáng tự nhiên';
+  } catch {
+    return null;
+  }
+}
+
+export function suggestHashtagsFromPost({ title = '', prompt = '', categoryNames = [], toneTag = '' }) {
+  const text = normalizeVi(`${title} ${prompt} ${categoryNames.join(' ')}`);
+  const catText = normalizeVi(categoryNames.join(' '));
+  const tags = [];
+  const push = (t) => { if (t && !tags.includes(t) && tags.length < 5) tags.push(t); };
+
+  // 1. Đối tượng / Số lượng
+  if (catText.includes('couple') || /\b(couple|cap doi|doi nam nu|two people|boy and girl|man and woman)\b/.test(text)) {
+    push('ảnh couple');
+  } else if (catText.includes('nhom') || /\b(group|nhom|friends|three|four|five)\b/.test(text)) {
+    if (/\b(female|girls|women|nu)\b/.test(text) && !/\b(male|boy|nam)\b/.test(text)) push('ảnh nhóm nữ');
+    else if (/\b(male|boys|men|nam)\b/.test(text) && !/\b(female|girl|nu)\b/.test(text)) push('ảnh nhóm nam');
+    else push('ảnh nhóm bạn');
+  } else if (/\b(boy|man|male|anh chang|chang trai|nam)\b/.test(text) && !/\b(girl|woman|female|co gai|nu)\b/.test(text)) {
+    push('ảnh nam đơn');
+  } else if (/\b(girl|woman|female|co gai|nu|xinh)\b/.test(text)) {
+    push('ảnh nữ đơn');
+  } else if (categoryNames[0]) {
+    push(categoryNames[0].toLowerCase());
+  }
+
+  // 2. Chủ đề / Bối cảnh
+  const scenes = [
+    [/dua xe|moto|motorcycle|racing|superbike|helmet/, 'đua xe cá tính'],
+    [/sinh nhat|birthday|banh kem|cake|candle/, 'chủ đề sinh nhật'],
+    [/du lich|travel|beach|bien|mountain|nui|picnic|da ngoai/, 'du lịch dã ngoại'],
+    [/duong pho|street|night|dem|city|tokyo|seoul|neon/, 'đường phố đêm'],
+    [/studio|chan dung|portrait|close-up|closeup/, 'chân dung studio'],
+    [/ca phe|cafe|coffee|quan|nha hang|bar/, 'quán cà phê'],
+    [/giang sinh|christmas|noel|halloween|valentine|tet/, 'chủ đề lễ hội'],
+    [/hoa|flower|vuon|garden|forest|rung/, 'thiên nhiên hoa lá'],
+    [/o to|xe hoi|car|supercar|sieu xe/, 'bên siêu xe'],
+  ];
+  for (const [re, label] of scenes) { if (re.test(text)) { push(label); break; } }
+
+  // 3. Phong cách / Thần thái
+  const styles = [
+    [/cool|ngau|badass|lanh lung|edgy|dark|gothic/, 'phong cách ngầu'],
+    [/cute|de thuong|sweet|ngot ngao|kawaii|y2k/, 'dễ thương y2k'],
+    [/romantic|lang man|love|tinh cam|kiss|hug/, 'lãng mạn ngọt ngào'],
+    [/luxury|sang trong|sang chanh|elegant|quy toc/, 'sang trọng quý phái'],
+    [/3d|cinematic|render|audition|game|unreal/, 'đồ họa 3d sắc nét'],
+  ];
+  for (const [re, label] of styles) { if (re.test(text)) { push(label); break; } }
+
+  // 4. Tông màu / Ánh sáng (ưu tiên phân tích ảnh thực tế)
+  if (toneTag) push(toneTag);
+  else if (/neon|cyberpunk/.test(text)) push('ánh sáng neon');
+  else if (/sunset|hoang hon|warm|nang am|golden/.test(text)) push('ánh nắng ấm áp');
+  else if (/dark|night|toi|shadow/.test(text)) push('tông màu tối');
+
+  // 5. Trang phục / Chi tiết nổi bật
+  const outfits = [
+    [/vay|dress|gown/, 'váy thời trang'],
+    [/ao khoac da|leather jacket|jacket|hoodie/, 'áo khoác cá tính'],
+    [/toc bach kim|blonde|platinum|silver hair/, 'tóc bạch kim'],
+    [/vest|suit|blazer/, 'trang phục vest'],
+    [/kinh|glasses|sunglasses/, 'phụ kiện kính mắt'],
+  ];
+  for (const [re, label] of outfits) { if (re.test(text)) { push(label); break; } }
+
+  // Fill remaining slots cleanly if < 5
+  const fallbacks = ['tạo ảnh audition ai', 'chân dung nghệ thuật', 'thời trang hiện đại', 'ánh sáng điện ảnh', 'phong cách trẻ trung'];
+  for (const f of fallbacks) { if (tags.length >= 5) break; push(f); }
+  return tags.slice(0, 5);
+}
+
 export function loadCmsConfig() {
   try {
     const raw = localStorage.getItem(CONFIG_STORAGE_KEY);
@@ -657,7 +752,7 @@ export class PromptAppEngine {
     this.setPage('home');
   }
 
-  async createPost({ title, prompt, categoryIds, file }) {
+  async createPost({ title, prompt, categoryIds, file, hashtags = [] }) {
     if (!this.state.currentUser) throw new Error('Vui lòng đăng nhập để đăng ảnh.');
     const ext = file.name.split('.').pop() || 'png';
     const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -665,9 +760,16 @@ export class PromptAppEngine {
     const thumbBlob = await createThumbnailWebP(file);
     const thumbnailUrl = await uploadToR2(thumbBlob, 'images', `${stamp}.webp`, 'image/webp');
 
-    const { data: inserted, error } = await supabase.from('images').insert({
-      title, prompt, image_url: imageUrl, thumbnail_url: thumbnailUrl, user_id: this.state.currentUser.id
+    const cleanTags = (hashtags || []).map(t => String(t).replace(/^#/, '').trim()).filter(Boolean).slice(0, 5);
+    let insertedRes = await supabase.from('images').insert({
+      title, prompt, image_url: imageUrl, thumbnail_url: thumbnailUrl, user_id: this.state.currentUser.id, hashtags: cleanTags
     }).select().single();
+    if (insertedRes.error) {
+      insertedRes = await supabase.from('images').insert({
+        title, prompt, image_url: imageUrl, thumbnail_url: thumbnailUrl, user_id: this.state.currentUser.id
+      }).select().single();
+    }
+    const { data: inserted, error } = insertedRes;
     if (error) throw error;
 
     if (categoryIds.length > 0) {
