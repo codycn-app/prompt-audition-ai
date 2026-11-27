@@ -145,11 +145,11 @@ export function renderDetailModal(engine, image, opts = {}) {
     <div class="pc-modal-card pc-split uk-modal-shell" style="max-width:1060px;border-radius:24px;border:1px solid rgba(255,255,255,0.16);background:rgba(12,16,28,0.96);backdrop-filter:blur(28px);box-shadow:0 32px 90px rgba(0,0,0,0.75), inset 0 1px 0 rgba(255,255,255,0.14);">
       <button class="uk-close-btn" id="uk-modal-close" aria-label="Đóng" style="top:14px;right:14px;width:38px;height:38px;background:rgba(255,255,255,0.08);backdrop-filter:blur(10px);">${ICONS.close}</button>
 
-      <div class="uk-modal-media" style="flex:1.3;background:radial-gradient(circle at center, #111827 0%, #05070c 100%);display:flex;align-items:center;justify-content:center;min-height:220px;max-height:36vh;overflow:hidden;position:relative;padding:12px;border-right:1px solid rgba(255,255,255,0.08);">
+      <div class="uk-modal-media" style="flex:1.3;background:radial-gradient(circle at center, #111827 0%, #05070c 100%);display:flex;align-items:center;justify-content:center;min-height:220px;overflow:hidden;position:relative;padding:12px;border-right:1px solid rgba(255,255,255,0.08);">
         <div style="position:absolute;top:14px;left:14px;display:flex;align-items:center;gap:8px;z-index:2;">
           <span style="padding:4px 10px;border-radius:999px;font-size:11.5px;font-weight:600;background:rgba(5,7,14,0.78);border:1px solid rgba(255,255,255,0.16);color:#7dd3fc;backdrop-filter:blur(8px);display:inline-flex;align-items:center;gap:5px;">${ICONS.eye.replace('<svg', '<svg style="width:13px;height:13px;"')} ${getDisplayViews(image)}</span>
         </div>
-        <img src="${escapeHtml(image.image_url)}" alt="${escapeHtml(image.title)}" style="width:100%;height:100%;object-fit:contain;border-radius:12px;filter:drop-shadow(0 16px 36px rgba(0,0,0,0.65));" />
+        <img class="uk-modal-img" src="${escapeHtml(image.image_url)}" alt="${escapeHtml(image.title)}" style="width:100%;height:100%;object-fit:contain;border-radius:12px;filter:drop-shadow(0 16px 36px rgba(0,0,0,0.65));" />
       </div>
 
       <div class="uk-modal-body" style="flex:1;padding:20px 20px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;">
@@ -199,10 +199,19 @@ export function renderDetailModal(engine, image, opts = {}) {
     modal.querySelector('.uk-modal-media').style.maxHeight = 'none';
   } else {
     const card = modal.querySelector('.pc-modal-card');
+    const media = modal.querySelector('.uk-modal-media');
+    const imgEl = modal.querySelector('.uk-modal-img');
     card.style.maxHeight = '92vh';
     card.style.overflowY = 'auto';
-    modal.querySelector('.uk-modal-media').style.flex = 'none';
-    modal.querySelector('.uk-modal-media').style.borderRight = 'none';
+    media.style.flex = 'none';
+    media.style.maxHeight = 'none';
+    media.style.height = 'auto';
+    media.style.borderRight = 'none';
+    if (imgEl) {
+      imgEl.style.width = '100%';
+      imgEl.style.height = 'auto';
+      imgEl.style.maxHeight = '72vh';
+    }
     modal.querySelector('.uk-modal-body').style.overflowY = 'visible';
     modal.querySelector('.uk-modal-body').style.flex = 'none';
   }
