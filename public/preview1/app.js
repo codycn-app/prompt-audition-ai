@@ -129,13 +129,13 @@ function getDailyTop10(publicImages) {
 function getHashtag(img) {
   const cat = img.categories?.[0]?.name || '';
   const lower = cat.toLowerCase();
-  if (lower.includes('couple') || lower.includes('đôi')) return { label: '#Couple', color: '#f472b6' };
+  if (lower.includes('couple') || lower.includes('đôi')) return { label: 'Couple', color: '#f472b6' };
   const groupMatch = lower.match(/nhóm\s*(\d+)/i);
-  if (groupMatch) return { label: `#Group ${groupMatch[1]}`, color: '#a78bfa' };
-  if (lower.includes('nhóm')) return { label: '#Group', color: '#a78bfa' };
-  if (lower.includes('nam') || lower.includes('nữ') || lower.includes('đơn')) return { label: '#Single', color: '#38bdf8' };
-  if (cat) return { label: `#${cat}`, color: '#34d399' };
-  return { label: '#Prompt', color: '#38bdf8' };
+  if (groupMatch) return { label: `Group ${groupMatch[1]}`, color: '#a78bfa' };
+  if (lower.includes('nhóm')) return { label: 'Group', color: '#a78bfa' };
+  if (lower.includes('nam') || lower.includes('nữ') || lower.includes('đơn')) return { label: 'Single', color: '#38bdf8' };
+  if (cat) return { label: cat, color: '#34d399' };
+  return { label: 'Prompt', color: '#38bdf8' };
 }
 
 function attachSafeImageFallback(imgEl, item, containerEl, engine) {

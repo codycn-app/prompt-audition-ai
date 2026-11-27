@@ -9,8 +9,8 @@
   --accent-2: #e879f9;
   --on-accent: #05070e;
   --accent-glow: rgba(56, 189, 248, 0.45);
-  --font-display: 'Space Grotesk', sans-serif;
-  --font-brand: 'Oxanium', sans-serif;
+  --font-display: 'Be Vietnam Pro', 'Space Grotesk', sans-serif;
+  --font-brand: 'Chakra Petch', 'Be Vietnam Pro', sans-serif;
   --font-body: 'Be Vietnam Pro', sans-serif;
   --btn-radius: 12px;
 }
@@ -55,12 +55,12 @@ body {
 @keyframes osLogoSpin { to { transform: rotate(360deg); } }
 @keyframes osLogoPulse { 0%,100% { transform: scale(1); filter: drop-shadow(0 0 4px rgba(56,189,248,0.6)); } 50% { transform: scale(1.07); filter: drop-shadow(0 0 12px rgba(232,121,249,0.9)); } }
 .os-brand-text {
-  font-family: var(--font-brand); font-weight: 700; font-size: 18px; letter-spacing: 0.02em;
+  font-family: var(--font-brand); font-weight: 700; font-size: 20px; letter-spacing: 0.02em;
   background: linear-gradient(90deg, #ffffff 0%, #38bdf8 35%, #e879f9 70%, #ffffff 100%);
   background-size: 220% auto; -webkit-background-clip: text; color: transparent;
   animation: osBrandFlow 4.5s linear infinite;
 }
-@media (min-width: 768px) { .os-brand-text { font-size: 21px; } .os-brand-mobile { display: none; } }
+@media (min-width: 768px) { .os-brand-text { font-size: 24px; } .os-brand-mobile { display: none; } }
 @media (max-width: 767px) { .os-brand-desktop { display: none; } }
 @keyframes osBrandFlow { to { background-position: 220% center; } }
 

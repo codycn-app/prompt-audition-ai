@@ -119,7 +119,7 @@ function renderTopicHashtags(image) {
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">
       ${tags.map(t => {
         const clean = String(t).replace(/^#/, '').trim();
-        return `<button type="button" class="uk-chip" data-tag-search="${escapeHtml(clean)}" style="padding:4px 10px;font-size:11.5px;background:rgba(56,189,248,0.1);border-color:rgba(56,189,248,0.3);color:#7dd3fc;">#${escapeHtml(clean)}</button>`;
+        return `<button type="button" class="uk-chip" data-tag-search="${escapeHtml(clean)}" style="padding:4px 10px;font-size:11.5px;background:rgba(56,189,248,0.1);border-color:rgba(56,189,248,0.3);color:#7dd3fc;">${escapeHtml(clean)}</button>`;
       }).join('')}
     </div>
   `;
