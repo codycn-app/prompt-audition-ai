@@ -60,7 +60,8 @@ body {
   background-size: 220% auto; -webkit-background-clip: text; color: transparent;
   animation: osBrandFlow 4.5s linear infinite;
 }
-@media (min-width: 768px) { .os-brand-text { font-size: 21px; } }
+@media (min-width: 768px) { .os-brand-text { font-size: 21px; } .os-brand-mobile { display: none; } }
+@media (max-width: 767px) { .os-brand-desktop { display: none; } }
 @keyframes osBrandFlow { to { background-position: 220% center; } }
 
 .os-top-search { flex: 1; max-width: 480px; position: relative; display: flex; align-items: center; }

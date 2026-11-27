@@ -159,7 +159,8 @@ const adapter = {
         <header class="os-menubar">
           <div class="os-brand" id="os-logo">
             ${LOGO_SVG}
-            <span class="os-brand-text">Prompt Audition AI</span>
+            <span class="os-brand-text os-brand-desktop">Câu Lệnh Audition AI</span>
+            <span class="os-brand-text os-brand-mobile">Câu Lệnh Au</span>
           </div>
           <div class="os-top-search">
             ${ICONS.search}
