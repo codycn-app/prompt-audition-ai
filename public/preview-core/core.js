@@ -292,13 +292,14 @@ export class PromptAppEngine {
         }
       };
 
-      const [catsRes, links, imgs, settingsRes] = await Promise.all([
+      const [catsRes, links, imgs, settingsRes, fallbackTagsMap] = await Promise.all([
         supabase.from('categories').select('id,name,position').order('position', { ascending: true }),
         this.fetchAllRows((from, to) =>
           supabase.from('image_categories').select('image_id,category_id').order('image_id').range(from, to)
         ),
         fetchImagesSafe(),
         supabase.from('app_settings').select('key,value').in('key', ['cms_config']),
+        fetch('./hashtags-map.json').then(r => r.ok ? r.json() : {}).catch(() => ({})),
       ]);
 
       if (!settingsRes?.error && settingsRes?.data?.length) {
@@ -330,6 +331,7 @@ export class PromptAppEngine {
 
       this.state.allImagesMeta = imgs.map(img => ({
         ...img,
+        hashtags: (Array.isArray(img.hashtags) && img.hashtags.length) ? img.hashtags : (fallbackTagsMap[img.id] || []),
         categories: (map.get(img.id) || []).map(cid => catLookup.get(cid)).filter(Boolean),
       }));
 
@@ -386,7 +388,12 @@ export class PromptAppEngine {
     if (error || !data) throw new Error('Không tải được chi tiết bài đăng.');
 
     const meta = this.state.allImagesMeta.find(i => i.id === id);
-    const full = { ...(meta || {}), ...data, categories: meta?.categories || [], hashtags: data.hashtags || meta?.hashtags || [] };
+    const full = {
+      ...(meta || {}),
+      ...data,
+      categories: meta?.categories || [],
+      hashtags: (Array.isArray(data.hashtags) && data.hashtags.length) ? data.hashtags : (meta?.hashtags || []),
+    };
     full.profiles = await this.fetchAuthor(full.user_id);
     this.fullPostCache.set(id, full);
     return full;
@@ -443,14 +450,14 @@ export class PromptAppEngine {
 
   setCategory(catId) {
     this.state.selectedCategory = catId;
-    this.state.currentPage = 'home';
+    if (this.state.currentPage !== 'home') this.setPage('home');
     this.applyFilters();
     this.theme.renderPage(this);
   }
 
   setSearch(q) {
     this.state.searchQuery = q;
-    this.state.currentPage = 'home';
+    if (this.state.currentPage !== 'home') this.setPage('home');
     this.applyFilters();
     this.theme.renderPage(this);
   }
