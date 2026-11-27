@@ -760,7 +760,7 @@ export class PromptAppEngine {
     const thumbBlob = await createThumbnailWebP(file);
     const thumbnailUrl = await uploadToR2(thumbBlob, 'images', `${stamp}.webp`, 'image/webp');
 
-    const cleanTags = (hashtags || []).map(t => String(t).replace(/^#/, '').trim()).filter(Boolean).slice(0, 5);
+    const cleanTags = (hashtags || []).map(t => String(t).replace(/^#/, '').trim()).filter(Boolean).slice(0, 10);
     const payload = {
       title, prompt, image_url: imageUrl, thumbnail_url: thumbnailUrl, user_id: this.state.currentUser.id, hashtags: cleanTags
     };
@@ -877,6 +877,43 @@ export class PromptAppEngine {
     this.fullPostCache.delete(Number(imageId));
     showToast(`Đã thay ảnh mới cho #${imageId} và đưa về công khai!`);
     await this.fetchInitialData();
+  }
+
+  async updatePost(imageId, { title, prompt, categoryIds, file = null, hashtags = [], cropData = null, originalWidth = null, originalHeight = null }) {
+    if (!this.state.currentUser) throw new Error('Vui lòng đăng nhập.');
+    const cleanTags = (hashtags || []).map(t => String(t).replace(/^#/, '').trim()).filter(Boolean).slice(0, 10);
+    const payload = { title, prompt, hashtags: cleanTags };
+
+    if (file) {
+      const ext = file.name.split('.').pop() || 'png';
+      const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      payload.image_url = await uploadToR2(file, 'images', `${stamp}.${ext}`, file.type);
+      const thumbBlob = await createThumbnailWebP(file);
+      payload.thumbnail_url = await uploadToR2(thumbBlob, 'images', `${stamp}.webp`, 'image/webp');
+    }
+    if (cropData && originalWidth && originalHeight) {
+      payload.thumbnail_crop_data = cropData;
+      payload.original_width = originalWidth;
+      payload.original_height = originalHeight;
+    }
+
+    let res = await supabase.from('images').update(payload).eq('id', imageId);
+    if (res.error) {
+      delete payload.hashtags;
+      res = await supabase.from('images').update(payload).eq('id', imageId);
+    }
+    if (res.error) throw res.error;
+
+    await supabase.from('image_categories').delete().eq('image_id', imageId);
+    if (categoryIds.length > 0) {
+      await supabase.from('image_categories').insert(categoryIds.map(cid => ({ image_id: imageId, category_id: cid })));
+    }
+
+    this.fullPostCache.delete(Number(imageId));
+    showToast('Đã cập nhật bài viết!');
+    await this.fetchInitialData();
+    if (this.state.currentPage === 'article') await this.openArticle(imageId);
+    else if (this.state.activePost?.id === Number(imageId)) await this.openModal({ id: imageId });
   }
 
   async deletePost(image) {

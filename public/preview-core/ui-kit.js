@@ -21,6 +21,7 @@ export const ICONS = {
   eye: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`,
   sparkles: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3Z"/></svg>`,
   trash: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>`,
+  edit: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`,
   back: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>`,
   sun: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>`,
   moon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`,
@@ -113,7 +114,7 @@ function renderAvatar(user, size = 38) {
 }
 
 function renderTopicHashtags(image) {
-  const tags = Array.isArray(image?.hashtags) ? image.hashtags.filter(Boolean).slice(0, 5) : [];
+  const tags = Array.isArray(image?.hashtags) ? image.hashtags.filter(Boolean).slice(0, 10) : [];
   if (!tags.length) return '';
   return `
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">
@@ -186,9 +187,14 @@ export function renderDetailModal(engine, image, opts = {}) {
           </div>
         </div>
 
-        <div style="display:flex;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08);font-size:12px;color:var(--text-muted);">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08);font-size:12px;color:var(--text-muted);gap:8px;flex-wrap:wrap;">
           <span>Đăng lúc: ${new Date(image.created_at).toLocaleString('vi-VN')}</span>
-          ${canDelete ? `<button class="uk-btn" id="uk-delete-post" style="padding:5px 10px;color:#f87171;border-color:rgba(248,113,113,0.3);">${ICONS.trash} Xóa</button>` : ''}
+          ${canDelete ? `
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button class="uk-btn" id="uk-edit-post" style="padding:5px 11px;color:#7dd3fc;border-color:rgba(56,189,248,0.35);">${ICONS.edit} Sửa</button>
+              <button class="uk-btn" id="uk-delete-post" style="padding:5px 10px;color:#f87171;border-color:rgba(248,113,113,0.3);">${ICONS.trash} Xóa</button>
+            </div>
+          ` : ''}
         </div>
       </div>
     </div>
@@ -247,6 +253,8 @@ export function renderDetailModal(engine, image, opts = {}) {
       engine.setSearch(q);
     };
   });
+  const editBtn = modal.querySelector('#uk-edit-post');
+  if (editBtn) editBtn.onclick = () => openAddModal(engine, image);
   const delBtn = modal.querySelector('#uk-delete-post');
   if (delBtn) delBtn.onclick = () => { if (confirm('Xóa ảnh và câu lệnh này?')) engine.deletePost(image); };
 }
@@ -676,78 +684,82 @@ export function openAuthModal(engine, mode = 'login') {
   };
 }
 
-export function openAddModal(engine) {
+export function openAddModal(engine, editImage = null) {
   if (!engine.state.currentUser) { openAuthModal(engine, 'login'); return; }
   ensureKitStyles();
   document.getElementById('uk-add-modal')?.remove();
+  const isEdit = Boolean(editImage);
+  const selectedCatIds = new Set((editImage?.categories || []).map(c => c.id));
+  const initialTags = Array.isArray(editImage?.hashtags) ? editImage.hashtags.join(', ') : '';
   const m = document.createElement('div');
   m.id = 'uk-add-modal';
   m.className = 'pc-modal-backdrop';
+  m.style.zIndex = '1120';
   m.innerHTML = `
     <div class="pc-modal-card uk-modal-shell" style="max-width:860px;max-height:92vh;overflow-y:auto;padding:24px;border-radius:24px;border:1px solid rgba(56,189,248,0.32);background:linear-gradient(155deg,rgba(12,18,36,0.97),rgba(18,12,34,0.97));box-shadow:0 32px 90px rgba(0,0,0,0.78),0 0 40px rgba(56,189,248,0.16);">
       <button class="uk-close-btn" id="uk-add-close" aria-label="Đóng">${ICONS.close}</button>
 
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;padding-right:36px;">
         <div style="width:42px;height:42px;border-radius:13px;display:grid;place-items:center;background:linear-gradient(135deg,rgba(56,189,248,0.22),rgba(232,121,249,0.22));border:1px solid rgba(56,189,248,0.42);color:#7dd3fc;flex-shrink:0;">
-          ${ICONS.plus.replace('<svg', '<svg style="width:20px;height:20px;"')}
+          ${(isEdit ? ICONS.edit : ICONS.plus).replace('<svg', '<svg style="width:20px;height:20px;"')}
         </div>
         <div>
-          <h3 style="margin:0;font-size:20px;font-weight:700;font-family:var(--font-display,inherit);background:linear-gradient(90deg,#fff,#7dd3fc,#f0abfc);-webkit-background-clip:text;color:transparent;">Đăng Prompt &amp; Ảnh mới</h3>
-          <div style="font-size:12.5px;color:var(--text-muted);margin-top:2px;">Tải ảnh lên, nhập câu lệnh và nhận ngay +50 EXP đóng góp cộng đồng</div>
+          <h3 style="margin:0;font-size:20px;font-weight:700;font-family:var(--font-display,inherit);background:linear-gradient(90deg,#fff,#7dd3fc,#f0abfc);-webkit-background-clip:text;color:transparent;">${isEdit ? 'Chỉnh sửa Prompt &amp; Ảnh' : 'Đăng Prompt &amp; Ảnh mới'}</h3>
+          <div style="font-size:12.5px;color:var(--text-muted);margin-top:2px;">${isEdit ? 'Cập nhật tiêu đề, ảnh, câu lệnh, chuyên mục và tối đa 10 từ khóa' : 'Tải ảnh lên, nhập câu lệnh và nhận ngay +50 EXP đóng góp cộng đồng'}</div>
         </div>
       </div>
 
       <form id="uk-add-form" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:18px;align-items:start;">
         <div style="display:flex;flex-direction:column;gap:10px;">
           <div id="uk-add-dropzone" style="position:relative;aspect-ratio:4/5;border-radius:18px;border:1.5px dashed rgba(56,189,248,0.45);background:rgba(5,7,14,0.65);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;cursor:pointer;overflow:hidden;text-align:center;padding:16px;transition:border-color 0.2s,background 0.2s;user-select:none;">
-            <img id="uk-add-preview" alt="" draggable="false" style="display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 50%;background:#05070e;cursor:grab;" />
-            <div id="uk-add-crop-hint" style="display:none;position:absolute;bottom:10px;left:50%;transform:translateX(-50%);z-index:3;padding:4px 10px;border-radius:999px;background:rgba(5,7,14,0.82);border:1px solid rgba(56,189,248,0.4);font-size:11px;font-weight:600;color:#7dd3fc;white-space:nowrap;pointer-events:none;">Kéo lướt để căn khung thumbnail 4:5</div>
-            <div id="uk-add-placeholder" style="display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--text-muted);">
+            <img id="uk-add-preview" alt="" draggable="false" src="${isEdit ? escapeHtml(editImage.image_url) : ''}" style="display:${isEdit ? 'block' : 'none'};position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:${isEdit ? getObjectPosition(editImage) : '50% 50%'};background:#05070e;cursor:grab;" />
+            <div id="uk-add-crop-hint" style="display:${isEdit ? 'block' : 'none'};position:absolute;bottom:10px;left:50%;transform:translateX(-50%);z-index:3;padding:4px 10px;border-radius:999px;background:rgba(5,7,14,0.82);border:1px solid rgba(56,189,248,0.4);font-size:11px;font-weight:600;color:#7dd3fc;white-space:nowrap;pointer-events:none;">Kéo lướt để căn khung thumbnail 4:5</div>
+            <div id="uk-add-placeholder" style="display:${isEdit ? 'none' : 'flex'};flex-direction:column;align-items:center;gap:8px;color:var(--text-muted);">
               <div style="width:48px;height:48px;border-radius:14px;background:rgba(56,189,248,0.14);border:1px solid rgba(56,189,248,0.35);display:grid;place-items:center;color:#7dd3fc;">
                 ${ICONS.plus.replace('<svg', '<svg style="width:22px;height:22px;"')}
               </div>
               <div style="font-weight:700;font-size:13.5px;color:#e2e8f0;">Bấm hoặc kéo thả ảnh vào đây</div>
               <div style="font-size:11.5px;">Khung xem trước căn thumbnail 4:5 — Ảnh gốc (vd 9:16) vẫn giữ nguyên kích thước khi tải lên</div>
             </div>
-            <input type="file" id="uk-add-file" accept="image/*" style="display:none;" required />
+            <input type="file" id="uk-add-file" accept="image/*" style="display:none;" ${isEdit ? '' : 'required'} />
           </div>
           <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-            <div id="uk-add-file-info" style="font-size:12px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Chưa chọn ảnh</div>
-            <button type="button" id="uk-add-change-img" class="uk-btn" style="display:none;padding:4px 10px;font-size:11.5px;flex-shrink:0;">Đổi ảnh</button>
+            <div id="uk-add-file-info" style="font-size:12px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${isEdit ? 'Đang dùng ảnh hiện tại (có thể kéo căn lại hoặc đổi ảnh mới)' : 'Chưa chọn ảnh'}</div>
+            <button type="button" id="uk-add-change-img" class="uk-btn" style="display:${isEdit ? 'inline-flex' : 'none'};padding:4px 10px;font-size:11.5px;flex-shrink:0;">Đổi ảnh</button>
           </div>
         </div>
 
         <div style="display:flex;flex-direction:column;gap:12px;">
           <div>
             <label style="display:block;font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:5px;">Tiêu đề bức ảnh</label>
-            <input class="uk-input" type="text" id="uk-add-title" placeholder="Ví dụ: Chân dung nữ cá tính neon..." required />
+            <input class="uk-input" type="text" id="uk-add-title" value="${isEdit ? escapeHtml(editImage.title || '') : ''}" placeholder="Ví dụ: Chân dung nữ cá tính neon..." required />
           </div>
 
           <div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
               <label style="font-size:12px;font-weight:600;color:var(--text-muted);">Câu lệnh (Prompt)</label>
-              <span id="uk-add-char" style="font-size:11px;color:var(--text-muted);">0 ký tự</span>
+              <span id="uk-add-char" style="font-size:11px;color:var(--text-muted);">${isEdit ? (editImage.prompt || '').length : 0} ký tự</span>
             </div>
-            <textarea class="uk-input" id="uk-add-prompt" rows="5" placeholder="Dán toàn bộ câu lệnh tạo ảnh AI..." required style="resize:vertical;line-height:1.55;"></textarea>
+            <textarea class="uk-input" id="uk-add-prompt" rows="5" placeholder="Dán toàn bộ câu lệnh tạo ảnh AI..." required style="resize:vertical;line-height:1.55;">${isEdit ? escapeHtml(editImage.prompt || '') : ''}</textarea>
           </div>
 
           <div>
             <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:6px;">Chuyên mục</div>
             <div style="display:flex;flex-wrap:wrap;gap:6px;" id="uk-add-cats">
-              ${engine.state.categories.map(c => `<label class="uk-chip" style="padding:5px 11px;"><input type="checkbox" value="${c.id}" data-cat-name="${escapeHtml(c.name)}" style="accent-color:var(--accent);"> ${escapeHtml(c.name)}</label>`).join('')}
+              ${engine.state.categories.map(c => `<label class="uk-chip" style="padding:5px 11px;"><input type="checkbox" value="${c.id}" ${selectedCatIds.has(c.id) ? 'checked' : ''} data-cat-name="${escapeHtml(c.name)}" style="accent-color:var(--accent);"> ${escapeHtml(c.name)}</label>`).join('')}
             </div>
           </div>
 
           <div style="padding:12px;border-radius:14px;background:rgba(56,189,248,0.07);border:1px solid rgba(56,189,248,0.24);">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;">
-              <span style="font-size:12px;font-weight:700;color:#7dd3fc;">5 Từ khóa chủ đề (Tự động gợi ý)</span>
+              <span style="font-size:12px;font-weight:700;color:#7dd3fc;">Từ khóa chủ đề (Tối đa 10 từ khóa)</span>
               <button type="button" id="uk-add-retag" class="uk-btn" style="padding:4px 10px;font-size:11.5px;">${ICONS.sparkles.replace('<svg', '<svg style="width:13px;height:13px;"')} Gợi ý lại</button>
             </div>
-            <input class="uk-input" type="text" id="uk-add-tags" placeholder="Tự động điền khi nhập tiêu đề, prompt &amp; ảnh..." style="font-size:12.5px;" />
-            <div style="font-size:11px;color:var(--text-muted);margin-top:5px;">Ngăn cách nhau bằng dấu phẩy (tối đa 5 từ khóa, có thể tự sửa).</div>
+            <input class="uk-input" type="text" id="uk-add-tags" value="${escapeHtml(initialTags)}" placeholder="Tự động điền khi nhập tiêu đề, prompt &amp; ảnh..." style="font-size:12.5px;" />
+            <div style="font-size:11px;color:var(--text-muted);margin-top:5px;">Ngăn cách nhau bằng dấu phẩy (tối đa 10 từ khóa, có thể tự sửa).</div>
           </div>
 
-          <button class="uk-btn uk-btn-primary" type="submit" id="uk-add-submit" style="padding:12px 18px;font-size:14px;border-radius:14px;margin-top:4px;">${ICONS.plus} <span>Đăng bài ngay (+50 EXP)</span></button>
+          <button class="uk-btn uk-btn-primary" type="submit" id="uk-add-submit" style="padding:12px 18px;font-size:14px;border-radius:14px;margin-top:4px;">${isEdit ? ICONS.check : ICONS.plus} <span>${isEdit ? 'Lưu thay đổi' : 'Đăng bài ngay (+50 EXP)'}</span></button>
         </div>
       </form>
     </div>
@@ -767,8 +779,13 @@ export function openAddModal(engine) {
   const tagsEl = m.querySelector('#uk-add-tags');
   const charEl = m.querySelector('#uk-add-char');
   let detectedTone = '';
-  let userEditedTags = false;
-  let posX = 50, posY = 50, natW = 0, natH = 0;
+  let userEditedTags = isEdit && Boolean(initialTags);
+  let posX = 50, posY = 50, natW = editImage?.original_width || 0, natH = editImage?.original_height || 0;
+  if (isEdit && editImage?.thumbnail_crop_data && natW && natH) {
+    const c = editImage.thumbnail_crop_data;
+    posX = Math.max(0, Math.min(100, ((c.x + c.width / 2) / natW) * 100));
+    posY = Math.max(0, Math.min(100, ((c.y + c.height / 2) / natH) * 100));
+  }
 
   const refreshSuggestedTags = (force = false) => {
     if (userEditedTags && !force) return;
@@ -857,33 +874,39 @@ export function openAddModal(engine) {
 
   m.querySelector('#uk-add-form').onsubmit = async (e) => {
     e.preventDefault();
-    const file = fileInput.files?.[0];
-    if (!file) { showToast('Vui lòng chọn ảnh để đăng.', 'error'); return; }
+    const file = fileInput.files?.[0] || null;
+    if (!isEdit && !file) { showToast('Vui lòng chọn ảnh để đăng.', 'error'); return; }
     const btn = m.querySelector('#uk-add-submit');
-    btn.disabled = true; btn.textContent = 'Đang tải lên...';
+    btn.disabled = true; btn.textContent = isEdit ? 'Đang lưu...' : 'Đang tải lên...';
     try {
       const title = titleEl.value.trim();
       const prompt = promptEl.value.trim();
       const categoryIds = [...m.querySelectorAll('#uk-add-cats input:checked')].map(i => Number(i.value));
-      const hashtags = tagsEl.value.split(',').map(s => s.replace(/^#/, '').trim()).filter(Boolean).slice(0, 5);
+      const hashtags = tagsEl.value.split(',').map(s => s.replace(/^#/, '').trim()).filter(Boolean).slice(0, 10);
+      const w = natW || previewImg.naturalWidth || 0;
+      const h = natH || previewImg.naturalHeight || 0;
       let cropData = null;
-      if (natW && natH) {
+      if (w && h) {
         const targetRatio = 4 / 5;
-        const srcRatio = natW / natH;
-        const cw = srcRatio > targetRatio ? Math.round(natH * targetRatio) : natW;
-        const ch = srcRatio > targetRatio ? natH : Math.round(natW / targetRatio);
+        const srcRatio = w / h;
+        const cw = srcRatio > targetRatio ? Math.round(h * targetRatio) : w;
+        const ch = srcRatio > targetRatio ? h : Math.round(w / targetRatio);
         cropData = {
-          x: Math.round(((natW - cw) * posX) / 100),
-          y: Math.round(((natH - ch) * posY) / 100),
+          x: Math.round(((w - cw) * posX) / 100),
+          y: Math.round(((h - ch) * posY) / 100),
           width: cw,
           height: ch,
         };
       }
-      await engine.createPost({ title, prompt, categoryIds, file, hashtags, cropData, originalWidth: natW, originalHeight: natH });
+      if (isEdit) {
+        await engine.updatePost(editImage.id, { title, prompt, categoryIds, file, hashtags, cropData, originalWidth: w, originalHeight: h });
+      } else {
+        await engine.createPost({ title, prompt, categoryIds, file, hashtags, cropData, originalWidth: w, originalHeight: h });
+      }
       m.remove();
     } catch (err) {
       showToast(err.message, 'error');
-      btn.disabled = false; btn.innerHTML = `${ICONS.plus} <span>Đăng bài ngay (+50 EXP)</span>`;
+      btn.disabled = false; btn.innerHTML = `${isEdit ? ICONS.check : ICONS.plus} <span>${isEdit ? 'Lưu thay đổi' : 'Đăng bài ngay (+50 EXP)'}</span>`;
     }
   };
 }
