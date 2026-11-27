@@ -19,7 +19,6 @@ const LOGO_SVG = `
 
 const CAT_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>`;
 
-// Silky flowing neon silk waves & soft glowing bokeh motes (60fps, zero ugly squares)
 function initSmoothAuroraCanvas() {
   const canvas = document.getElementById('os-aurora-canvas');
   if (!canvas) return;
@@ -57,14 +56,12 @@ function initSmoothAuroraCanvas() {
     ctx.clearRect(0, 0, w, h);
     ctx.globalCompositeOperation = 'lighter';
 
-    // Ambient cursor glow
     const cg = ctx.createRadialGradient(mx * w, my * h, 0, mx * w, my * h, Math.max(w, h) * 0.35);
     cg.addColorStop(0, 'rgba(56, 189, 248, 0.12)');
     cg.addColorStop(1, 'rgba(5, 7, 14, 0)');
     ctx.fillStyle = cg;
     ctx.fillRect(0, 0, w, h);
 
-    // Flowing neon silk waves
     waves.forEach((wv, idx) => {
       ctx.beginPath();
       const baseY = wv.yRatio * h + (my - 0.5) * 35;
@@ -78,7 +75,6 @@ function initSmoothAuroraCanvas() {
       ctx.stroke();
     });
 
-    // Soft round bokeh motes
     motes.forEach(m => {
       if (!prefersReduced) {
         m.y -= m.vy;
@@ -99,6 +95,25 @@ function initSmoothAuroraCanvas() {
     if (!prefersReduced) requestAnimationFrame(draw);
   }
   draw();
+}
+
+// Deterministic Daily Seeded Shuffle (Top 100 -> Random 20 per day)
+function getDailyTop20(allImages) {
+  if (!allImages.length) return [];
+  const top100 = [...allImages].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 100);
+  const d = new Date();
+  let seed = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+  const rand = () => {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+  for (let i = top100.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [top100[i], top100[j]] = [top100[j], top100[i]];
+  }
+  return top100.slice(0, 20);
 }
 
 function getHashtag(img) {
@@ -137,21 +152,19 @@ const adapter = {
 
         <main class="os-desktop" id="os-main">
           <section class="os-hero-banner">
-            <div class="os-hero-sheen"></div>
             <div class="os-hero-inner">
               <div class="os-hero-copy">
-                <div class="os-hero-badge"><span class="os-hero-dot"></span> <span id="os-count-label">Kho câu lệnh AI cộng đồng</span></div>
-                <h1 class="os-hero-title">Thư viện Câu Lệnh Tạo Ảnh AI</h1>
-                <p style="margin:0 0 18px;font-size:14px;color:var(--text-muted);line-height:1.65;max-width:540px;">Khám phá hàng nghìn câu lệnh tuyển chọn, sao chép nhanh trực tiếp trên ảnh hoặc mở xem kích thước gốc kèm link chia sẻ bài viết.</p>
-                <div class="os-hero-meta">
-                  <select class="uk-input" id="os-sort" style="width:auto;padding:9px 16px;border-radius:999px;font-size:13px;font-weight:600;">
-                    <option value="newest">Sắp xếp: Mới nhất</option>
-                    <option value="views">Sắp xếp: Xem nhiều nhất</option>
+                <div class="os-hero-head">
+                  <div class="os-hero-badge"><span class="os-hero-dot"></span> <span id="os-count-label">Top 20 Tuyển Chọn Hôm Nay</span></div>
+                  <select class="uk-input" id="os-sort" style="width:auto;padding:7px 14px;border-radius:999px;font-size:12.5px;font-weight:600;">
+                    <option value="newest">Mới nhất</option>
+                    <option value="views">Xem nhiều nhất</option>
                   </select>
-                  <span class="os-stat-chip">${ICONS.sparkles.replace('<svg', '<svg style="width:14px;height:14px;color:var(--accent);"')} Ảnh gốc sắc nét</span>
+                </div>
+                <div class="os-slide-viewport">
+                  <div class="os-slide-track" id="os-featured"></div>
                 </div>
               </div>
-              <div class="os-featured-strip" id="os-featured"></div>
             </div>
           </section>
 
@@ -215,7 +228,7 @@ const adapter = {
 
   renderLoading(engine, l) {
     if (!l) return;
-    document.getElementById('os-grid').innerHTML = Array.from({ length: 14 }, () => `<div class="os-tile" style="opacity:0.35;"></div>`).join('');
+    document.getElementById('os-grid').innerHTML = Array.from({ length: 14 }, () => `<div class="os-tile-wrap"><div class="os-tile" style="opacity:0.35;"></div></div>`).join('');
   },
 
   renderCategories(engine) {
@@ -242,18 +255,20 @@ const adapter = {
 
   renderGallery(engine) {
     const lbl = document.getElementById('os-count-label');
-    if (lbl) lbl.textContent = `${engine.state.allImagesMeta.length} Câu lệnh AI đang hoạt động`;
+    if (lbl) lbl.textContent = `Top 20 Tuyển Chọn Hôm Nay • ${engine.state.allImagesMeta.length} Prompts`;
 
     const feat = document.getElementById('os-featured');
-    if (feat && engine.state.allImagesMeta.length) {
-      const top3 = [...engine.state.allImagesMeta].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 3);
-      feat.innerHTML = top3.map((img, idx) => `
-        <div class="os-feat-card" data-fid="${img.id}">
+    if (feat && engine.state.allImagesMeta.length && !feat.dataset.ready) {
+      const daily20 = getDailyTop20(engine.state.allImagesMeta);
+      const looped = [...daily20, ...daily20]; // seamless infinite horizontal slide
+      feat.innerHTML = looped.map(img => `
+        <div class="os-slide-card" data-fid="${img.id}">
           <img src="${escapeHtml(img.thumbnail_url || img.image_url)}" alt="${escapeHtml(img.title)}" style="object-position:${getObjectPosition(img)}" decoding="async" fetchpriority="high" />
-          <span class="os-feat-rank">#${idx + 1} HOT</span>
+          <span class="os-slide-views">👁 ${img.views || 0}</span>
         </div>`).join('');
-      feat.querySelectorAll('.os-feat-card').forEach(c => c.onclick = () => {
-        const item = top3.find(i => i.id === Number(c.dataset.fid));
+      feat.dataset.ready = '1';
+      feat.querySelectorAll('.os-slide-card').forEach(c => c.onclick = () => {
+        const item = daily20.find(i => i.id === Number(c.dataset.fid));
         if (item) engine.openModal(item, c);
       });
     }
@@ -271,17 +286,19 @@ const adapter = {
       const tag = getHashtag(img);
       const eager = idx < 7 ? 'fetchpriority="high"' : 'loading="lazy"';
       return `
-        <div class="os-tile" data-id="${img.id}">
-          <img src="${escapeHtml(img.thumbnail_url || img.image_url)}" alt="${escapeHtml(img.title)}" style="object-position:${getObjectPosition(img)}" decoding="async" ${eager} />
-          <div class="os-tile-glare"></div>
+        <div class="os-tile-wrap" data-id="${img.id}">
           <span class="os-tag-pill" style="--tag-c:${tag.color};"><span class="os-tag-dot"></span>${escapeHtml(tag.label)}</span>
-          <button class="os-copy-pill" data-copy="${img.id}" title="Sao chép Prompt">${ICONS.copy}<span>Copy Prompt</span></button>
+          <div class="os-tile">
+            <img src="${escapeHtml(img.thumbnail_url || img.image_url)}" alt="${escapeHtml(img.title)}" style="object-position:${getObjectPosition(img)}" decoding="async" ${eager} />
+            <div class="os-tile-glare"></div>
+            <button class="os-copy-pill" data-copy="${img.id}" title="Sao chép Prompt">${ICONS.copy}<span>Copy Prompt</span></button>
+          </div>
         </div>`;
     }).join('');
 
-    gsap.fromTo('.os-tile', { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.32, stagger: 0.015, ease: 'power2.out' });
+    gsap.fromTo('.os-tile-wrap', { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.3, stagger: 0.015, ease: 'power2.out' });
 
-    g.querySelectorAll('.os-tile').forEach(card => {
+    g.querySelectorAll('.os-tile-wrap').forEach(card => {
       card.addEventListener('pointermove', (e) => {
         if (window.innerWidth < 768) return;
         const r = card.getBoundingClientRect();
@@ -319,7 +336,7 @@ const adapter = {
     else if (engine.state.currentPage === 'profile') renderProfileView(main, engine);
     else {
       main.innerHTML = `
-        <section class="os-hero-banner"><div class="os-hero-sheen"></div><div class="os-hero-inner"><div class="os-hero-copy"><div class="os-hero-badge"><span class="os-hero-dot"></span> <span id="os-count-label">Kho câu lệnh AI cộng đồng</span></div><h1 class="os-hero-title">Thư viện Câu Lệnh Tạo Ảnh AI</h1><p style="margin:0 0 18px;font-size:14px;color:var(--text-muted);line-height:1.65;max-width:540px;">Khám phá hàng nghìn câu lệnh tuyển chọn, sao chép nhanh trực tiếp trên ảnh hoặc mở xem kích thước gốc kèm link chia sẻ bài viết.</p><div class="os-hero-meta"><select class="uk-input" id="os-sort" style="width:auto;padding:9px 16px;border-radius:999px;font-size:13px;font-weight:600;"><option value="newest" ${engine.state.sortBy === 'newest' ? 'selected' : ''}>Sắp xếp: Mới nhất</option><option value="views" ${engine.state.sortBy === 'views' ? 'selected' : ''}>Sắp xếp: Xem nhiều nhất</option></select><span class="os-stat-chip">${ICONS.sparkles.replace('<svg', '<svg style="width:14px;height:14px;color:var(--accent);"')} Ảnh gốc sắc nét</span></div></div><div class="os-featured-strip" id="os-featured"></div></div></section>
+        <section class="os-hero-banner"><div class="os-hero-inner"><div class="os-hero-head"><div class="os-hero-badge"><span class="os-hero-dot"></span> <span id="os-count-label">Top 20 Tuyển Chọn Hôm Nay</span></div><select class="uk-input" id="os-sort" style="width:auto;padding:7px 14px;border-radius:999px;font-size:12.5px;font-weight:600;"><option value="newest" ${engine.state.sortBy === 'newest' ? 'selected' : ''}>Mới nhất</option><option value="views" ${engine.state.sortBy === 'views' ? 'selected' : ''}>Xem nhiều nhất</option></select></div><div class="os-slide-viewport"><div class="os-slide-track" id="os-featured"></div></div></div></section>
         <section class="os-library-win"><div class="os-cat-bar"><div class="os-cats-scroll" id="os-cats"></div></div><div class="os-grid" id="os-grid"></div><div id="os-more" style="text-align:center;padding:10px 18px 26px;"></div></section>
       `;
       main.querySelector('#os-sort').onchange = (e) => engine.setSort(e.target.value);
