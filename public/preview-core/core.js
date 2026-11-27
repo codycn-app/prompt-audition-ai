@@ -691,6 +691,67 @@ export class PromptAppEngine {
     return uploadToR2(file, 'images', stamp, file.type);
   }
 
+  async updateProfile({ username, avatarUrl, avatarFile }) {
+    if (!this.state.currentUser) throw new Error('Vui lòng đăng nhập.');
+    let finalAvatar = avatarUrl;
+    if (avatarFile) {
+      if (avatarFile.size > 2 * 1024 * 1024) throw new Error('Ảnh đại diện phải nhỏ hơn 2MB.');
+      const ext = avatarFile.name.split('.').pop() || 'png';
+      finalAvatar = await uploadToR2(avatarFile, 'avatars', `${this.state.currentUser.id}-${Date.now()}.${ext}`, avatarFile.type);
+    }
+    const updates = { username: username.trim(), avatarUrl: finalAvatar || null };
+    const { error } = await supabase.from('profiles').update(updates).eq('id', this.state.currentUser.id);
+    if (error) throw error;
+    this.state.currentUser = { ...this.state.currentUser, ...updates };
+    this.profileCache.set(this.state.currentUser.id, this.state.currentUser);
+    this.theme.renderAuth(this);
+    showToast('Cập nhật thông tin tài khoản thành công!');
+  }
+
+  async changePassword(newPass) {
+    if (!newPass || newPass.length < 6) throw new Error('Mật khẩu mới phải có ít nhất 6 ký tự.');
+    const { error } = await supabase.auth.updateUser({ password: newPass });
+    if (error) throw error;
+    showToast('Đổi mật khẩu thành công!');
+  }
+
+  async fetchAllUsersAdmin() {
+    if (this.state.currentUser?.role !== 'admin') throw new Error('Chỉ Admin mới có quyền.');
+    const { data, error } = await supabase.from('profiles').select('id,username,role,customTitle,customTitleColor,avatarUrl,exp').order('exp', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async updateUserAdmin(userId, updates) {
+    if (this.state.currentUser?.role !== 'admin') throw new Error('Chỉ Admin mới có quyền.');
+    const { error } = await supabase.from('profiles').update(updates).eq('id', userId);
+    if (error) throw error;
+    this.profileCache.delete(userId);
+    if (this.state.currentUser.id === userId) {
+      this.state.currentUser = { ...this.state.currentUser, ...updates };
+      this.theme.renderAuth(this);
+    }
+    showToast('Đã cập nhật thành viên!');
+  }
+
+  async createCategoryAdmin(name) {
+    if (this.state.currentUser?.role !== 'admin') throw new Error('Chỉ Admin mới có quyền.');
+    const nextPos = (this.state.categories.reduce((m, c) => Math.max(m, c.position || 0), 0)) + 1;
+    const { error } = await supabase.from('categories').insert({ name: name.trim(), position: nextPos });
+    if (error) throw error;
+    showToast(`Đã thêm chuyên mục "${name.trim()}"!`);
+    await this.fetchInitialData();
+  }
+
+  async deleteCategoryAdmin(catId) {
+    if (this.state.currentUser?.role !== 'admin') throw new Error('Chỉ Admin mới có quyền.');
+    await supabase.from('image_categories').delete().eq('category_id', catId);
+    const { error } = await supabase.from('categories').delete().eq('id', catId);
+    if (error) throw error;
+    showToast('Đã xóa chuyên mục!');
+    await this.fetchInitialData();
+  }
+
   async replaceImageFile(imageId, file) {
     if (this.state.currentUser?.role !== 'admin') throw new Error('Chỉ Admin mới có quyền.');
     const ext = file.name.split('.').pop() || 'png';

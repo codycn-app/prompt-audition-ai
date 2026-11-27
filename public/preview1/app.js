@@ -171,7 +171,6 @@ const adapter = {
             <button class="uk-btn" id="os-noti-btn" title="Thông báo" style="padding:8px 10px;">${ICONS.bell}</button>
             <button class="uk-btn os-hide-mob" id="os-sup">${ICONS.heart} <span>Ủng hộ</span></button>
             <button class="uk-btn uk-btn-primary os-hide-mob pc-hidden" id="os-add">${ICONS.plus} <span>Thêm mới</span></button>
-            <button class="uk-btn os-hide-mob pc-hidden" id="os-admin-btn" title="Quản trị Admin">${ICONS.gear} <span>Quản trị</span></button>
             <div id="os-auth-top"></div>
           </div>
         </header>
@@ -198,16 +197,13 @@ const adapter = {
         </main>
 
         <div class="os-dock-wrap">
-          <div class="os-dock-popover pc-hidden" id="os-cat-popover"></div>
           <nav class="os-dock" aria-label="Thanh điều hướng nhanh">
             <button class="os-dock-item" title="Trang chủ" data-dock="home">${ICONS.home}</button>
-            <button class="os-dock-item" title="Chọn chuyên mục" id="os-dock-cats">${CAT_ICON}</button>
             <div class="os-dock-sep pc-hidden" id="os-dock-add-sep"></div>
             <button class="os-dock-item primary pc-hidden" title="Thêm Prompt mới" id="os-dock-add">${ICONS.plus}</button>
             <div class="os-dock-sep"></div>
             <button class="os-dock-item" title="Ủng hộ" data-dock="support">${ICONS.heart}</button>
             <button class="os-dock-item" title="Tài khoản" data-dock="profile">${ICONS.user}</button>
-            <button class="os-dock-item pc-hidden" title="Quản trị Admin" id="os-dock-admin">${ICONS.gear}</button>
           </nav>
         </div>
       </div>
@@ -222,11 +218,6 @@ const adapter = {
     document.getElementById('os-sup').onclick = () => engine.setPage('support');
     document.getElementById('os-add').onclick = () => openAddModal(engine);
     document.getElementById('os-dock-add').onclick = () => openAddModal(engine);
-    document.getElementById('os-admin-btn').onclick = () => openAdminSettingsModal(engine);
-    document.getElementById('os-dock-admin').onclick = () => openAdminSettingsModal(engine);
-
-    const pop = document.getElementById('os-cat-popover');
-    document.getElementById('os-dock-cats').onclick = () => pop.classList.toggle('pc-hidden');
 
     const searchInput = document.getElementById('os-search');
     let t;
@@ -234,7 +225,6 @@ const adapter = {
     window.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); searchInput.focus(); } });
 
     document.querySelectorAll('[data-dock]').forEach(b => b.onclick = () => {
-      pop.classList.add('pc-hidden');
       if (b.dataset.dock === 'profile' && !engine.state.currentUser) openAuthModal(engine, 'login');
       else engine.setPage(b.dataset.dock);
     });
@@ -244,16 +234,13 @@ const adapter = {
     const s = document.getElementById('os-auth-top');
     const u = engine.state.currentUser;
     const isLoggedIn = Boolean(u);
-    const isAdmin = u?.role === 'admin';
 
     document.getElementById('os-add')?.classList.toggle('pc-hidden', !isLoggedIn);
     document.getElementById('os-dock-add')?.classList.toggle('pc-hidden', !isLoggedIn);
     document.getElementById('os-dock-add-sep')?.classList.toggle('pc-hidden', !isLoggedIn);
-    document.getElementById('os-admin-btn')?.classList.toggle('pc-hidden', !isAdmin);
-    document.getElementById('os-dock-admin')?.classList.toggle('pc-hidden', !isAdmin);
 
     s.innerHTML = u
-      ? `<button class="uk-btn" id="os-u">${ICONS.user} <span>${escapeHtml(u.username)}</span></button>`
+      ? `<button class="uk-btn" id="os-u" title="${escapeHtml(u.username)}" style="padding:8px 10px;">${ICONS.user}</button>`
       : `<button class="uk-btn os-hide-mob" id="os-l">Đăng nhập</button>`;
     if (u) s.querySelector('#os-u').onclick = () => engine.setPage('profile');
     else s.querySelector('#os-l').onclick = () => openAuthModal(engine, 'login');

@@ -380,37 +380,134 @@ export function renderProfileView(container, engine) {
   const u = engine.state.currentUser;
   if (!u) { openAuthModal(engine, 'login'); engine.setPage('home'); return; }
   const rank = getRankInfo(u);
+  const isAdmin = u.role === 'admin';
   const nextRank = INITIAL_RANKS.filter(r => r.requiredExp > (u.exp || 0)).sort((a,b) => a.requiredExp - b.requiredExp)[0];
   const pct = nextRank ? Math.min(100, Math.round(((u.exp || 0) / nextRank.requiredExp) * 100)) : 100;
 
   container.innerHTML = `
-    <div style="max-width:640px;margin:28px auto 96px;padding:0 16px;">
-      <div class="uk-modal-shell" style="padding:28px;border-radius:20px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+    <div style="max-width:920px;margin:24px auto 96px;padding:0 16px;">
+      <div class="uk-modal-shell" style="padding:24px;border-radius:22px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:20px;">
           <button class="uk-btn" id="uk-prof-back">${ICONS.back} Trang chủ</button>
           <button class="uk-btn" id="uk-prof-logout" style="color:#f87171;">Đăng xuất</button>
         </div>
-        <div style="text-align:center;">
-          <div style="margin:0 auto 12px;display:flex;justify-content:center;">
-            ${renderAvatar(u, 76)}
+
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:16px;border-radius:16px;background:rgba(255,255,255,0.03);border:1px solid var(--border);margin-bottom:18px;">
+          ${renderAvatar(u, 68)}
+          <div style="flex:1;min-width:200px;">
+            <h2 style="margin:0;font-size:22px;color:${rank.color}">${escapeHtml(u.username)}</h2>
+            <div style="font-size:13px;color:var(--text-muted);margin-top:3px;">${escapeHtml(rank.name)} • ${escapeHtml(u.email)}</div>
+            <div style="margin-top:10px;">
+              <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px;color:var(--text-muted);">
+                <span>Kinh nghiệm: <strong style="color:#fff;">${u.exp || 0} EXP</strong></span>
+                <span>${nextRank ? `Mục tiêu: ${nextRank.name} (${nextRank.requiredExp})` : 'Cấp tối đa'}</span>
+              </div>
+              <div style="height:7px;border-radius:999px;background:rgba(255,255,255,0.1);overflow:hidden;">
+                <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--accent),var(--accent-2));"></div>
+              </div>
+            </div>
           </div>
-          <h2 style="margin:0;color:${rank.color}">${escapeHtml(u.username)}</h2>
-          <div style="font-size:13px;color:var(--text-muted);margin-top:4px;">${escapeHtml(rank.name)} • ${escapeHtml(u.email)}</div>
         </div>
-        <div style="margin-top:22px;padding:16px;border-radius:14px;background:var(--surface-2);border:1px solid var(--border);">
-          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px;">
-            <span>Kinh nghiệm: <strong>${u.exp || 0} EXP</strong></span>
-            <span>${nextRank ? `Mục tiêu: ${nextRank.name} (${nextRank.requiredExp})` : 'Cấp tối đa'}</span>
-          </div>
-          <div style="height:8px;border-radius:999px;background:rgba(255,255,255,0.1);overflow:hidden;">
-            <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--accent),var(--accent-2));"></div>
-          </div>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--border);padding-bottom:12px;margin-bottom:16px;" id="uk-prof-tabs">
+          <button class="uk-btn uk-btn-primary" data-ptab="profile">Hồ sơ cá nhân</button>
+          <button class="uk-btn" data-ptab="security">Đổi mật khẩu</button>
+          ${isAdmin ? `
+            <button class="uk-btn" data-ptab="r2">Ảnh lỗi R2 / Private</button>
+            <button class="uk-btn" data-ptab="cats">Chuyên mục</button>
+            <button class="uk-btn" data-ptab="users">Thành viên</button>
+            <button class="uk-btn" data-ptab="support">Trang Ủng hộ</button>
+            <button class="uk-btn" data-ptab="welcome">Thông báo</button>
+            <button class="uk-btn" data-ptab="seo">Cấu hình SEO</button>
+          ` : ''}
         </div>
+
+        <div id="uk-prof-body"></div>
       </div>
     </div>
   `;
+
   container.querySelector('#uk-prof-back').onclick = () => engine.setPage('home');
   container.querySelector('#uk-prof-logout').onclick = () => engine.logout();
+
+  const body = container.querySelector('#uk-prof-body');
+  const tabs = container.querySelectorAll('[data-ptab]');
+
+  const renderProfileTab = () => {
+    body.innerHTML = `
+      <form id="uk-prof-edit-form" style="display:flex;flex-direction:column;gap:14px;max-width:520px;">
+        <label style="font-size:12.5px;color:var(--text-muted);">Tên hiển thị
+          <input class="uk-input" id="uk-prof-name" value="${escapeHtml(u.username || '')}" required style="margin-top:6px;" />
+        </label>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px;border-radius:12px;background:rgba(255,255,255,0.03);border:1px solid var(--border);">
+          <div style="flex:1;min-width:180px;">
+            <div style="font-size:12.5px;color:var(--text-muted);margin-bottom:6px;">Ảnh đại diện (URL hoặc tải lên)</div>
+            <input class="uk-input" id="uk-prof-avatar-url" value="${escapeHtml(u.avatarUrl || '')}" placeholder="https://..." />
+          </div>
+          <label class="uk-btn" style="cursor:pointer;">
+            Chọn ảnh
+            <input type="file" accept="image/*" id="uk-prof-avatar-file" style="display:none;" />
+          </label>
+        </div>
+        <button class="uk-btn uk-btn-primary" type="submit" id="uk-prof-save">Lưu thay đổi</button>
+      </form>
+    `;
+    let selectedFile = null;
+    body.querySelector('#uk-prof-avatar-file').onchange = (e) => {
+      selectedFile = e.target.files?.[0] || null;
+      if (selectedFile) showToast(`Đã chọn ảnh: ${selectedFile.name}. Bấm Lưu thay đổi để tải lên.`);
+    };
+    body.querySelector('#uk-prof-edit-form').onsubmit = async (e) => {
+      e.preventDefault();
+      const btn = body.querySelector('#uk-prof-save');
+      btn.disabled = true; btn.textContent = 'Đang lưu...';
+      try {
+        await engine.updateProfile({
+          username: body.querySelector('#uk-prof-name').value,
+          avatarUrl: body.querySelector('#uk-prof-avatar-url').value.trim(),
+          avatarFile: selectedFile,
+        });
+        renderProfileView(container, engine);
+      } catch (err) {
+        showToast(err.message, 'error');
+        btn.disabled = false; btn.textContent = 'Lưu thay đổi';
+      }
+    };
+  };
+
+  const renderSecurityTab = () => {
+    body.innerHTML = `
+      <form id="uk-prof-pass-form" style="display:flex;flex-direction:column;gap:14px;max-width:460px;">
+        <label style="font-size:12.5px;color:var(--text-muted);">Mật khẩu mới (tối thiểu 6 ký tự)
+          <input class="uk-input" type="password" id="uk-new-pass" required minlength="6" style="margin-top:6px;" />
+        </label>
+        <label style="font-size:12.5px;color:var(--text-muted);">Xác nhận mật khẩu mới
+          <input class="uk-input" type="password" id="uk-confirm-pass" required minlength="6" style="margin-top:6px;" />
+        </label>
+        <button class="uk-btn uk-btn-primary" type="submit">Đổi mật khẩu</button>
+      </form>
+    `;
+    body.querySelector('#uk-prof-pass-form').onsubmit = async (e) => {
+      e.preventDefault();
+      const p1 = body.querySelector('#uk-new-pass').value;
+      const p2 = body.querySelector('#uk-confirm-pass').value;
+      if (p1 !== p2) { showToast('Mật khẩu xác nhận không khớp.', 'error'); return; }
+      try {
+        await engine.changePassword(p1);
+        e.target.reset();
+      } catch (err) { showToast(err.message, 'error'); }
+    };
+  };
+
+  const selectTab = (tabName) => {
+    tabs.forEach(x => x.classList.toggle('uk-btn-primary', x.dataset.ptab === tabName));
+    if (tabName === 'profile') renderProfileTab();
+    else if (tabName === 'security') renderSecurityTab();
+    else if (isAdmin) mountAdminTabBody(body, tabName, engine);
+  };
+
+  tabs.forEach(t => t.onclick = () => selectTab(t.dataset.ptab));
+  selectTab('profile');
 }
 
 export function openGuideModal() {
@@ -666,40 +763,7 @@ export function openWelcomeModal(engine, force = false) {
   m.querySelector('#uk-w-go').onclick = close;
 }
 
-export function openAdminSettingsModal(engine) {
-  if (engine.state.currentUser?.role !== 'admin') {
-    showToast('Chỉ Quản trị viên mới có quyền truy cập.', 'error');
-    return;
-  }
-  ensureKitStyles();
-  document.getElementById('uk-admin-modal')?.remove();
-  const m = document.createElement('div');
-  m.id = 'uk-admin-modal';
-  m.className = 'pc-modal-backdrop';
-  m.style.zIndex = '1120';
-  m.innerHTML = `
-    <div class="pc-modal-card uk-modal-shell" style="max-width:760px;height:min(680px,90vh);padding:22px;display:flex;flex-direction:column;gap:14px;">
-      <button class="uk-close-btn" id="uk-adm-close">${ICONS.close}</button>
-      <div style="display:flex;align-items:center;gap:10px;">
-        <span style="color:var(--accent);">${ICONS.gear}</span>
-        <h3 style="margin:0;font-size:19px;font-family:var(--font-display,inherit);">Quản trị Hệ thống & Giao diện</h3>
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--border);padding-bottom:10px;">
-        <button class="uk-btn uk-btn-primary" data-tab="r2">Ảnh lỗi R2 / Private</button>
-        <button class="uk-btn" data-tab="support">Sửa Trang Ủng hộ</button>
-        <button class="uk-btn" data-tab="welcome">Sửa Thông báo</button>
-        <button class="uk-btn" data-tab="seo">Sửa SEO</button>
-      </div>
-      <div id="uk-adm-body" style="flex:1;overflow-y:auto;padding-right:4px;"></div>
-    </div>
-  `;
-  document.body.appendChild(m);
-  m.onclick = (e) => { if (e.target === m) m.remove(); };
-  m.querySelector('#uk-adm-close').onclick = () => m.remove();
-
-  const body = m.querySelector('#uk-adm-body');
-  const tabs = m.querySelectorAll('[data-tab]');
-
+function mountAdminTabBody(body, tabName, engine) {
   const renderR2Tab = () => {
     const privateSet = new Set([...(engine.state.cmsConfig.privateIds || []), ...engine.state.brokenIds]);
     const list = engine.state.allImagesMeta.filter(i => privateSet.has(Number(i.id)));
@@ -709,7 +773,7 @@ export function openAdminSettingsModal(engine) {
         <button class="uk-btn uk-btn-primary" id="uk-scan-r2">Quét toàn bộ ảnh lỗi R2</button>
       </div>
       <div id="uk-scan-status" style="font-size:12.5px;color:var(--accent);margin-bottom:10px;"></div>
-      <div style="display:flex;flex-direction:column;gap:10px;">
+      <div style="display:flex;flex-direction:column;gap:10px;max-height:420px;overflow-y:auto;">
         ${list.length === 0 ? '<div style="padding:24px;text-align:center;color:var(--text-muted);">Chưa có ảnh nào trong danh sách Private / Lỗi R2.</div>' : list.map(img => `
           <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid var(--border);flex-wrap:wrap;">
             <div style="min-width:0;flex:1;">
@@ -775,6 +839,76 @@ export function openAdminSettingsModal(engine) {
       showToast(`Đã khôi phục ảnh #${id} về Public!`);
       renderR2Tab();
     });
+  };
+
+  const renderCatsTab = () => {
+    const cats = engine.state.categories || [];
+    body.innerHTML = `
+      <form id="uk-adm-cat-form" style="display:flex;gap:8px;margin-bottom:14px;">
+        <input class="uk-input" id="uk-adm-cat-name" placeholder="Tên chuyên mục mới..." required />
+        <button class="uk-btn uk-btn-primary" type="submit">${ICONS.plus} Thêm</button>
+      </form>
+      <div style="display:flex;flex-direction:column;gap:8px;max-height:380px;overflow-y:auto;">
+        ${cats.map(c => `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid var(--border);">
+            <span style="font-weight:600;font-size:13.5px;">${escapeHtml(c.name)}</span>
+            <button class="uk-btn" data-del-cat="${c.id}" style="padding:5px 10px;color:#f87171;">${ICONS.trash} Xóa</button>
+          </div>
+        `).join('')}
+      </div>
+    `;
+    body.querySelector('#uk-adm-cat-form').onsubmit = async (e) => {
+      e.preventDefault();
+      const name = body.querySelector('#uk-adm-cat-name').value.trim();
+      if (!name) return;
+      try { await engine.createCategoryAdmin(name); renderCatsTab(); } catch (err) { showToast(err.message, 'error'); }
+    };
+    body.querySelectorAll('[data-del-cat]').forEach(b => b.onclick = async () => {
+      if (!confirm('Xóa chuyên mục này?')) return;
+      try { await engine.deleteCategoryAdmin(Number(b.dataset.delCat)); renderCatsTab(); } catch (err) { showToast(err.message, 'error'); }
+    });
+  };
+
+  const renderUsersTab = async () => {
+    body.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-muted);">Đang tải danh sách thành viên...</div>`;
+    try {
+      const users = await engine.fetchAllUsersAdmin();
+      body.innerHTML = `
+        <div style="font-size:12.5px;color:var(--text-muted);margin-bottom:10px;">Tổng thành viên: <strong>${users.length}</strong></div>
+        <div style="display:flex;flex-direction:column;gap:8px;max-height:420px;overflow-y:auto;">
+          ${users.map(usr => `
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid var(--border);">
+              <div style="display:flex;align-items:center;gap:10px;min-width:160px;">
+                ${renderAvatar(usr, 34)}
+                <div>
+                  <div style="font-weight:700;font-size:13px;color:${escapeHtml(usr.customTitleColor || '#fff')};">${escapeHtml(usr.username || 'User')}</div>
+                  <div style="font-size:11px;color:var(--text-muted);">${usr.exp || 0} EXP • ${escapeHtml(usr.role || 'user')}</div>
+                </div>
+              </div>
+              <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                <select class="uk-input" data-u-role="${usr.id}" style="width:auto;padding:5px 8px;font-size:12px;">
+                  <option value="user" ${usr.role !== 'admin' ? 'selected' : ''}>User</option>
+                  <option value="admin" ${usr.role === 'admin' ? 'selected' : ''}>Admin</option>
+                </select>
+                <input class="uk-input" data-u-title="${usr.id}" value="${escapeHtml(usr.customTitle || '')}" placeholder="Danh hiệu..." style="width:120px;padding:5px 8px;font-size:12px;" />
+                <button class="uk-btn uk-btn-primary" data-u-save="${usr.id}" style="padding:5px 10px;font-size:12px;">Lưu</button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+      body.querySelectorAll('[data-u-save]').forEach(btn => btn.onclick = async () => {
+        const uid = btn.dataset.uSave;
+        const role = body.querySelector(`[data-u-role="${uid}"]`).value;
+        const customTitle = body.querySelector(`[data-u-title="${uid}"]`).value.trim();
+        try {
+          await engine.updateUserAdmin(uid, { role, customTitle: customTitle || null });
+          renderUsersTab();
+        } catch (err) { showToast(err.message, 'error'); }
+      });
+    } catch (err) {
+      body.innerHTML = `<div style="color:#f87171;">${escapeHtml(err.message)}</div>`;
+    }
   };
 
   const renderSupportTab = () => {
@@ -886,15 +1020,16 @@ export function openAdminSettingsModal(engine) {
     };
   };
 
-  tabs.forEach(t => t.onclick = () => {
-    tabs.forEach(x => x.classList.remove('uk-btn-primary'));
-    t.classList.add('uk-btn-primary');
-    if (t.dataset.tab === 'r2') renderR2Tab();
-    else if (t.dataset.tab === 'support') renderSupportTab();
-    else if (t.dataset.tab === 'welcome') renderWelcomeTab();
-    else renderSeoTab();
-  });
-  renderR2Tab();
+  if (tabName === 'r2') renderR2Tab();
+  else if (tabName === 'cats') renderCatsTab();
+  else if (tabName === 'users') renderUsersTab();
+  else if (tabName === 'support') renderSupportTab();
+  else if (tabName === 'welcome') renderWelcomeTab();
+  else if (tabName === 'seo') renderSeoTab();
+}
+
+export function openAdminSettingsModal(engine) {
+  engine.setPage('profile');
 }
 
 // Auto-inject kit styles immediately on module load so header/card buttons are styled from frame 1
