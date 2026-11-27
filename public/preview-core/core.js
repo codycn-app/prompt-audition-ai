@@ -752,7 +752,7 @@ export class PromptAppEngine {
     this.setPage('home');
   }
 
-  async createPost({ title, prompt, categoryIds, file, hashtags = [] }) {
+  async createPost({ title, prompt, categoryIds, file, hashtags = [], cropData = null, originalWidth = null, originalHeight = null }) {
     if (!this.state.currentUser) throw new Error('Vui lòng đăng nhập để đăng ảnh.');
     const ext = file.name.split('.').pop() || 'png';
     const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -761,13 +761,18 @@ export class PromptAppEngine {
     const thumbnailUrl = await uploadToR2(thumbBlob, 'images', `${stamp}.webp`, 'image/webp');
 
     const cleanTags = (hashtags || []).map(t => String(t).replace(/^#/, '').trim()).filter(Boolean).slice(0, 5);
-    let insertedRes = await supabase.from('images').insert({
+    const payload = {
       title, prompt, image_url: imageUrl, thumbnail_url: thumbnailUrl, user_id: this.state.currentUser.id, hashtags: cleanTags
-    }).select().single();
+    };
+    if (cropData && originalWidth && originalHeight) {
+      payload.thumbnail_crop_data = cropData;
+      payload.original_width = originalWidth;
+      payload.original_height = originalHeight;
+    }
+    let insertedRes = await supabase.from('images').insert(payload).select().single();
     if (insertedRes.error) {
-      insertedRes = await supabase.from('images').insert({
-        title, prompt, image_url: imageUrl, thumbnail_url: thumbnailUrl, user_id: this.state.currentUser.id
-      }).select().single();
+      delete payload.hashtags;
+      insertedRes = await supabase.from('images').insert(payload).select().single();
     }
     const { data: inserted, error } = insertedRes;
     if (error) throw error;
