@@ -1,8 +1,8 @@
 /**
  * Shared Core Engine for Preview 1
- * Optimized for minimal Supabase Egress (-95% payload) and fast initial load:
- * - Initial fetch loads lightweight metadata only (no bulky prompt text).
- * - Full prompt + author profile are fetched on-demand per ID & cached in memory.
+ * - Optimized Supabase Egress (-95%): lightweight metadata on load, lazy prompt fetch on demand.
+ * - Smart Cumulative Daily Views: +1000 base + unique 10..20 daily increment per image.
+ * - Broken R2 Image Auto-Hide + Admin Scanner / Replacement + Admin CMS Config.
  */
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
@@ -11,6 +11,66 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const R2_PUBLIC_DOMAIN = 'https://pub-7a59a184512144158a3ce246c7165fee.r2.dev';
 const R2_BUCKET_NAME = 'audition-ai-images';
 const ITEMS_PER_PAGE = 28;
+const VIEW_EPOCH_MS = Date.UTC(2026, 10, 1); // 2026-11-01 launch epoch
+const CONFIG_STORAGE_KEY = 'audition_ai_cms_config_v1';
+const BROKEN_STORAGE_KEY = 'audition_ai_broken_ids_v1';
+
+export const DEFAULT_CMS_CONFIG = {
+  welcome: {
+    enabled: true,
+    badge: 'Thư viện câu lệnh tạo ảnh AI',
+    title: 'Chào mừng đến với Prompt Audition AI',
+    description: 'Kho dữ liệu tổng hợp hơn 1.700+ câu lệnh tạo ảnh AI tuyển chọn, cập nhật liên tục mỗi ngày cho cộng đồng sáng tạo.',
+    fbUrl: 'https://www.facebook.com/profile.php?id=61573249500027',
+    tiktokUrl: 'https://www.tiktok.com/@auditionai.io.vn',
+    appUrl: 'https://auditionai.io.vn/',
+  },
+  support: {
+    title: 'Ủng hộ Prompt Audition AI',
+    description: 'Mỗi sự đóng góp của bạn giúp duy trì máy chủ lưu trữ ảnh chất lượng cao và cập nhật thêm nhiều câu lệnh mới mỗi ngày.',
+    bankName: 'Ngân hàng Vietcombank',
+    accountNumber: '9968682001',
+    accountHolder: 'NGUYEN CONG CUONG',
+    qrImageUrl: '',
+  },
+  privateIds: [],
+};
+
+export function loadCmsConfig() {
+  try {
+    const raw = localStorage.getItem(CONFIG_STORAGE_KEY);
+    if (!raw) return structuredClone(DEFAULT_CMS_CONFIG);
+    const parsed = JSON.parse(raw);
+    return {
+      welcome: { ...DEFAULT_CMS_CONFIG.welcome, ...(parsed.welcome || {}) },
+      support: { ...DEFAULT_CMS_CONFIG.support, ...(parsed.support || {}) },
+      privateIds: Array.isArray(parsed.privateIds) ? parsed.privateIds : [],
+    };
+  } catch {
+    return structuredClone(DEFAULT_CMS_CONFIG);
+  }
+}
+
+export function saveCmsConfig(cfg) {
+  try { localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(cfg)); } catch {}
+}
+
+export function loadBrokenIds() {
+  try {
+    const raw = localStorage.getItem(BROKEN_STORAGE_KEY);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+export function saveBrokenIds(set) {
+  try { localStorage.setItem(BROKEN_STORAGE_KEY, JSON.stringify([...set])); } catch {}
+}
+
+export function getDisplayViews(img) {
+  return Number(img?.views || 0);
+}
 
 export const INITIAL_RANKS = [
   { name: 'Thành viên mới', color: '#9CA3AF', requiredExp: 0 },
@@ -148,6 +208,8 @@ export class PromptAppEngine {
       currentUser: null,
       isLoading: true,
       isLoadingMore: false,
+      cmsConfig: loadCmsConfig(),
+      brokenIds: loadBrokenIds(),
     };
     this.profileCache = new Map();
     this.fullPostCache = new Map();
@@ -194,8 +256,10 @@ export class PromptAppEngine {
     this.state.isLoading = true;
     this.theme.renderLoading(this, true);
     try {
-      // Parallel queries with minimal columns -> ~95% less Supabase Egress
-      const [catsRes, links, imgs] = await Promise.all([
+      // Trigger once-per-day DB smart view sync silently if SQL migration is active
+      supabase.rpc('sync_daily_views').then(() => {}, () => {});
+
+      const [catsRes, links, imgs, settingsRes] = await Promise.all([
         supabase.from('categories').select('id,name,position').order('position', { ascending: true }),
         this.fetchAllRows((from, to) =>
           supabase.from('image_categories').select('image_id,category_id').order('image_id').range(from, to)
@@ -205,7 +269,20 @@ export class PromptAppEngine {
             .select('id,title,image_url,thumbnail_url,views,created_at,thumbnail_crop_data,original_width,original_height')
             .order('created_at', { ascending: false }).order('id', { ascending: false }).range(from, to)
         ),
+        supabase.from('app_settings').select('key,value').in('key', ['cms_config']),
       ]);
+
+      if (!settingsRes?.error && settingsRes?.data?.length) {
+        const cmsRow = settingsRes.data.find(r => r.key === 'cms_config')?.value;
+        if (cmsRow) {
+          this.state.cmsConfig = {
+            welcome: { ...DEFAULT_CMS_CONFIG.welcome, ...(cmsRow.welcome || {}) },
+            support: { ...DEFAULT_CMS_CONFIG.support, ...(cmsRow.support || {}) },
+            privateIds: Array.isArray(cmsRow.privateIds) ? cmsRow.privateIds : [],
+          };
+          saveCmsConfig(this.state.cmsConfig);
+        }
+      }
 
       if (catsRes.error) throw catsRes.error;
       this.state.categories = catsRes.data || [];
@@ -235,6 +312,29 @@ export class PromptAppEngine {
     }
   }
 
+  markImageBroken(imageId) {
+    const id = Number(imageId);
+    if (this.state.brokenIds.has(id)) return;
+    this.state.brokenIds.add(id);
+    saveBrokenIds(this.state.brokenIds);
+    const privateSet = new Set(this.state.cmsConfig.privateIds || []);
+    if (!privateSet.has(id)) {
+      this.state.cmsConfig.privateIds = [...privateSet, id];
+      saveCmsConfig(this.state.cmsConfig);
+    }
+  }
+
+  isPublicVisible(img) {
+    const id = Number(img.id);
+    if (this.state.brokenIds.has(id)) return false;
+    if ((this.state.cmsConfig.privateIds || []).includes(id)) return false;
+    return true;
+  }
+
+  getPublicImages() {
+    return this.state.allImagesMeta.filter(img => this.isPublicVisible(img));
+  }
+
   async ensureFullPost(idOrImg) {
     const id = typeof idOrImg === 'object' ? idOrImg.id : Number(idOrImg);
     if (this.fullPostCache.has(id)) return this.fullPostCache.get(id);
@@ -247,11 +347,7 @@ export class PromptAppEngine {
     if (error || !data) throw new Error('Không tải được chi tiết bài đăng.');
 
     const meta = this.state.allImagesMeta.find(i => i.id === id);
-    const full = {
-      ...(meta || {}),
-      ...data,
-      categories: meta?.categories || [],
-    };
+    const full = { ...(meta || {}), ...data, categories: meta?.categories || [] };
     full.profiles = await this.fetchAuthor(full.user_id);
     this.fullPostCache.set(id, full);
     return full;
@@ -259,14 +355,15 @@ export class PromptAppEngine {
 
   async copyPromptById(idOrImg) {
     const full = await this.ensureFullPost(idOrImg);
+    this.recordView(full);
     return copyText(full.prompt);
   }
 
   applyFilters() {
-    const { allImagesMeta, selectedCategory, searchQuery, sortBy } = this.state;
+    const { selectedCategory, searchQuery, sortBy } = this.state;
     const q = searchQuery.trim().toLowerCase();
 
-    let list = allImagesMeta.filter(img => {
+    let list = this.getPublicImages().filter(img => {
       if (selectedCategory === 'uncategorized') {
         if (img.categories.length > 0) return false;
       } else if (selectedCategory !== 'all') {
@@ -283,7 +380,7 @@ export class PromptAppEngine {
     });
 
     if (sortBy === 'views') {
-      list = [...list].sort((a, b) => (b.views || 0) - (a.views || 0));
+      list = [...list].sort((a, b) => getDisplayViews(b) - getDisplayViews(a));
     }
 
     this.state.filteredImages = list;
@@ -343,6 +440,8 @@ export class PromptAppEngine {
 
   recordView(image) {
     image.views = (image.views || 0) + 1;
+    const meta = this.state.allImagesMeta.find(i => i.id === image.id);
+    if (meta && meta !== image) meta.views = (meta.views || 0) + 1;
     supabase.rpc('increment_image_views', { p_image_id: image.id }).then(() => {});
   }
 
@@ -442,6 +541,39 @@ export class PromptAppEngine {
     }
     await supabase.rpc('add_exp', { user_id_to_update: this.state.currentUser.id, exp_to_add: 50 });
     showToast('Đăng ảnh thành công! (+50 EXP)');
+    await this.fetchInitialData();
+  }
+
+  async saveRemoteCmsConfig(cfg) {
+    this.state.cmsConfig = cfg;
+    saveCmsConfig(cfg);
+    await supabase.from('app_settings').upsert({ key: 'cms_config', value: cfg, updated_at: new Date().toISOString() }).then(() => {}, () => {});
+  }
+
+  async uploadQrImage(file) {
+    if (this.state.currentUser?.role !== 'admin') throw new Error('Chỉ Admin mới có quyền.');
+    const ext = file.name.split('.').pop() || 'png';
+    const stamp = `qr-${Date.now()}.${ext}`;
+    return uploadToR2(file, 'images', stamp, file.type);
+  }
+
+  async replaceImageFile(imageId, file) {
+    if (this.state.currentUser?.role !== 'admin') throw new Error('Chỉ Admin mới có quyền.');
+    const ext = file.name.split('.').pop() || 'png';
+    const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const imageUrl = await uploadToR2(file, 'images', `${stamp}.${ext}`, file.type);
+    const thumbBlob = await createThumbnailWebP(file);
+    const thumbnailUrl = await uploadToR2(thumbBlob, 'images', `${stamp}.webp`, 'image/webp');
+
+    const { error } = await supabase.from('images').update({ image_url: imageUrl, thumbnail_url: thumbnailUrl }).eq('id', imageId);
+    if (error) throw error;
+
+    this.state.brokenIds.delete(Number(imageId));
+    saveBrokenIds(this.state.brokenIds);
+    this.state.cmsConfig.privateIds = (this.state.cmsConfig.privateIds || []).filter(id => id !== Number(imageId));
+    saveCmsConfig(this.state.cmsConfig);
+    this.fullPostCache.delete(Number(imageId));
+    showToast(`Đã thay ảnh mới cho #${imageId} và đưa về công khai!`);
     await this.fetchInitialData();
   }
 

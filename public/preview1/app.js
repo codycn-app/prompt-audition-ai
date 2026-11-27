@@ -1,6 +1,10 @@
 import gsap from 'https://cdn.jsdelivr.net/npm/gsap@3.12.5/index.js';
-import { PromptAppEngine, escapeHtml, getObjectPosition } from '/preview-core/core.js';
-import { ICONS, renderDetailModal, closeDetailModal, renderArticleView, renderSupportView, renderProfileView, openAuthModal, openAddModal } from '/preview-core/ui-kit.js';
+import { PromptAppEngine, escapeHtml, getObjectPosition, getDisplayViews } from '/preview-core/core.js';
+import {
+  ICONS, renderDetailModal, closeDetailModal, renderArticleView,
+  renderSupportView, renderProfileView, openAuthModal, openAddModal,
+  openWelcomeModal, openAdminSettingsModal
+} from '/preview-core/ui-kit.js';
 
 const LOGO_SVG = `
 <svg class="os-logo-svg" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -97,10 +101,10 @@ function initSmoothAuroraCanvas() {
   draw();
 }
 
-// Deterministic Daily Seeded Shuffle (Top 100 -> Random 20 per day)
-function getDailyTop20(allImages) {
-  if (!allImages.length) return [];
-  const top100 = [...allImages].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 100);
+// Deterministic Daily Seeded Shuffle: Top 100 -> Random 10 per day
+function getDailyTop10(publicImages) {
+  if (!publicImages.length) return [];
+  const top100 = [...publicImages].sort((a, b) => getDisplayViews(b) - getDisplayViews(a)).slice(0, 100);
   const d = new Date();
   let seed = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
   const rand = () => {
@@ -113,7 +117,7 @@ function getDailyTop20(allImages) {
     const j = Math.floor(rand() * (i + 1));
     [top100[i], top100[j]] = [top100[j], top100[i]];
   }
-  return top100.slice(0, 20);
+  return top100.slice(0, 10);
 }
 
 function getHashtag(img) {
@@ -126,6 +130,19 @@ function getHashtag(img) {
   if (lower.includes('nam') || lower.includes('nữ') || lower.includes('đơn')) return { label: '#Single', color: '#38bdf8' };
   if (cat) return { label: `#${cat}`, color: '#34d399' };
   return { label: '#Prompt', color: '#38bdf8' };
+}
+
+function attachSafeImageFallback(imgEl, item, containerEl, engine) {
+  let triedOriginal = false;
+  imgEl.addEventListener('error', () => {
+    if (!triedOriginal && item.image_url && imgEl.src !== item.image_url) {
+      triedOriginal = true;
+      imgEl.src = item.image_url;
+    } else {
+      engine.markImageBroken(item.id);
+      containerEl?.remove();
+    }
+  });
 }
 
 const adapter = {
@@ -144,8 +161,10 @@ const adapter = {
             <span class="os-kbd">Ctrl K</span>
           </div>
           <div style="display:flex;align-items:center;gap:8px;">
+            <button class="uk-btn" id="os-noti-btn" title="Thông báo" style="padding:8px 10px;">${ICONS.bell}</button>
             <button class="uk-btn os-hide-mob" id="os-sup">${ICONS.heart} <span>Ủng hộ</span></button>
-            <button class="uk-btn uk-btn-primary os-hide-mob" id="os-add">${ICONS.plus} <span>Thêm mới</span></button>
+            <button class="uk-btn uk-btn-primary os-hide-mob pc-hidden" id="os-add">${ICONS.plus} <span>Thêm mới</span></button>
+            <button class="uk-btn os-hide-mob pc-hidden" id="os-admin-btn" title="Quản trị Admin">${ICONS.gear} <span>Quản trị</span></button>
             <div id="os-auth-top"></div>
           </div>
         </header>
@@ -153,17 +172,11 @@ const adapter = {
         <main class="os-desktop" id="os-main">
           <section class="os-hero-banner">
             <div class="os-hero-inner">
-              <div class="os-hero-copy">
-                <div class="os-hero-head">
-                  <div class="os-hero-badge"><span class="os-hero-dot"></span> <span id="os-count-label">Top 20 Tuyển Chọn Hôm Nay</span></div>
-                  <select class="uk-input" id="os-sort" style="width:auto;padding:7px 14px;border-radius:999px;font-size:12.5px;font-weight:600;">
-                    <option value="newest">Mới nhất</option>
-                    <option value="views">Xem nhiều nhất</option>
-                  </select>
-                </div>
-                <div class="os-slide-viewport">
-                  <div class="os-slide-track" id="os-featured"></div>
-                </div>
+              <div class="os-hero-head">
+                <div class="os-hero-badge"><span class="os-hero-dot"></span> <span id="os-count-label">Top 10 Tuyển Chọn Hôm Nay</span></div>
+              </div>
+              <div class="os-slide-viewport">
+                <div class="os-slide-track" id="os-featured"></div>
               </div>
             </div>
           </section>
@@ -182,11 +195,12 @@ const adapter = {
           <nav class="os-dock" aria-label="Thanh điều hướng nhanh">
             <button class="os-dock-item" title="Trang chủ" data-dock="home">${ICONS.home}</button>
             <button class="os-dock-item" title="Chọn chuyên mục" id="os-dock-cats">${CAT_ICON}</button>
-            <div class="os-dock-sep"></div>
-            <button class="os-dock-item primary" title="Thêm Prompt mới" id="os-dock-add">${ICONS.plus}</button>
+            <div class="os-dock-sep pc-hidden" id="os-dock-add-sep"></div>
+            <button class="os-dock-item primary pc-hidden" title="Thêm Prompt mới" id="os-dock-add">${ICONS.plus}</button>
             <div class="os-dock-sep"></div>
             <button class="os-dock-item" title="Ủng hộ" data-dock="support">${ICONS.heart}</button>
             <button class="os-dock-item" title="Tài khoản" data-dock="profile">${ICONS.user}</button>
+            <button class="os-dock-item pc-hidden" title="Quản trị Admin" id="os-dock-admin">${ICONS.gear}</button>
           </nav>
         </div>
       </div>
@@ -197,10 +211,12 @@ const adapter = {
 
   bindControls(engine) {
     document.getElementById('os-logo').onclick = () => engine.setCategory('all');
+    document.getElementById('os-noti-btn').onclick = () => openWelcomeModal(engine, true);
     document.getElementById('os-sup').onclick = () => engine.setPage('support');
     document.getElementById('os-add').onclick = () => openAddModal(engine);
     document.getElementById('os-dock-add').onclick = () => openAddModal(engine);
-    document.getElementById('os-sort').onchange = (e) => engine.setSort(e.target.value);
+    document.getElementById('os-admin-btn').onclick = () => openAdminSettingsModal(engine);
+    document.getElementById('os-dock-admin').onclick = () => openAdminSettingsModal(engine);
 
     const pop = document.getElementById('os-cat-popover');
     document.getElementById('os-dock-cats').onclick = () => pop.classList.toggle('pc-hidden');
@@ -218,7 +234,17 @@ const adapter = {
   },
 
   renderAuth(engine) {
-    const s = document.getElementById('os-auth-top'); const u = engine.state.currentUser;
+    const s = document.getElementById('os-auth-top');
+    const u = engine.state.currentUser;
+    const isLoggedIn = Boolean(u);
+    const isAdmin = u?.role === 'admin';
+
+    document.getElementById('os-add')?.classList.toggle('pc-hidden', !isLoggedIn);
+    document.getElementById('os-dock-add')?.classList.toggle('pc-hidden', !isLoggedIn);
+    document.getElementById('os-dock-add-sep')?.classList.toggle('pc-hidden', !isLoggedIn);
+    document.getElementById('os-admin-btn')?.classList.toggle('pc-hidden', !isAdmin);
+    document.getElementById('os-dock-admin')?.classList.toggle('pc-hidden', !isAdmin);
+
     s.innerHTML = u
       ? `<button class="uk-btn" id="os-u">${ICONS.user} <span>${escapeHtml(u.username)}</span></button>`
       : `<button class="uk-btn os-hide-mob" id="os-l">Đăng nhập</button>`;
@@ -232,9 +258,10 @@ const adapter = {
   },
 
   renderCategories(engine) {
-    const { categories, selectedCategory, allImagesMeta } = engine.state;
+    const { categories, selectedCategory } = engine.state;
+    const publicCount = engine.getPublicImages().length;
     const html = [
-      `<button class="os-cat-pill ${selectedCategory === 'all' ? 'active' : ''}" data-cat="all">Tất cả (${allImagesMeta.length})</button>`,
+      `<button class="os-cat-pill ${selectedCategory === 'all' ? 'active' : ''}" data-cat="all">Tất cả (${publicCount})</button>`,
       ...categories.map(c => `<button class="os-cat-pill ${selectedCategory === c.id ? 'active' : ''}" data-cat="${c.id}">${escapeHtml(c.name)}</button>`)
     ].join('');
 
@@ -254,22 +281,36 @@ const adapter = {
   },
 
   renderGallery(engine) {
+    const pub = engine.getPublicImages();
     const lbl = document.getElementById('os-count-label');
-    if (lbl) lbl.textContent = `Top 20 Tuyển Chọn Hôm Nay • ${engine.state.allImagesMeta.length} Prompts`;
+    if (lbl) lbl.textContent = `Top 10 Tuyển Chọn Hôm Nay • ${pub.length} Prompts`;
+
+    if (!this._welcomeShown && pub.length) {
+      this._welcomeShown = true;
+      openWelcomeModal(engine, false);
+    }
 
     const feat = document.getElementById('os-featured');
-    if (feat && engine.state.allImagesMeta.length && !feat.dataset.ready) {
-      const daily20 = getDailyTop20(engine.state.allImagesMeta);
-      const looped = [...daily20, ...daily20]; // seamless infinite horizontal slide
-      feat.innerHTML = looped.map(img => `
-        <div class="os-slide-card" data-fid="${img.id}">
-          <img src="${escapeHtml(img.thumbnail_url || img.image_url)}" alt="${escapeHtml(img.title)}" style="object-position:${getObjectPosition(img)}" decoding="async" fetchpriority="high" />
-          <span class="os-slide-views">👁 ${img.views || 0}</span>
-        </div>`).join('');
+    if (feat && pub.length && !feat.dataset.ready) {
+      const daily10 = getDailyTop10(pub);
+      const looped = [...daily10, ...daily10];
+      feat.innerHTML = looped.map((img, i) => {
+        const hotNum = (i % daily10.length) + 1;
+        return `
+          <div class="os-slide-wrap" data-fid="${img.id}">
+            <span class="os-hot-pill"><span class="os-hot-dot"></span>HOT ${hotNum}</span>
+            <div class="os-slide-card">
+              <img src="${escapeHtml(img.thumbnail_url || img.image_url)}" alt="${escapeHtml(img.title)}" style="object-position:${getObjectPosition(img)}" decoding="async" fetchpriority="high" />
+              <span class="os-slide-views">👁 ${getDisplayViews(img)}</span>
+            </div>
+          </div>`;
+      }).join('');
       feat.dataset.ready = '1';
-      feat.querySelectorAll('.os-slide-card').forEach(c => c.onclick = () => {
-        const item = daily20.find(i => i.id === Number(c.dataset.fid));
-        if (item) engine.openModal(item, c);
+      feat.querySelectorAll('.os-slide-wrap').forEach(c => {
+        const item = daily10.find(i => i.id === Number(c.dataset.fid));
+        if (!item) return;
+        attachSafeImageFallback(c.querySelector('img'), item, c, engine);
+        c.onclick = () => engine.openModal(item, c);
       });
     }
 
@@ -299,6 +340,9 @@ const adapter = {
     gsap.fromTo('.os-tile-wrap', { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.3, stagger: 0.015, ease: 'power2.out' });
 
     g.querySelectorAll('.os-tile-wrap').forEach(card => {
+      const item = loadedImages.find(i => i.id === Number(card.dataset.id));
+      if (item) attachSafeImageFallback(card.querySelector('img'), item, card, engine);
+
       card.addEventListener('pointermove', (e) => {
         if (window.innerWidth < 768) return;
         const r = card.getBoundingClientRect();
@@ -311,7 +355,6 @@ const adapter = {
       card.addEventListener('pointerleave', () => { card.style.transform = ''; }, { passive: true });
       card.onclick = (e) => {
         if (e.target.closest('[data-copy]')) return;
-        const item = loadedImages.find(i => i.id === Number(card.dataset.id));
         if (item) engine.openModal(item, card);
       };
     });
@@ -336,10 +379,9 @@ const adapter = {
     else if (engine.state.currentPage === 'profile') renderProfileView(main, engine);
     else {
       main.innerHTML = `
-        <section class="os-hero-banner"><div class="os-hero-inner"><div class="os-hero-head"><div class="os-hero-badge"><span class="os-hero-dot"></span> <span id="os-count-label">Top 20 Tuyển Chọn Hôm Nay</span></div><select class="uk-input" id="os-sort" style="width:auto;padding:7px 14px;border-radius:999px;font-size:12.5px;font-weight:600;"><option value="newest" ${engine.state.sortBy === 'newest' ? 'selected' : ''}>Mới nhất</option><option value="views" ${engine.state.sortBy === 'views' ? 'selected' : ''}>Xem nhiều nhất</option></select></div><div class="os-slide-viewport"><div class="os-slide-track" id="os-featured"></div></div></div></section>
+        <section class="os-hero-banner"><div class="os-hero-inner"><div class="os-hero-head"><div class="os-hero-badge"><span class="os-hero-dot"></span> <span id="os-count-label">Top 10 Tuyển Chọn Hôm Nay</span></div></div><div class="os-slide-viewport"><div class="os-slide-track" id="os-featured"></div></div></div></section>
         <section class="os-library-win"><div class="os-cat-bar"><div class="os-cats-scroll" id="os-cats"></div></div><div class="os-grid" id="os-grid"></div><div id="os-more" style="text-align:center;padding:10px 18px 26px;"></div></section>
       `;
-      main.querySelector('#os-sort').onchange = (e) => engine.setSort(e.target.value);
       this.renderCategories(engine);
       this.renderGallery(engine);
     }
